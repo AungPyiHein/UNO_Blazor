@@ -4,7 +4,7 @@
 
 @if (Game != null)
 {
-    <div class="game-container">
+    <div class="game-container @(_animClass)">
 
         <!-- Grid Spacers -->
         <div class="grid-tl"></div>
@@ -13,10 +13,19 @@
 
         <!-- CPU 2 (TOP) -->
         <div class="player-slot slot-cpu-2">
-            <div class="cpu-badge">
+            <div class="cpu-badge" style="position:relative">
                 <PlayerProfile Player="@Game.Players[2]" IsActive="@(Game.CurrentPlayerIndex == 2)" />
+                @if (_skippedPlayerIndex == 2)
+                {
+                    <div class="skip-overlay" @key="_skipKey">
+                        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="50" cy="50" r="45" stroke="#cc0000" stroke-width="10" fill="rgba(180,0,0,0.15)"/>
+                            <line x1="18" y1="18" x2="82" y2="82" stroke="#cc0000" stroke-width="10" stroke-linecap="round"/>
+                        </svg>
+                    </div>
+                }
             </div>
-            <div class="hand">
+            <div class="hand @(IsSwapPartner(2) ? "swap-anim" : "") @(_rotateAnim)">
                 @for (int i = 0; i < Math.Min(Game.Players[2].Hand.Count, 5); i++)
                 {
                     <div class="hand-card-wrapper">
@@ -28,10 +37,19 @@
 
         <!-- CPU 1 (LEFT) -->
         <div class="player-slot slot-cpu-1">
-            <div class="cpu-badge">
+            <div class="cpu-badge" style="position:relative">
                 <PlayerProfile Player="@Game.Players[1]" IsActive="@(Game.CurrentPlayerIndex == 1)" />
+                @if (_skippedPlayerIndex == 1)
+                {
+                    <div class="skip-overlay" @key="_skipKey">
+                        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="50" cy="50" r="45" stroke="#cc0000" stroke-width="10" fill="rgba(180,0,0,0.15)"/>
+                            <line x1="18" y1="18" x2="82" y2="82" stroke="#cc0000" stroke-width="10" stroke-linecap="round"/>
+                        </svg>
+                    </div>
+                }
             </div>
-            <div class="hand">
+            <div class="hand @(IsSwapPartner(1) ? "swap-anim" : "") @(_rotateAnim)">
                 @for (int i = 0; i < Math.Min(Game.Players[1].Hand.Count, 5); i++)
                 {
                     <div class="hand-card-wrapper">
@@ -89,10 +107,19 @@
 
         <!-- CPU 3 (RIGHT) -->
         <div class="player-slot slot-cpu-3">
-            <div class="cpu-badge">
+            <div class="cpu-badge" style="position:relative">
                 <PlayerProfile Player="@Game.Players[3]" IsActive="@(Game.CurrentPlayerIndex == 3)" />
+                @if (_skippedPlayerIndex == 3)
+                {
+                    <div class="skip-overlay" @key="_skipKey">
+                        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="50" cy="50" r="45" stroke="#cc0000" stroke-width="10" fill="rgba(180,0,0,0.15)"/>
+                            <line x1="18" y1="18" x2="82" y2="82" stroke="#cc0000" stroke-width="10" stroke-linecap="round"/>
+                        </svg>
+                    </div>
+                }
             </div>
-            <div class="hand">
+            <div class="hand @(IsSwapPartner(3) ? "swap-anim" : "") @(_rotateAnim)">
                 @for (int i = 0; i < Math.Min(Game.Players[3].Hand.Count, 5); i++)
                 {
                     <div class="hand-card-wrapper">
@@ -104,22 +131,48 @@
 
         <!-- HUMAN (BOTTOM) -->
         <div class="player-slot slot-human">
-            <div class="human-profile-wrapper">
+            <div class="human-profile-wrapper" style="position:relative">
                 <PlayerProfile Player="@Game.Players[0]" IsActive="@(Game.CurrentPlayerIndex == 0)" />
+                @if (_skippedPlayerIndex == 0)
+                {
+                    <div class="skip-overlay" @key="_skipKey">
+                        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="50" cy="50" r="45" stroke="#cc0000" stroke-width="10" fill="rgba(180,0,0,0.15)"/>
+                            <line x1="18" y1="18" x2="82" y2="82" stroke="#cc0000" stroke-width="10" stroke-linecap="round"/>
+                        </svg>
+                    </div>
+                }
             </div>
-            <div class="hand">
+            <div class="hand @(IsSwapPartner(0) ? "swap-anim" : "") @(_rotateAnim)">
                 @{
-                    var humanHand = Game.Players[0].Hand;
+                    // Sort by color group then by value
+                    var humanHand = Game.Players[0].Hand
+                        .OrderBy(c => c.Color switch {
+                            CardColor.Red    => 0,
+                            CardColor.Yellow => 1,
+                            CardColor.Green  => 2,
+                            CardColor.Blue   => 3,
+                            _                => 4  // Wild
+                        })
+                        .ThenBy(c => (int)c.Value)
+                        .ToList();
                     int count = humanHand.Count;
                     double middleIndex = (count - 1) / 2.0;
+                    // Scale angle down as hand grows to prevent cards going off-screen
+                    double anglePerCard = count <= 7  ? 5.0
+                                       : count <= 12 ? 3.5
+                                       : count <= 18 ? 2.5
+                                       : 1.8;
+                    // Scale the translateY down too for large hands
+                    double tyFactor = count <= 7 ? 1.5 : count <= 14 ? 0.8 : 0.4;
                 }
                 @for (int i = 0; i < count; i++)
                 {
                     var card = humanHand[i];
                     double offset = i - middleIndex;
-                    double rotateAngle = offset * 5.0; 
-                    double translateY = Math.Pow(offset, 2) * 1.5;
-                    
+                    double rotateAngle = offset * anglePerCard;
+                    double translateY = Math.Pow(offset, 2) * tyFactor;
+
                     <div @key="card.Id" class="hand-card-wrapper" style="--card-rot: @(rotateAngle.ToString(System.Globalization.CultureInfo.InvariantCulture))deg; --card-ty: @(translateY.ToString(System.Globalization.CultureInfo.InvariantCulture))px; z-index: @i;">
                         <UnoCardComponent Card="@card" OnClick="() => OnCardClicked(card)" />
                     </div>
@@ -127,10 +180,11 @@
             </div>
         </div>
 
+
     </div>
 
     <!-- Modals (Color Selection, Win Screen, etc.) -->
-    @if (Game.Status == GameStatus.WaitingForColorSelection && Game.Players[0].IsHuman)
+    @if (Game.Status == GameStatus.WaitingForColorSelection && Game.CurrentPlayerIndex == 0)
     {
         <div class="modal-overlay glass-modal">
             <div class="glass-panel color-picker-panel">
@@ -145,7 +199,7 @@
         </div>
     }
 
-    @if (Game.Status == GameStatus.WaitingForSwapTarget && Game.Players[0].IsHuman)
+    @if (Game.Status == GameStatus.WaitingForSwapTarget && Game.CurrentPlayerIndex == 0)
     {
         <div class="modal-overlay glass-modal">
             <div class="glass-panel swap-picker-panel">
@@ -207,6 +261,72 @@
     [Parameter] public EventCallback OnStartGame { get; set; }
 
     private bool _isProcessingAction = false;
+    private string _animClass = "";
+    private int _skippedPlayerIndex = -1;
+    private int _skipKey = 0;
+    private int _swapP1 = -1;
+    private int _swapP2 = -1;
+    private string _rotateAnim = ""; // "rotate-cw" or "rotate-ccw" — applied to ALL hands
+
+    private bool IsSwapPartner(int playerIndex) =>
+        _swapP1 == playerIndex || _swapP2 == playerIndex;
+
+    protected override void OnParametersSet()
+    {
+        if (Game != null)
+        {
+            Game.OnBoardAnimation -= HandleBoardAnimation;
+            Game.OnBoardAnimation += HandleBoardAnimation;
+        }
+    }
+
+    private async Task HandleBoardAnimation(string animType)
+    {
+        // Skip overlay
+        if (animType.StartsWith("skip-") && int.TryParse(animType.Split('-')[1], out int skipIdx))
+        {
+            _skipKey++;
+            _skippedPlayerIndex = skipIdx;
+            await InvokeAsync(StateHasChanged);
+            await Task.Delay(1200);
+            _skippedPlayerIndex = -1;
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        // Swap animation — only pulse the two involved hands
+        if (animType.StartsWith("swap-"))
+        {
+            var parts = animType.Split('-');
+            if (parts.Length == 3 && int.TryParse(parts[1], out int p1) && int.TryParse(parts[2], out int p2))
+            {
+                _swapP1 = p1; _swapP2 = p2;
+                await InvokeAsync(StateHasChanged);
+                await Task.Delay(900);
+                _swapP1 = -1; _swapP2 = -1;
+                await InvokeAsync(StateHasChanged);
+            }
+            return;
+        }
+
+        // Rotate animation — pulse all hands
+        if (animType == "rotate-cw" || animType == "rotate-ccw")
+        {
+            _rotateAnim = "rotate-anim";
+            await InvokeAsync(StateHasChanged);
+            await Task.Delay(900);
+            _rotateAnim = "";
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        // Vortex / other animations via container class
+        _animClass = animType;
+        await InvokeAsync(StateHasChanged);
+        await Task.Delay(1000);
+        _animClass = "";
+        await InvokeAsync(StateHasChanged);
+    }
 
     private async Task OnCardClicked(UnoCard card)
     {
@@ -242,17 +362,17 @@
             {
                 var drawn = await Game.DrawCardAsync(Game.Players[0]);
                 
-                if (Game.CanPlayCard(drawn))
+                if (!Game.CanPlayCard(drawn))
                 {
-                    Game.LogAction($"{Game.Players[0].Name} auto-played the drawn card.");
-                    await Task.Delay(800);
-                    await Game.PlayCardAsync(Game.Players[0], drawn);
+                    // Not playable — end turn automatically
+                    Game.LogAction($"{Game.Players[0].Name} drew and passed.");
+                    await Task.Delay(600);
+                    await Game.PassTurnAfterDraw();
                 }
+                // If playable, card is already in hand — human clicks it themselves
                 else
                 {
-                    Game.LogAction($"{Game.Players[0].Name} drew and passed.");
-                    await Task.Delay(800);
-                    await Game.PassTurnAfterDraw();
+                    Game.LogAction($"{Game.Players[0].Name} drew a playable card.");
                 }
             }
         }

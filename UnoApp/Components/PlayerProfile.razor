@@ -6,7 +6,8 @@
         <span class="initials">@GetInitials()</span>
         
         <div class="card-badge">
-            <span class="count">@Player.Hand.Count</span>
+            <div class="tiny-card"></div>
+            <span class="count" @key="Player.Hand.Count">@Player.Hand.Count</span>
         </div>
     </div>
     
@@ -84,20 +85,38 @@
 
     .card-badge {
         position: absolute;
-        top: -5px;
-        right: -5px;
-        background: #f8fafc;
-        color: #1e293b;
-        width: 26px;
-        height: 26px;
-        border-radius: 50%;
+        top: -15px;
+        right: -20px;
+        background: #0f172a;
+        color: white;
+        padding: 4px 10px;
+        border-radius: 8px;
         display: flex;
         align-items: center;
-        justify-content: center;
+        gap: 6px;
         font-weight: 900;
-        font-size: 0.8rem;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        font-size: 1.1rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.8);
+        border: 2px solid rgba(255,255,255,0.2);
+    }
+
+    .tiny-card {
+        width: 12px;
+        height: 18px;
+        background: linear-gradient(135deg, #ef4444, #b91c1c);
         border: 2px solid white;
+        border-radius: 3px;
+        box-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+    }
+
+    .count {
+        animation: pop-count 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    @keyframes pop-count {
+        0% { transform: scale(0.5); opacity: 0; }
+        50% { transform: scale(1.6); color: #facc15; } /* Flashes yellow */
+        100% { transform: scale(1); opacity: 1; color: white; }
     }
 
     .profile-info {

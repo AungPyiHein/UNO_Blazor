@@ -18,6 +18,7 @@ namespace UnoEngine
     public class UnoGame
     {
         public event Action? OnStateChanged;
+        public Func<string, Task>? OnBoardAnimation;
 
         public List<Player> Players { get; private set; } = new();
         public Stack<UnoCard> DrawPile { get; private set; } = new();
@@ -110,6 +111,11 @@ namespace UnoEngine
             {
                 deck.Add(new UnoCard(Guid.NewGuid(), CardColor.Wild, CardValue.Wild));
                 deck.Add(new UnoCard(Guid.NewGuid(), CardColor.Wild, CardValue.WildDraw4));
+                
+                if (Settings.EnableWildShuffleCard)
+                {
+                    deck.Add(new UnoCard(Guid.NewGuid(), CardColor.Wild, CardValue.WildShuffle));
+                }
             }
 
             return deck;
@@ -180,6 +186,13 @@ namespace UnoEngine
                 }
             }
 
+            // Safety: if status got stuck in WaitingForSwapTarget on a non-human turn, reset it
+            if (Status == GameStatus.WaitingForSwapTarget && CurrentPlayerIndex != 0)
+            {
+                Status = GameStatus.Playing;
+                PendingCard = null;
+            }
+
             foreach (var p in Players) p.CurrentStatus = p == currentPlayer ? "Thinking..." : "";
 
             if (!currentPlayer.IsHuman)
@@ -201,18 +214,24 @@ namespace UnoEngine
                 // We only reach here if Stacking is ON and CPU has a stackable card (guaranteed by StartTurnAsync)
                 var stackable = cpu.Hand.First(c => c.Value == TopCard?.Value);
                 LogAction($"{cpu.Name} STACKED a {stackable}!");
-                await PlayCardAsync(cpu, stackable);
+                // Always pass a declared color — WildDraw4 is Wild color and would trigger color picker without it
+                await PlayCardAsync(cpu, stackable, CardColor.Red);
                 return;
             }
 
-            // 2. Strategy: Rule 7 (Swap)
+            // 2. Strategy: Rule 7 (Swap) - only if target has FEWER cards than us
             var card7 = cpu.Hand.FirstOrDefault(c => c.Value == CardValue.Seven && CanPlayCard(c));
             if (card7 != null && Settings.SevenSwap)
             {
-                var target = Players.Where(p => p != cpu).OrderBy(p => p.Hand.Count).First();
-                LogAction($"{cpu.Name} played a 7 and swapped with {target.Name}!");
-                await PlayCardAsync(cpu, card7, null, target);
-                return;
+                // Only swap if it clearly benefits the CPU (target has at least 2 fewer cards)
+                var target = Players.Where(p => p != cpu && p.Hand.Count < cpu.Hand.Count - 1)
+                                    .OrderBy(p => p.Hand.Count).FirstOrDefault();
+                if (target != null)
+                {
+                    LogAction($"{cpu.Name} played a 7 and swapped with {target.Name}!");
+                    await PlayCardAsync(cpu, card7, null, target);
+                    return;
+                }
             }
 
             // 3. Strategy: Rule 0 (Rotate)
@@ -243,8 +262,8 @@ namespace UnoEngine
                 }
             }
 
-            // 5. Standard Play
-            var match = cpu.Hand.FirstOrDefault(CanPlayCard);
+            // 5. Standard Play — exclude 7 when SevenSwap is on (only played via strategy with explicit target)
+            var match = cpu.Hand.FirstOrDefault(c => CanPlayCard(c) && !(c.Value == CardValue.Seven && Settings.SevenSwap));
             if (match != null)
             {
                 LogAction($"{cpu.Name} played {match}.");
@@ -258,7 +277,7 @@ namespace UnoEngine
             var drawn = await DrawCardAsync(cpu);
             LogAction($"{cpu.Name} drew {drawn}.");
             
-            if (CanPlayCard(drawn))
+            if (CanPlayCard(drawn) && !(drawn.Value == CardValue.Seven && Settings.SevenSwap))
             {
                 LogAction($"{cpu.Name} played the drawn {drawn}.");
                 await PlayCardAsync(cpu, drawn, CardColor.Red);
@@ -277,7 +296,7 @@ namespace UnoEngine
             await _actionLock.WaitAsync();
             try
             {
-                InternalPlayCard(player, card, declaredColor, targetPlayer);
+                await InternalPlayCard(player, card, declaredColor, targetPlayer);
             }
             finally
             {
@@ -291,6 +310,11 @@ namespace UnoEngine
         {
             if (!Settings.JumpInRule) return false;
             if (TopCard == null) return false;
+
+            // Prevent jump-in with special-action cards that trigger UI pickers.
+            // Cascading "pick swap target" inside a jump-in window is very confusing UX.
+            if (card.Value == CardValue.Seven && Settings.SevenSwap) return false;
+            if (card.Value == CardValue.Zero && Settings.ZeroRotate) return false;
 
             // Strict Validation: Exact Color AND Exact Value
             if (card.Color != TopCard.Color || card.Value != TopCard.Value) return false;
@@ -306,7 +330,7 @@ namespace UnoEngine
                 // Update turn to this player
                 CurrentPlayerIndex = Players.IndexOf(player);
                 
-                InternalPlayCard(player, card);
+                await InternalPlayCard(player, card);
             }
             finally
             {
@@ -322,7 +346,7 @@ namespace UnoEngine
 
         private CancellationTokenSource? _qteCts;
 
-        private void InternalPlayCard(Player player, UnoCard card, CardColor? declaredColor = null, Player? targetPlayer = null)
+        private async Task InternalPlayCard(Player player, UnoCard card, CardColor? declaredColor = null, Player? targetPlayer = null)
         {
             _qteCts?.Cancel(); // Stop any running QTE immediately
 
@@ -345,9 +369,18 @@ namespace UnoEngine
             // Handle Seven requiring target selection
             if (card.Value == CardValue.Seven && Settings.SevenSwap && targetPlayer == null)
             {
-                PendingCard = card;
-                Status = GameStatus.WaitingForSwapTarget;
-                return;
+                if (player.IsHuman)
+                {
+                    // Human must pick: show the UI
+                    PendingCard = card;
+                    Status = GameStatus.WaitingForSwapTarget;
+                    return;
+                }
+                else
+                {
+                    // CPU auto-picks: swap with the player who has the fewest cards
+                    targetPlayer = Players.Where(p => p != player).OrderBy(p => p.Hand.Count).First();
+                }
             }
 
             // Proceed with the play
@@ -377,7 +410,7 @@ namespace UnoEngine
             DiscardPile.Add(playedCard);
             Status = GameStatus.Playing;
 
-            HandleSpecialActions(player, playedCard, targetPlayer);
+            await HandleSpecialActions(player, playedCard, targetPlayer);
 
             if (player.Hand.Count == 1)
             {
@@ -623,16 +656,18 @@ namespace UnoEngine
             }
         }
 
-        private void HandleSpecialActions(Player currentPlayer, UnoCard card, Player targetPlayer)
+        private async Task HandleSpecialActions(Player currentPlayer, UnoCard card, Player targetPlayer)
         {
             switch (card.Value)
             {
                 case CardValue.Skip:
+                    if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"skip-{GetNextPlayerIndex()}");
                     MoveToNextTurn();
                     break;
                 case CardValue.Reverse:
                     if (Players.Count == 2)
                     {
+                        if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"skip-{GetNextPlayerIndex()}");
                         MoveToNextTurn(); // In 2 player, Reverse acts like Skip
                     }
                     else
@@ -642,34 +677,39 @@ namespace UnoEngine
                     break;
                 case CardValue.Draw2:
                     if (Settings.Stacking) PendingDrawCount += 2;
-                    else ApplyDraw(2);
+                    else await ApplyDrawAsync(2);
                     break;
                 case CardValue.WildDraw4:
                     if (Settings.Stacking) PendingDrawCount += 4;
-                    else ApplyDraw(4);
+                    else await ApplyDrawAsync(4);
                     break;
                 case CardValue.Seven:
                     if (Settings.SevenSwap && targetPlayer != null)
                     {
-                        PerformSevenSwap(currentPlayer, targetPlayer);
+                        await PerformSevenSwap(currentPlayer, targetPlayer);
                     }
                     break;
                 case CardValue.Zero:
                     if (Settings.ZeroRotate)
                     {
-                        PerformZeroRotate();
+                        await PerformZeroRotate();
                     }
+                    break;
+                case CardValue.WildShuffle:
+                    await PerformWildShuffleAsync();
                     break;
             }
         }
 
-        private void ApplyDraw(int count)
+        private async Task ApplyDrawAsync(int count)
         {
             int nextPlayerIndex = GetNextPlayerIndex();
             Player nextPlayer = Players[nextPlayerIndex];
             for (int i = 0; i < count; i++)
             {
                 nextPlayer.Hand.Add(DrawOne());
+                OnStateChanged?.Invoke();
+                await Task.Delay(300);
             }
             MoveToNextTurn(); // Skip their turn after drawing
         }
@@ -685,6 +725,7 @@ namespace UnoEngine
                     OnStateChanged?.Invoke();
                     await Task.Delay(300); // Visual delay for card-by-card draw
                 }
+                currentPlayer.CurrentStatus = ""; // Clear stale status
                 PendingDrawCount = 0;
                 MoveToNextTurn();
                 OnStateChanged?.Invoke();
@@ -766,16 +807,30 @@ namespace UnoEngine
             DiscardPile = new List<UnoCard> { currentTop };
         }
 
-        private void PerformSevenSwap(Player p1, Player p2)
+        private async Task PerformSevenSwap(Player p1, Player p2)
         {
+            if (OnBoardAnimation != null)
+            {
+                int p1Index = Players.IndexOf(p1);
+                int p2Index = Players.IndexOf(p2);
+                await OnBoardAnimation.Invoke($"swap-{p1Index}-{p2Index}");
+            }
+
             // Ensure reference swap to avoid ghost cards
             var tempHand = p1.Hand;
             p1.Hand = p2.Hand;
             p2.Hand = tempHand;
+            // State is broadcast by InternalPlayCard after this returns
         }
 
-        private void PerformZeroRotate()
+        private async Task PerformZeroRotate()
         {
+            if (OnBoardAnimation != null)
+            {
+                string anim = GameDirection == 1 ? "rotate-cw" : "rotate-ccw";
+                await OnBoardAnimation.Invoke(anim);
+            }
+
             // Rotate hands in current GameDirection
             if (GameDirection == 1) // Clockwise: 0->1, 1->2, 2->3, 3->0
             {
@@ -795,6 +850,50 @@ namespace UnoEngine
                 }
                 Players[Players.Count - 1].Hand = firstHand;
             }
+            // State is broadcast by InternalPlayCard after this returns
+        }
+
+        private async Task PerformWildShuffleAsync()
+        {
+            if (OnBoardAnimation != null)
+            {
+                await OnBoardAnimation.Invoke("vortex-shuffle");
+            }
+
+            // Collect all cards
+            List<UnoCard> allCards = new();
+            foreach (var p in Players)
+            {
+                allCards.AddRange(p.Hand);
+                p.Hand.Clear();
+            }
+
+            // Shuffle them
+            Shuffle(allCards);
+
+            // Distribute evenly
+            int totalCards = allCards.Count;
+            int baseCount = totalCards / Players.Count;
+            int remainder = totalCards % Players.Count;
+
+            int cardIndex = 0;
+            foreach (var p in Players)
+            {
+                int cardsToGive = baseCount;
+                if (remainder > 0)
+                {
+                    // Give remainder randomly. For simplicity, just give to the first few players after shuffle
+                    cardsToGive++;
+                    remainder--;
+                }
+
+                for (int i = 0; i < cardsToGive; i++)
+                {
+                    p.Hand.Add(allCards[cardIndex++]);
+                }
+            }
+            
+            OnStateChanged?.Invoke();
         }
 
         private void MoveToNextTurn()

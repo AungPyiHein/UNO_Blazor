@@ -20,7 +20,7 @@ namespace UnoEngine.Models
         /// <summary>
         /// Allow stacking Draw 2s (if Player A plays a +2, Player B can play a +2 to make Player C draw 4).
         /// </summary>
-        public bool Stacking { get; set; } = false;
+        public bool Stacking { get; set; } = true;
 
         /// <summary>
         /// Allow players to play out of turn if they have an exact match (Color and Value).
@@ -31,5 +31,10 @@ namespace UnoEngine.Models
         /// The duration of the QTE window for jumping in.
         /// </summary>
         public double JumpInTimerSeconds { get; set; } = 2.5;
+
+        /// <summary>
+        /// If enabled, 4 Wild Shuffle cards are added to the deck. When played, all hands are collected, shuffled, and redistributed.
+        /// </summary>
+        public bool EnableWildShuffleCard { get; set; } = false;
     }
 }

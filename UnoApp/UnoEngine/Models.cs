@@ -16,7 +16,7 @@ namespace UnoEngine.Models
     {
         Zero, One, Two, Three, Four, Five, Six, Seven, Eight, Nine,
         Skip, Reverse, Draw2,
-        Wild, WildDraw4
+        Wild, WildDraw4, WildShuffle
     }
 
     public record UnoCard(Guid Id, CardColor Color, CardValue Value)

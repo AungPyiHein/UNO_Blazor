@@ -23,6 +23,10 @@
                 <label for="rule-zero"><span>🔃</span> Zero Rotate</label>
             </div>
             <div class="rule-toggle">
+                <input type="checkbox" id="rule-shuffle" @bind="_settings.EnableWildShuffleCard" />
+                <label for="rule-shuffle"><span>🌪️</span> Wild Shuffle</label>
+            </div>
+            <div class="rule-toggle">
                 <input type="checkbox" id="rule-jump" @bind="_settings.JumpInRule" />
                 <label for="rule-jump"><span>⚡</span> Jump-In</label>
             </div>

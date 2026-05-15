@@ -12,6 +12,10 @@
                 {
                     <div class="wild-center-icon"></div>
                 }
+                else if (Card.Value == CardValue.WildShuffle)
+                {
+                    <div class="wild-center-icon shuffle-icon">🌪️</div>
+                }
                 else
                 {
                     <span class="center-val" style="color: @GetHexColor(); font-size: @(display.Length > 1 || display == "⊘" ? "2.2rem" : "2.8rem")">@display</span>
@@ -49,7 +53,7 @@
     private string GetValueDisplay() 
     {
         if (Card == null) return "";
-        if (Card.Value == CardValue.Wild) return ""; // Ensure absolutely nothing for Wild
+        if (Card.Value == CardValue.Wild || Card.Value == CardValue.WildShuffle) return ""; // Ensure absolutely nothing for Wild
         
         return Card.Value switch
         {
