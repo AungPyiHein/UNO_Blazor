@@ -43,11 +43,35 @@
 
         <!-- CENTER AREA (THE HUB) -->
         <div class="center-area">
+            <!-- Turn Direction Indicator -->
+            <div class="turn-indicator @(Game.GameDirection == 1 ? "clockwise" : "counter-clockwise")">
+                <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Base subtle track -->
+                    <circle cx="100" cy="100" r="95" stroke="rgba(255,255,255,0.05)" stroke-width="2"/>
+                    <!-- Sleek rotating arrows -->
+                    <path d="M100 5 A 95 95 0 0 1 195 100" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+                    <path d="M195 100 A 95 95 0 0 1 100 195" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+                    <path d="M100 195 A 95 95 0 0 1 5 100" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+                    <path d="M5 100 A 95 95 0 0 1 100 5" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+                    
+                    <!-- Right (pointing DOWN) -->
+                    <polygon points="190,95 200,95 195,105" fill="currentColor" class="arrow-head arrow-right" />
+                    <!-- Bottom (pointing LEFT) -->
+                    <polygon points="105,190 105,200 95,195" fill="currentColor" class="arrow-head arrow-bottom" />
+                    <!-- Left (pointing UP) -->
+                    <polygon points="0,105 10,105 5,95" fill="currentColor" class="arrow-head arrow-left" />
+                    <!-- Top (pointing RIGHT) -->
+                    <polygon points="95,0 95,10 105,5" fill="currentColor" class="arrow-head arrow-top" />
+                </svg>
+            </div>
+
             <div class="draw-pile" @onclick="HandleDraw">
                 <UnoCardComponent IsBack="true" />
             </div>
             <div class="discard-pile" style="position: relative;">
-                <UnoCardComponent Card="@Game.TopCard" />
+                <div @key="Game.TopCard?.Id" class="discard-anim-@Game.LastPlayerIndex">
+                    <UnoCardComponent Card="@Game.TopCard" />
+                </div>
                 @if (Game.PendingDrawCount > 0)
                 {
                     <div class="stack-badge">
@@ -96,7 +120,7 @@
                     double rotateAngle = offset * 5.0; 
                     double translateY = Math.Pow(offset, 2) * 1.5;
                     
-                    <div class="hand-card-wrapper" style="--card-rot: @(rotateAngle.ToString(System.Globalization.CultureInfo.InvariantCulture))deg; --card-ty: @(translateY.ToString(System.Globalization.CultureInfo.InvariantCulture))px; z-index: @i;">
+                    <div @key="card.Id" class="hand-card-wrapper" style="--card-rot: @(rotateAngle.ToString(System.Globalization.CultureInfo.InvariantCulture))deg; --card-ty: @(translateY.ToString(System.Globalization.CultureInfo.InvariantCulture))px; z-index: @i;">
                         <UnoCardComponent Card="@card" OnClick="() => OnCardClicked(card)" />
                     </div>
                 }
@@ -108,26 +132,35 @@
     <!-- Modals (Color Selection, Win Screen, etc.) -->
     @if (Game.Status == GameStatus.WaitingForColorSelection && Game.Players[0].IsHuman)
     {
-        <div class="modal-overlay">
-            <div class="color-picker" style="background: white; padding: 20px; border-radius: 10px; display: flex; gap: 10px;">
-                <button class="btn-red"    style="background: #ff4757; color: white; padding: 10px;" @onclick="() => FinalizeColor(CardColor.Red)">RED</button>
-                <button class="btn-blue"   style="background: #2e86de; color: white; padding: 10px;" @onclick="() => FinalizeColor(CardColor.Blue)">BLUE</button>
-                <button class="btn-green"  style="background: #2ed573; color: white; padding: 10px;" @onclick="() => FinalizeColor(CardColor.Green)">GREEN</button>
-                <button class="btn-yellow" style="background: #ffa502; color: white; padding: 10px;" @onclick="() => FinalizeColor(CardColor.Yellow)">YELLOW</button>
+        <div class="modal-overlay glass-modal">
+            <div class="glass-panel color-picker-panel">
+                <h3>Select Color</h3>
+                <div class="color-options">
+                    <button class="color-btn btn-red" @onclick="() => FinalizeColor(CardColor.Red)"></button>
+                    <button class="color-btn btn-blue" @onclick="() => FinalizeColor(CardColor.Blue)"></button>
+                    <button class="color-btn btn-green" @onclick="() => FinalizeColor(CardColor.Green)"></button>
+                    <button class="color-btn btn-yellow" @onclick="() => FinalizeColor(CardColor.Yellow)"></button>
+                </div>
             </div>
         </div>
     }
 
     @if (Game.Status == GameStatus.WaitingForSwapTarget && Game.Players[0].IsHuman)
     {
-        <div class="modal-overlay">
-            <div class="swap-picker" style="background: white; padding: 20px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; gap: 15px;">
-                <h3 style="color: black; margin: 0;">Select Player to Swap Hands</h3>
-                <div style="display: flex; gap: 10px;">
+        <div class="modal-overlay glass-modal">
+            <div class="glass-panel swap-picker-panel">
+                <h3>Select Player to Swap Hands</h3>
+                <div class="swap-options">
                     @foreach (var p in Game.Players.Where(p => p != Game.Players[0]))
                     {
-                        <button style="padding: 10px 20px; background: #1e3799; color: white; border: none; border-radius: 5px; cursor: pointer;" @onclick="() => FinalizeSwap(p)">
-                            @p.Name (@p.Hand.Count cards)
+                        <button class="swap-btn" @onclick="() => FinalizeSwap(p)">
+                            <div class="swap-avatar">
+                                <svg viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
+                                </svg>
+                            </div>
+                            <span class="swap-name">@p.Name</span>
+                            <span class="swap-count">@p.Hand.Count Cards</span>
                         </button>
                     }
                 </div>
@@ -159,10 +192,11 @@
 
     @if (Game.Status == GameStatus.GameOver)
     {
-        <div class="modal-overlay">
-            <div style="background: white; padding: 40px; border-radius: 10px; text-align: center; color: black;">
-                <h1>WINNER: @Game.Winner?.Name</h1>
-                <button @onclick="() => OnStartGame.InvokeAsync()" style="padding: 10px 20px; background: #2e86de; color: white; border: none; margin-top: 20px;">NEW GAME</button>
+        <div class="modal-overlay glass-modal">
+            <div class="glass-panel game-over-panel">
+                <h1 class="winner-title">WINNER: @Game.Winner?.Name</h1>
+                <p class="winner-score">Score: @Game.WinnerScore</p>
+                <button class="new-game-btn" @onclick="() => OnStartGame.InvokeAsync()">NEW GAME</button>
             </div>
         </div>
     }
@@ -172,53 +206,87 @@
     [Parameter] public UnoGame? Game { get; set; }
     [Parameter] public EventCallback OnStartGame { get; set; }
 
+    private bool _isProcessingAction = false;
+
     private async Task OnCardClicked(UnoCard card)
     {
-        if (Game == null) return;
-        
-        if (Game.CurrentPlayerIndex != 0)
+        if (Game == null || _isProcessingAction) return;
+        _isProcessingAction = true;
+        try
         {
-            await Game.JumpInAsync(Game.Players[0], card);
-            return;
+            if (Game.CurrentPlayerIndex != 0)
+            {
+                await Game.JumpInAsync(Game.Players[0], card);
+                return;
+            }
+            
+            await Game.PlayCardAsync(Game.Players[0], card);
         }
-        
-        await Game.PlayCardAsync(Game.Players[0], card);
+        finally
+        {
+            _isProcessingAction = false;
+        }
     }
 
     private async Task HandleDraw()
     {
-        if (Game == null || Game.CurrentPlayerIndex != 0) return;
-        
-        if (Game.PendingDrawCount > 0)
+        if (Game == null || Game.CurrentPlayerIndex != 0 || _isProcessingAction) return;
+        _isProcessingAction = true;
+        try
         {
-            await Game.HandlePendingDrawAsync();
-        }
-        else
-        {
-            var drawn = await Game.DrawCardAsync(Game.Players[0]);
-            
-            if (Game.CanPlayCard(drawn))
+            if (Game.PendingDrawCount > 0)
             {
-                Game.LogAction($"{Game.Players[0].Name} auto-played the drawn card.");
-                await Game.PlayCardAsync(Game.Players[0], drawn);
+                await Game.HandlePendingDrawAsync();
             }
             else
             {
-                Game.LogAction($"{Game.Players[0].Name} drew and passed.");
-                await Game.PassTurnAfterDraw();
+                var drawn = await Game.DrawCardAsync(Game.Players[0]);
+                
+                if (Game.CanPlayCard(drawn))
+                {
+                    Game.LogAction($"{Game.Players[0].Name} auto-played the drawn card.");
+                    await Task.Delay(800);
+                    await Game.PlayCardAsync(Game.Players[0], drawn);
+                }
+                else
+                {
+                    Game.LogAction($"{Game.Players[0].Name} drew and passed.");
+                    await Task.Delay(800);
+                    await Game.PassTurnAfterDraw();
+                }
             }
+        }
+        finally
+        {
+            _isProcessingAction = false;
         }
     }
 
     private async Task FinalizeColor(CardColor color)
     {
-        if (Game == null || Game.PendingCard == null) return;
-        await Game.PlayCardAsync(Game.Players[0], Game.PendingCard, color);
+        if (Game == null || Game.PendingCard == null || _isProcessingAction) return;
+        _isProcessingAction = true;
+        try
+        {
+            await Game.PlayCardAsync(Game.Players[0], Game.PendingCard, color);
+        }
+        finally
+        {
+            _isProcessingAction = false;
+        }
     }
 
     private async Task FinalizeSwap(Player target)
     {
-        if (Game == null || Game.PendingCard == null) return;
-        await Game.PlayCardAsync(Game.Players[0], Game.PendingCard, null, target);
+        if (Game == null || Game.PendingCard == null || _isProcessingAction) return;
+        _isProcessingAction = true;
+        try
+        {
+            await Game.PlayCardAsync(Game.Players[0], Game.PendingCard, null, target);
+        }
+        finally
+        {
+            _isProcessingAction = false;
+        }
     }
 }

@@ -24,6 +24,7 @@ namespace UnoEngine
         public List<UnoCard> DiscardPile { get; private set; } = new();
         public GameSettings Settings { get; private set; }
         public int CurrentPlayerIndex { get; private set; } = 0;
+        public int LastPlayerIndex { get; private set; } = -1;
         public int GameDirection { get; private set; } = 1; 
         public int PendingDrawCount { get; private set; } = 0;
         public GameStatus Status { get; private set; } = GameStatus.Playing;
@@ -183,8 +184,12 @@ namespace UnoEngine
 
             if (!currentPlayer.IsHuman)
             {
-                await Task.Delay(1000);
-                await ExecuteCpuTurn(currentPlayer);
+                await Task.Delay(1500); // Slower CPU thinking
+                // Check if it's still this CPU's turn after the delay (in case of human jump-in)
+                if (Status != GameStatus.GameOver && CurrentPlayerIndex == Players.IndexOf(currentPlayer))
+                {
+                    await ExecuteCpuTurn(currentPlayer);
+                }
             }
         }
 
@@ -348,6 +353,7 @@ namespace UnoEngine
             // Proceed with the play
             Status = GameStatus.Playing;
             PendingCard = null;
+            LastPlayerIndex = Players.IndexOf(player);
 
             if (player.Hand.Contains(card))
             {
@@ -391,14 +397,17 @@ namespace UnoEngine
             }
 
             MoveToNextTurn();
-
+            
             if (Settings.JumpInRule && IsJumpInPossible())
             {
                 _ = Task.Run(() => RunJumpInTimerAsync());
             }
             else
             {
-                _ = StartTurnAsync();
+                _ = Task.Run(async () => {
+                    await Task.Delay(1500); // Slower visual delay before the next turn starts
+                    await StartTurnAsync();
+                });
             }
         }
 
@@ -435,10 +444,13 @@ namespace UnoEngine
                 return;
             }
 
-            // If timer expired normally
-            Status = GameStatus.Playing;
-            OnStateChanged?.Invoke();
-            await StartTurnAsync();
+            // If timer expired normally, check if we are still waiting
+            if (Status == GameStatus.WaitingForJumpIn)
+            {
+                Status = GameStatus.Playing;
+                OnStateChanged?.Invoke();
+                await StartTurnAsync();
+            }
         }
 
         private async Task RunUnoTimerAsync(Player playerAtRisk)
@@ -468,20 +480,23 @@ namespace UnoEngine
             await _actionLock.WaitAsync();
             try
             {
-                LogAction($"Nobody called UNO! {playerAtRisk.Name} drew 2 penalty cards.");
-                for (int i = 0; i < 2; i++) playerAtRisk.Hand.Add(DrawOne());
-                PlayerAtRisk = null;
-                Status = GameStatus.Playing;
-                
-                MoveToNextTurn();
-                
-                if (Settings.JumpInRule && IsJumpInPossible())
+                if (Status == GameStatus.WaitingForUnoCall && PlayerAtRisk == playerAtRisk)
                 {
-                    _ = Task.Run(() => RunJumpInTimerAsync());
-                }
-                else
-                {
-                    _ = StartTurnAsync();
+                    LogAction($"Nobody called UNO! {playerAtRisk.Name} drew 2 penalty cards.");
+                    for (int i = 0; i < 2; i++) playerAtRisk.Hand.Add(DrawOne());
+                    PlayerAtRisk = null;
+                    Status = GameStatus.Playing;
+                    
+                    MoveToNextTurn();
+                    
+                    if (Settings.JumpInRule && IsJumpInPossible())
+                    {
+                        _ = Task.Run(() => RunJumpInTimerAsync());
+                    }
+                    else
+                    {
+                        _ = StartTurnAsync();
+                    }
                 }
             }
             finally
@@ -709,7 +724,7 @@ namespace UnoEngine
                     drawn = DrawOne();
                     player.Hand.Add(drawn);
                     OnStateChanged?.Invoke();
-                    await Task.Delay(300);
+                    await Task.Delay(800); // Even slower visual card draw
                 } while (!CanPlayCard(drawn));
                 
                 return drawn;
