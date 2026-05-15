@@ -1,0 +1,224 @@
+@using UnoEngine
+@using UnoEngine.Models
+@using UnoApp.Components
+
+@if (Game != null)
+{
+    <div class="game-container">
+
+        <!-- Grid Spacers -->
+        <div class="grid-tl"></div>
+        <div class="grid-tr"></div>
+        <div class="grid-bl"></div>
+
+        <!-- CPU 2 (TOP) -->
+        <div class="player-slot slot-cpu-2">
+            <div class="cpu-badge">
+                <PlayerProfile Player="@Game.Players[2]" IsActive="@(Game.CurrentPlayerIndex == 2)" />
+            </div>
+            <div class="hand">
+                @for (int i = 0; i < Math.Min(Game.Players[2].Hand.Count, 5); i++)
+                {
+                    <div class="hand-card-wrapper">
+                        <UnoCardComponent IsBack="true" />
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- CPU 1 (LEFT) -->
+        <div class="player-slot slot-cpu-1">
+            <div class="cpu-badge">
+                <PlayerProfile Player="@Game.Players[1]" IsActive="@(Game.CurrentPlayerIndex == 1)" />
+            </div>
+            <div class="hand">
+                @for (int i = 0; i < Math.Min(Game.Players[1].Hand.Count, 5); i++)
+                {
+                    <div class="hand-card-wrapper">
+                        <UnoCardComponent IsBack="true" />
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- CENTER AREA (THE HUB) -->
+        <div class="center-area">
+            <div class="draw-pile" @onclick="HandleDraw">
+                <UnoCardComponent IsBack="true" />
+            </div>
+            <div class="discard-pile" style="position: relative;">
+                <UnoCardComponent Card="@Game.TopCard" />
+                @if (Game.PendingDrawCount > 0)
+                {
+                    <div class="stack-badge">
+                        +@Game.PendingDrawCount
+                    </div>
+                }
+                @if (Game.Status == GameStatus.WaitingForJumpIn)
+                {
+                    <svg class="qte-ring" viewBox="0 0 100 100" style="--qte-duration: @(Game.Settings.JumpInTimerSeconds.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture))s;">
+                        <circle cx="50" cy="50" r="45"></circle>
+                    </svg>
+                }
+            </div>
+        </div>
+
+        <!-- CPU 3 (RIGHT) -->
+        <div class="player-slot slot-cpu-3">
+            <div class="cpu-badge">
+                <PlayerProfile Player="@Game.Players[3]" IsActive="@(Game.CurrentPlayerIndex == 3)" />
+            </div>
+            <div class="hand">
+                @for (int i = 0; i < Math.Min(Game.Players[3].Hand.Count, 5); i++)
+                {
+                    <div class="hand-card-wrapper">
+                        <UnoCardComponent IsBack="true" />
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- HUMAN (BOTTOM) -->
+        <div class="player-slot slot-human">
+            <div class="human-profile-wrapper">
+                <PlayerProfile Player="@Game.Players[0]" IsActive="@(Game.CurrentPlayerIndex == 0)" />
+            </div>
+            <div class="hand">
+                @{
+                    var humanHand = Game.Players[0].Hand;
+                    int count = humanHand.Count;
+                    double middleIndex = (count - 1) / 2.0;
+                }
+                @for (int i = 0; i < count; i++)
+                {
+                    var card = humanHand[i];
+                    double offset = i - middleIndex;
+                    double rotateAngle = offset * 5.0; 
+                    double translateY = Math.Pow(offset, 2) * 1.5;
+                    
+                    <div class="hand-card-wrapper" style="--card-rot: @(rotateAngle.ToString(System.Globalization.CultureInfo.InvariantCulture))deg; --card-ty: @(translateY.ToString(System.Globalization.CultureInfo.InvariantCulture))px; z-index: @i;">
+                        <UnoCardComponent Card="@card" OnClick="() => OnCardClicked(card)" />
+                    </div>
+                }
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Modals (Color Selection, Win Screen, etc.) -->
+    @if (Game.Status == GameStatus.WaitingForColorSelection && Game.Players[0].IsHuman)
+    {
+        <div class="modal-overlay">
+            <div class="color-picker" style="background: white; padding: 20px; border-radius: 10px; display: flex; gap: 10px;">
+                <button class="btn-red"    style="background: #ff4757; color: white; padding: 10px;" @onclick="() => FinalizeColor(CardColor.Red)">RED</button>
+                <button class="btn-blue"   style="background: #2e86de; color: white; padding: 10px;" @onclick="() => FinalizeColor(CardColor.Blue)">BLUE</button>
+                <button class="btn-green"  style="background: #2ed573; color: white; padding: 10px;" @onclick="() => FinalizeColor(CardColor.Green)">GREEN</button>
+                <button class="btn-yellow" style="background: #ffa502; color: white; padding: 10px;" @onclick="() => FinalizeColor(CardColor.Yellow)">YELLOW</button>
+            </div>
+        </div>
+    }
+
+    @if (Game.Status == GameStatus.WaitingForSwapTarget && Game.Players[0].IsHuman)
+    {
+        <div class="modal-overlay">
+            <div class="swap-picker" style="background: white; padding: 20px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; gap: 15px;">
+                <h3 style="color: black; margin: 0;">Select Player to Swap Hands</h3>
+                <div style="display: flex; gap: 10px;">
+                    @foreach (var p in Game.Players.Where(p => p != Game.Players[0]))
+                    {
+                        <button style="padding: 10px 20px; background: #1e3799; color: white; border: none; border-radius: 5px; cursor: pointer;" @onclick="() => FinalizeSwap(p)">
+                            @p.Name (@p.Hand.Count cards)
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (Game.Status == GameStatus.WaitingForUnoCall)
+    {
+        <div class="modal-overlay uno-qte-overlay">
+            <div class="uno-qte-container">
+                <svg class="qte-ring uno-ring" viewBox="0 0 100 100" style="--qte-duration: 2.5s;">
+                    <circle cx="50" cy="50" r="45"></circle>
+                </svg>
+                <button class="mega-uno-btn" @onclick="() => Game.AttemptUnoCallAsync(Game.Players[0])">
+                    UNO!
+                </button>
+                @if (Game.PlayerAtRisk == Game.Players[0])
+                {
+                    <div class="uno-hint">CALL IT FAST!</div>
+                }
+                else
+                {
+                    <div class="uno-hint">CATCH @Game.PlayerAtRisk?.Name.ToUpper()!</div>
+                }
+            </div>
+        </div>
+    }
+
+    @if (Game.Status == GameStatus.GameOver)
+    {
+        <div class="modal-overlay">
+            <div style="background: white; padding: 40px; border-radius: 10px; text-align: center; color: black;">
+                <h1>WINNER: @Game.Winner?.Name</h1>
+                <button @onclick="() => OnStartGame.InvokeAsync()" style="padding: 10px 20px; background: #2e86de; color: white; border: none; margin-top: 20px;">NEW GAME</button>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public UnoGame? Game { get; set; }
+    [Parameter] public EventCallback OnStartGame { get; set; }
+
+    private async Task OnCardClicked(UnoCard card)
+    {
+        if (Game == null) return;
+        
+        if (Game.CurrentPlayerIndex != 0)
+        {
+            await Game.JumpInAsync(Game.Players[0], card);
+            return;
+        }
+        
+        await Game.PlayCardAsync(Game.Players[0], card);
+    }
+
+    private async Task HandleDraw()
+    {
+        if (Game == null || Game.CurrentPlayerIndex != 0) return;
+        
+        if (Game.PendingDrawCount > 0)
+        {
+            await Game.HandlePendingDrawAsync();
+        }
+        else
+        {
+            var drawn = await Game.DrawCardAsync(Game.Players[0]);
+            
+            if (Game.CanPlayCard(drawn))
+            {
+                Game.LogAction($"{Game.Players[0].Name} auto-played the drawn card.");
+                await Game.PlayCardAsync(Game.Players[0], drawn);
+            }
+            else
+            {
+                Game.LogAction($"{Game.Players[0].Name} drew and passed.");
+                await Game.PassTurnAfterDraw();
+            }
+        }
+    }
+
+    private async Task FinalizeColor(CardColor color)
+    {
+        if (Game == null || Game.PendingCard == null) return;
+        await Game.PlayCardAsync(Game.Players[0], Game.PendingCard, color);
+    }
+
+    private async Task FinalizeSwap(Player target)
+    {
+        if (Game == null || Game.PendingCard == null) return;
+        await Game.PlayCardAsync(Game.Players[0], Game.PendingCard, null, target);
+    }
+}

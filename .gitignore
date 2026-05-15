@@ -1,0 +1,14 @@
+## .NET / Blazor .gitignore
+[Bb]in/
+[Oo]bj/
+.vs/
+.idea/
+.vscode/
+*.user
+*.userosscache
+*.sln.docstates
+out/
+.DS_Store
+*.swp
+*.bak
+publish/

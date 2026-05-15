@@ -1,0 +1,194 @@
+@using UnoEngine.Models
+
+<div class="player-profile-container @(IsActive ? "active" : "") @(Player.Hand.Count == 1 ? "uno-warning" : "")">
+    <div class="avatar-ring"></div>
+    <div class="avatar-circle" style="background: linear-gradient(135deg, @GetPlayerColor(), @GetDarkerColor())">
+        <span class="initials">@GetInitials()</span>
+        
+        <div class="card-badge">
+            <span class="count">@Player.Hand.Count</span>
+        </div>
+    </div>
+    
+    <div class="profile-info">
+        <div class="player-name">@Player.Name</div>
+        <div class="player-status">@Player.CurrentStatus</div>
+    </div>
+    
+    @if (Player.Hand.Count == 1)
+    {
+        <div class="uno-alert">UNO!</div>
+    }
+</div>
+
+<style>
+    .player-profile-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        position: relative;
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .player-profile-container.active {
+        transform: scale(1.15);
+        z-index: 50;
+    }
+
+    .avatar-ring {
+        position: absolute;
+        width: 76px;
+        height: 76px;
+        border-radius: 50%;
+        border: 2px solid transparent;
+        top: -6px;
+        transition: all 0.3s ease;
+    }
+
+    .active .avatar-ring {
+        border-color: #3b82f6;
+        animation: ring-pulse 2s infinite;
+    }
+
+    @@keyframes ring-pulse {
+        0% { transform: scale(0.95); opacity: 1; box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
+        70% { transform: scale(1.1); opacity: 0; box-shadow: 0 0 0 15px rgba(59, 130, 246, 0); }
+        100% { transform: scale(0.95); opacity: 0; }
+    }
+
+    .avatar-circle {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        border: 3px solid rgba(255,255,255,0.1);
+        z-index: 2;
+    }
+
+    .active .avatar-circle {
+        border-color: white;
+        box-shadow: 0 0 20px rgba(59, 130, 246, 0.6);
+    }
+
+    .initials {
+        color: white;
+        font-size: 1.4rem;
+        font-weight: 900;
+        text-shadow: 1px 1px 4px rgba(0,0,0,0.5);
+    }
+
+    .card-badge {
+        position: absolute;
+        top: -5px;
+        right: -5px;
+        background: #f8fafc;
+        color: #1e293b;
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 900;
+        font-size: 0.8rem;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        border: 2px solid white;
+    }
+
+    .profile-info {
+        text-align: center;
+        background: rgba(15, 23, 42, 0.6);
+        padding: 4px 12px;
+        border-radius: 20px;
+        backdrop-filter: blur(4px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        min-width: 80px;
+    }
+
+    .active .profile-info {
+        background: rgba(30, 41, 59, 0.9);
+        border-color: rgba(59, 130, 246, 0.4);
+    }
+
+    .player-name {
+        color: white;
+        font-size: 0.75rem;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+    }
+
+    .player-status {
+        color: #60a5fa;
+        font-size: 0.6rem;
+        font-weight: 600;
+        height: 12px;
+    }
+
+    .uno-alert {
+        position: absolute;
+        bottom: -15px;
+        background: #ef4444;
+        color: white;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 0.6rem;
+        font-weight: 900;
+        animation: pop-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    @@keyframes pop-in {
+        from { transform: scale(0); }
+        to { transform: scale(1); }
+    }
+
+    .uno-warning .avatar-circle {
+        border-color: #ef4444;
+        animation: warning-pulse 1s infinite alternate;
+    }
+
+    @@keyframes warning-pulse {
+        from { box-shadow: 0 0 5px rgba(239, 68, 68, 0.4); }
+        to { box-shadow: 0 0 20px rgba(239, 68, 68, 0.8); }
+    }
+</style>
+
+@code {
+    [Parameter] public Player Player { get; set; } = null!;
+    [Parameter] public bool IsActive { get; set; }
+
+    private string GetInitials()
+    {
+        if (string.IsNullOrEmpty(Player.Name)) return "?";
+        var parts = Player.Name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 1) return parts[0].Substring(0, Math.Min(2, parts[0].Length)).ToUpper();
+        return (parts[0][0].ToString() + parts[1][0].ToString()).ToUpper();
+    }
+
+    private string GetPlayerColor()
+    {
+        var hash = Player.Name.GetHashCode();
+        string[] colors = { "#ef4444", "#3b82f6", "#22c55e", "#eab308", "#a855f7", "#ec4899" };
+        return colors[Math.Abs(hash) % colors.Length];
+    }
+
+    private string GetDarkerColor()
+    {
+        // Simple way to get a gradient end color
+        var baseColor = GetPlayerColor();
+        // This is a bit hacky but works for the curated palette
+        if (baseColor == "#ef4444") return "#991b1b"; // red
+        if (baseColor == "#3b82f6") return "#1e40af"; // blue
+        if (baseColor == "#22c55e") return "#166534"; // green
+        if (baseColor == "#eab308") return "#854d0e"; // yellow
+        if (baseColor == "#a855f7") return "#6b21a8"; // purple
+        if (baseColor == "#ec4899") return "#9d174d"; // pink
+        return "#0f172a";
+    }
+}
+
