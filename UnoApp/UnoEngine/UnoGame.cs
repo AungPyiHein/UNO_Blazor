@@ -36,9 +36,25 @@ namespace UnoEngine
         public Player? Winner { get; private set; }
         public int WinnerScore { get; private set; }
         public bool IsUnoCalled { get; set; } = false;
+        public CardColor LastValidColor { get; set; }
 
         private Random _random = new();
         private System.Threading.SemaphoreSlim _actionLock = new(1, 1);
+
+        private void SafeFireAndForget(Func<Task> taskFactory)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await taskFactory();
+                }
+                catch (Exception ex)
+                {
+                    LogAction($"System Error: {ex.Message}");
+                }
+            });
+        }
 
         public UnoGame(List<Player> players, GameSettings settings)
         {
@@ -57,11 +73,12 @@ namespace UnoEngine
                 DrawPile.Push(card);
             }
 
-            // Deal 5 cards to each player
+            // Deal configured starting cards to each player
             foreach (var player in Players)
             {
                 player.Hand.Clear();
-                for (int i = 0; i < 5; i++)
+                int handSize = Settings.StartingHandSize > 0 ? Settings.StartingHandSize : 7;
+                for (int i = 0; i < handSize; i++)
                 {
                     player.Hand.Add(DrawPile.Pop());
                 }
@@ -76,6 +93,7 @@ namespace UnoEngine
                 firstCard = DrawPile.Pop();
             }
             DiscardPile.Add(firstCard);
+            LastValidColor = firstCard.Color;
         }
 
         private List<UnoCard> CreateDeck()
@@ -387,6 +405,10 @@ namespace UnoEngine
             Status = GameStatus.Playing;
             PendingCard = null;
             LastPlayerIndex = Players.IndexOf(player);
+            if (TopCard != null)
+            {
+                LastValidColor = TopCard.Color;
+            }
 
             if (player.Hand.Contains(card))
             {
@@ -415,7 +437,7 @@ namespace UnoEngine
             if (player.Hand.Count == 1)
             {
                 PlayerAtRisk = player;
-                _ = Task.Run(() => RunUnoTimerAsync(player));
+                SafeFireAndForget(() => RunUnoTimerAsync(player));
                 return; // Turn sequence will resume after UNO QTE
             }
 
@@ -433,11 +455,11 @@ namespace UnoEngine
             
             if (Settings.JumpInRule && IsJumpInPossible())
             {
-                _ = Task.Run(() => RunJumpInTimerAsync());
+                SafeFireAndForget(() => RunJumpInTimerAsync());
             }
             else
             {
-                _ = Task.Run(async () => {
+                SafeFireAndForget(async () => {
                     await Task.Delay(1500); // Slower visual delay before the next turn starts
                     await StartTurnAsync();
                 });
@@ -465,7 +487,7 @@ namespace UnoEngine
             OnStateChanged?.Invoke();
 
             // Notify CPU to evaluate jump in NOW
-            _ = Task.Run(() => TriggerCpuJumpInCheck(TopCard));
+            SafeFireAndForget(() => TriggerCpuJumpInCheck(TopCard));
 
             try
             {
@@ -496,7 +518,7 @@ namespace UnoEngine
             OnStateChanged?.Invoke();
 
             // Notify CPUs to attempt UNO call or catch
-            _ = Task.Run(() => TriggerCpuUnoCheck());
+            SafeFireAndForget(() => TriggerCpuUnoCheck());
 
             try
             {
@@ -524,11 +546,11 @@ namespace UnoEngine
                     
                     if (Settings.JumpInRule && IsJumpInPossible())
                     {
-                        _ = Task.Run(() => RunJumpInTimerAsync());
+                        SafeFireAndForget(() => RunJumpInTimerAsync());
                     }
                     else
                     {
-                        _ = StartTurnAsync();
+                        SafeFireAndForget(() => StartTurnAsync());
                     }
                 }
             }
@@ -567,11 +589,11 @@ namespace UnoEngine
 
                 if (Settings.JumpInRule && IsJumpInPossible())
                 {
-                    _ = Task.Run(() => RunJumpInTimerAsync());
+                    SafeFireAndForget(() => RunJumpInTimerAsync());
                 }
                 else
                 {
-                    _ = StartTurnAsync();
+                    SafeFireAndForget(() => StartTurnAsync());
                 }
             }
             finally
@@ -588,7 +610,7 @@ namespace UnoEngine
             // Each CPU starts its own independent reaction timer
             foreach (var cpu in Players.Where(p => !p.IsHuman))
             {
-                _ = Task.Run(async () => 
+                SafeFireAndForget(async () => 
                 {
                     // Delay based on reaction time
                     // If CPU is at risk, they try to call it fast (0.5s - 1.5s)
@@ -614,21 +636,13 @@ namespace UnoEngine
                 {
                     total += card.Value switch
                     {
-                        CardValue.Zero => 0,
-                        CardValue.One => 1,
-                        CardValue.Two => 2,
-                        CardValue.Three => 3,
-                        CardValue.Four => 4,
-                        CardValue.Five => 5,
-                        CardValue.Six => 6,
-                        CardValue.Seven => 7,
-                        CardValue.Eight => 8,
-                        CardValue.Nine => 9,
+                        _ when (int)card.Value <= 9 => (int)card.Value,
                         CardValue.Skip => 20,
                         CardValue.Reverse => 20,
                         CardValue.Draw2 => 20,
                         CardValue.Wild => 50,
                         CardValue.WildDraw4 => 50,
+                        CardValue.WildShuffle => 50,
                         _ => 0
                     };
                 }

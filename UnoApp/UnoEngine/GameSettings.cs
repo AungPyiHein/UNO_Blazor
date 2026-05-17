@@ -3,6 +3,11 @@ namespace UnoEngine.Models
     public class GameSettings
     {
         /// <summary>
+        /// Starting number of cards dealt to each player. Clamped between 3 and 10.
+        /// </summary>
+        public int StartingHandSize { get; set; } = 7;
+
+        /// <summary>
         /// If a player draws, they keep drawing until they find a match.
         /// </summary>
         public bool DrawUntilPlayable { get; set; } = true;
@@ -18,7 +23,7 @@ namespace UnoEngine.Models
         public bool ZeroRotate { get; set; } = true;
 
         /// <summary>
-        /// Allow stacking Draw 2s (if Player A plays a +2, Player B can play a +2 to make Player C draw 4).
+        /// Allow stacking Draw 2s and Draw 4s.
         /// </summary>
         public bool Stacking { get; set; } = true;
 
@@ -33,8 +38,41 @@ namespace UnoEngine.Models
         public double JumpInTimerSeconds { get; set; } = 2.5;
 
         /// <summary>
-        /// If enabled, 4 Wild Shuffle cards are added to the deck. When played, all hands are collected, shuffled, and redistributed.
+        /// If enabled, 4 Wild Shuffle cards are added to the deck.
         /// </summary>
         public bool EnableWildShuffleCard { get; set; } = false;
+
+        /// <summary>
+        /// A player can choose to draw a card even if they hold a playable card in hand.
+        /// </summary>
+        public bool ForcedPlayReneging { get; set; } = true;
+
+        /// <summary>
+        /// Next player can challenge if they suspect the user holds a matching color on Wild Draw 4.
+        /// </summary>
+        public bool EnableWildDraw4Challenge { get; set; } = true;
+
+        /// <summary>
+        /// Penalty cards drawn if UNO call fails.
+        /// </summary>
+        public int UnoFailurePenaltyCards { get; set; } = 2;
+
+        public GameSettings Clone()
+        {
+            return new GameSettings
+            {
+                StartingHandSize = this.StartingHandSize,
+                DrawUntilPlayable = this.DrawUntilPlayable,
+                SevenSwap = this.SevenSwap,
+                ZeroRotate = this.ZeroRotate,
+                Stacking = this.Stacking,
+                JumpInRule = this.JumpInRule,
+                JumpInTimerSeconds = this.JumpInTimerSeconds,
+                EnableWildShuffleCard = this.EnableWildShuffleCard,
+                ForcedPlayReneging = this.ForcedPlayReneging,
+                EnableWildDraw4Challenge = this.EnableWildDraw4Challenge,
+                UnoFailurePenaltyCards = this.UnoFailurePenaltyCards
+            };
+        }
     }
 }

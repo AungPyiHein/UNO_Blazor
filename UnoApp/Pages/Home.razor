@@ -8,39 +8,15 @@
 <div class="menu-screen @(_isGameStarted ? "game-active" : "")">
     @if (!_isGameStarted)
     {
-        <!-- Top Tier: Floating Rules Bar -->
-        <div class="rules-bar">
-            <div class="rule-toggle">
-                <input type="checkbox" id="rule-draw" @bind="_settings.DrawUntilPlayable" />
-                <label for="rule-draw"><span>🔄</span> Draw Until Playable</label>
-            </div>
-            <div class="rule-toggle">
-                <input type="checkbox" id="rule-seven" @bind="_settings.SevenSwap" />
-                <label for="rule-seven"><span>🃏</span> 7-Swap</label>
-            </div>
-            <div class="rule-toggle">
-                <input type="checkbox" id="rule-zero" @bind="_settings.ZeroRotate" />
-                <label for="rule-zero"><span>🔃</span> Zero Rotate</label>
-            </div>
-            <div class="rule-toggle">
-                <input type="checkbox" id="rule-shuffle" @bind="_settings.EnableWildShuffleCard" />
-                <label for="rule-shuffle"><span>🌪️</span> Wild Shuffle</label>
-            </div>
-            <div class="rule-toggle">
-                <input type="checkbox" id="rule-jump" @bind="_settings.JumpInRule" />
-                <label for="rule-jump"><span>⚡</span> Jump-In</label>
-            </div>
-            <div class="rule-toggle">
-                <input type="checkbox" id="rule-stack" @bind="_settings.Stacking" />
-                <label for="rule-stack"><span>🔥</span> Stacking</label>
-            </div>
-            @if (_settings.JumpInRule)
-            {
-                <div class="rule-toggle timer-setting">
-                    <label><span>⏱️</span> QTE: @_settings.JumpInTimerSeconds.ToString("0.0")s</label>
-                    <input type="range" min="1.0" max="5.0" step="0.5" @bind="_settings.JumpInTimerSeconds" />
-                </div>
-            }
+        <!-- Floating Header Action Buttons -->
+        <div class="menu-header">
+            <button class="glass-btn rulebook-trigger" @onclick="() => _showRuleBookModal = true">
+                <span class="icon">📖</span> Rule Book
+            </button>
+            <button class="glass-btn rules-trigger" @onclick="OpenRulesModal">
+                <span class="icon">⚙️</span> Manage Rules
+                <span class="active-preset-badge">@_selectedPreset.Name</span>
+            </button>
         </div>
 
         <!-- Middle Tier: The Power Center -->
@@ -59,6 +35,467 @@
                 <input type="text" @bind="_playerName" placeholder="YOUR NAME" maxlength="12" />
             </div>
         </div>
+
+        <!-- MODAL 1: Manage Rules -->
+        @if (_showRulesModal && _editingPreset != null && _editingSettings != null)
+        {
+            <div class="modal-backdrop" @onclick="() => _showRulesModal = false">
+                <div class="modal-card rules-modal" @onclick:stopPropagation>
+                    <div class="modal-header">
+                        <h2>⚙️ Manage Rules</h2>
+                        <button class="close-btn" @onclick="() => _showRulesModal = false">×</button>
+                    </div>
+
+                    <!-- Preset Selector Section -->
+                    <div class="presets-section">
+                        <h3>Rule Presets</h3>
+                        <div class="presets-row">
+                            @foreach (var preset in _presets)
+                            {
+                                <div class="preset-card @(_editingPreset.Id == preset.Id ? "active" : "")" @onclick="() => SelectPreset(preset)">
+                                    <div class="preset-card-body">
+                                        @if (!preset.IsReadonly && preset.Name != "Chaos" && preset.Name != "Custom")
+                                        {
+                                            <input type="text" class="preset-rename-input" @bind="preset.Name" @onclick:stopPropagation />
+                                            <button class="delete-preset-btn" @onclick="() => DeletePreset(preset)" @onclick:stopPropagation>🗑️</button>
+                                        }
+                                        else
+                                        {
+                                            <span class="preset-name">@preset.Name</span>
+                                            @if (preset.IsReadonly)
+                                            {
+                                                <span class="readonly-badge">🔒 Locked</span>
+                                            }
+                                        }
+                                    </div>
+                                </div>
+                            }
+                            <button class="add-preset-btn" @onclick="CreateCustomPreset">
+                                <span>➕</span> New Preset
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Rule Checkboxes Section -->
+                    <div class="rules-section">
+                        <div class="rules-section-header">
+                            <h3>Configure Rules (@_editingPreset.Name)</h3>
+                            @if (_editingPreset.IsReadonly)
+                            {
+                                <span class="rules-locked-banner">⚠️ Classic rules are locked and cannot be edited. Create a New Preset to customize.</span>
+                            }
+                        </div>
+
+                        <!-- Starting Hand Size (Always Visible) -->
+                        <div class="hand-size-config">
+                            <div class="hand-size-meta">
+                                <span class="rule-icon">🃏</span>
+                                <div class="rule-text">
+                                    <span class="rule-title">Starting Hand Size</span>
+                                    <span class="rule-desc">Cards dealt to each player at the match start (Clamped 3 to 10).</span>
+                                </div>
+                            </div>
+                            <div class="hand-size-control">
+                                <span class="hand-size-val">@_editingSettings.StartingHandSize Cards</span>
+                                <input type="range" min="3" max="10" step="1" 
+                                       value="@_editingSettings.StartingHandSize" 
+                                       disabled="@_editingPreset.IsReadonly"
+                                       @onchange="UpdateStartingHandSize" />
+                            </div>
+                        </div>
+
+                        <!-- Core Rules Grid -->
+                        <div class="rules-grid">
+                            <!-- Stacking -->
+                            <div class="rule-card @(_editingSettings.Stacking ? "active" : "")">
+                                <div class="rule-meta">
+                                    <span class="rule-icon">🔥</span>
+                                    <div class="rule-text">
+                                        <span class="rule-title">Stacking (+2 / +4)</span>
+                                        <span class="rule-desc">Stack draw penalty cards to pass the accumulated total downstream.</span>
+                                    </div>
+                                </div>
+                                <div class="rule-control">
+                                    <label class="switch">
+                                        <input type="checkbox" checked="@_editingSettings.Stacking" 
+                                               disabled="@_editingPreset.IsReadonly"
+                                               @onchange="(e) => ToggleRule(val => _editingSettings.Stacking = val, e)" />
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Draw Until Playable -->
+                            <div class="rule-card @(_editingSettings.DrawUntilPlayable ? "active" : "")">
+                                <div class="rule-meta">
+                                    <span class="rule-icon">🔄</span>
+                                    <div class="rule-text">
+                                        <span class="rule-title">Draw Until Playable</span>
+                                        <span class="rule-desc">Must draw continuous cards until a playable card is pulled.</span>
+                                    </div>
+                                </div>
+                                <div class="rule-control">
+                                    <label class="switch">
+                                        <input type="checkbox" checked="@_editingSettings.DrawUntilPlayable" 
+                                               disabled="@_editingPreset.IsReadonly"
+                                               @onchange="(e) => ToggleRule(val => _editingSettings.DrawUntilPlayable = val, e)" />
+                                        <span class="slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Conditional Advanced Options Section -->
+                        @if (!_editingPreset.IsReadonly)
+                        {
+                            <div class="advanced-options-container">
+                                <h4>🛠️ Advanced Options</h4>
+                                <div class="rules-grid">
+                                    <!-- Forced Play / Reneging -->
+                                    <div class="rule-card @(_editingSettings.ForcedPlayReneging ? "active" : "")">
+                                        <div class="rule-meta">
+                                            <span class="rule-icon">⚖️</span>
+                                            <div class="rule-text">
+                                                <span class="rule-title">Forced Play / Reneging</span>
+                                                <span class="rule-desc">Players can choose to draw even if they hold a playable card.</span>
+                                            </div>
+                                        </div>
+                                        <div class="rule-control">
+                                            <label class="switch">
+                                                <input type="checkbox" checked="@_editingSettings.ForcedPlayReneging" 
+                                                       disabled="@_editingPreset.IsReadonly"
+                                                       @onchange="(e) => ToggleRule(val => _editingSettings.ForcedPlayReneging = val, e)" />
+                                                <span class="slider"></span>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <!-- Wild Draw 4 Challenge -->
+                                    <div class="rule-card @(_editingSettings.EnableWildDraw4Challenge ? "active" : "")">
+                                        <div class="rule-meta">
+                                            <span class="rule-icon">⚔️</span>
+                                            <div class="rule-text">
+                                                <span class="rule-title">Wild Draw 4 Challenge</span>
+                                                <span class="rule-desc">Targets can challenge played +4s for illegal matching color.</span>
+                                            </div>
+                                        </div>
+                                        <div class="rule-control">
+                                            <label class="switch">
+                                                <input type="checkbox" checked="@_editingSettings.EnableWildDraw4Challenge" 
+                                                       disabled="@_editingPreset.IsReadonly"
+                                                       @onchange="(e) => ToggleRule(val => _editingSettings.EnableWildDraw4Challenge = val, e)" />
+                                                <span class="slider"></span>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <!-- 7-Swap -->
+                                    <div class="rule-card @(_editingSettings.SevenSwap ? "active" : "")">
+                                        <div class="rule-meta">
+                                            <span class="rule-icon">🃏</span>
+                                            <div class="rule-text">
+                                                <span class="rule-title">7-Swap</span>
+                                                <span class="rule-desc">Forces hand-swaps with another player when a 7 is played.</span>
+                                            </div>
+                                        </div>
+                                        <div class="rule-control">
+                                            <label class="switch">
+                                                <input type="checkbox" checked="@_editingSettings.SevenSwap" 
+                                                       disabled="@_editingPreset.IsReadonly"
+                                                       @onchange="(e) => ToggleRule(val => _editingSettings.SevenSwap = val, e)" />
+                                                <span class="slider"></span>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <!-- Zero Rotate -->
+                                    <div class="rule-card @(_editingSettings.ZeroRotate ? "active" : "")">
+                                        <div class="rule-meta">
+                                            <span class="rule-icon">🔃</span>
+                                            <div class="rule-text">
+                                                <span class="rule-title">Zero Rotate</span>
+                                                <span class="rule-desc">Rotates everyone's hands along direction of play on a 0.</span>
+                                            </div>
+                                        </div>
+                                        <div class="rule-control">
+                                            <label class="switch">
+                                                <input type="checkbox" checked="@_editingSettings.ZeroRotate" 
+                                                       disabled="@_editingPreset.IsReadonly"
+                                                       @onchange="(e) => ToggleRule(val => _editingSettings.ZeroRotate = val, e)" />
+                                                <span class="slider"></span>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <!-- Jump-In -->
+                                    <div class="rule-card @(_editingSettings.JumpInRule ? "active" : "")">
+                                        <div class="rule-meta">
+                                            <span class="rule-icon">⚡</span>
+                                            <div class="rule-text">
+                                                <span class="rule-title">Jump-In Rule</span>
+                                                <span class="rule-desc">Play out of turn if you hold an exact color AND value duplicate match.</span>
+                                            </div>
+                                        </div>
+                                        <div class="rule-control">
+                                            <label class="switch">
+                                                <input type="checkbox" checked="@_editingSettings.JumpInRule" 
+                                                       disabled="@_editingPreset.IsReadonly"
+                                                       @onchange="(e) => ToggleRule(val => _editingSettings.JumpInRule = val, e)" />
+                                                <span class="slider"></span>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <!-- Wild Shuffle -->
+                                    <div class="rule-card @(_editingSettings.EnableWildShuffleCard ? "active" : "")">
+                                        <div class="rule-meta">
+                                            <span class="rule-icon">🌪️</span>
+                                            <div class="rule-text">
+                                                <span class="rule-title">Wild Shuffle</span>
+                                                <span class="rule-desc">Adds 4 Wild Shuffle cards to shuffle and redeal everyone's hand.</span>
+                                            </div>
+                                        </div>
+                                        <div class="rule-control">
+                                            <label class="switch">
+                                                <input type="checkbox" checked="@_editingSettings.EnableWildShuffleCard" 
+                                                       disabled="@_editingPreset.IsReadonly"
+                                                       @onchange="(e) => ToggleRule(val => _editingSettings.EnableWildShuffleCard = val, e)" />
+                                                <span class="slider"></span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Uno Call Penalty Sliders -->
+                                <div class="hand-size-config uno-penalty-config">
+                                    <div class="hand-size-meta">
+                                        <span class="rule-icon">🔔</span>
+                                        <div class="rule-text">
+                                            <span class="rule-title">Uno Call Failure Penalty</span>
+                                            <span class="rule-desc">Cards drawn if caught failing to call UNO (Clamped 1 to 5).</span>
+                                        </div>
+                                    </div>
+                                    <div class="hand-size-control">
+                                        <span class="hand-size-val">@_editingSettings.UnoFailurePenaltyCards Cards</span>
+                                        <input type="range" min="1" max="5" step="1" 
+                                               value="@_editingSettings.UnoFailurePenaltyCards" 
+                                               disabled="@_editingPreset.IsReadonly"
+                                               @onchange="UpdateUnoPenaltyCards" />
+                                    </div>
+                                </div>
+
+                                <!-- QTE Timer (Only shown if Jump-In is active) -->
+                                @if (_editingSettings.JumpInRule)
+                                {
+                                    <div class="timer-config-card">
+                                        <div class="timer-meta">
+                                            <span class="rule-icon">⏱️</span>
+                                            <div class="rule-text">
+                                                <span class="rule-title">Jump-In QTE Timer</span>
+                                                <span class="rule-desc">Speed window (seconds) to intercept duplicates out of turn.</span>
+                                            </div>
+                                        </div>
+                                        <div class="timer-slider-control">
+                                            <span class="timer-val">@_editingSettings.JumpInTimerSeconds.ToString("0.0")s</span>
+                                            <input type="range" min="1.0" max="5.0" step="0.5" 
+                                                   value="@_editingSettings.JumpInTimerSeconds" 
+                                                   disabled="@_editingPreset.IsReadonly"
+                                                   @onchange="UpdateTimer" />
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+
+                    <div class="modal-footer">
+                        <button class="confirm-rules-btn" @onclick="SaveAndApplyRules">Save & Apply</button>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- MODAL 2: Rule Book -->
+        @if (_showRuleBookModal)
+        {
+            <div class="modal-backdrop" @onclick="() => _showRuleBookModal = false">
+                <div class="modal-card rulebook-modal" @onclick:stopPropagation>
+                    <div class="modal-header">
+                        <h2>📖 UNO Rule Book</h2>
+                        <button class="close-btn" @onclick="() => _showRuleBookModal = false">×</button>
+                    </div>
+
+                    <div class="rulebook-layout">
+                        <!-- Left Navigation Sidebar -->
+                        <div class="rulebook-sidebar">
+                            <button class="sidebar-tab @(_activeTab == "general" ? "active" : "")" @onclick='() => _activeTab = "general"'>
+                                🎮 1. Setup & Objective
+                            </button>
+                            <button class="sidebar-tab @(_activeTab == "cards" ? "active" : "")" @onclick='() => _activeTab = "cards"'>
+                                🃏 2. Action Cards
+                            </button>
+                            <button class="sidebar-tab @(_activeTab == "house" ? "active" : "")" @onclick='() => _activeTab = "house"'>
+                                ⚖️ 3. Rules & Penalties
+                            </button>
+                            <button class="sidebar-tab @(_activeTab == "chaos" ? "active" : "")" @onclick='() => _activeTab = "chaos"'>
+                                💥 4. Chaos House Rules
+                            </button>
+                        </div>
+
+                        <!-- Right Content Pane -->
+                        <div class="rulebook-content">
+                            @if (_activeTab == "general")
+                            {
+                                <div class="tab-pane">
+                                    <h3>1. Setup & Objective</h3>
+                                    
+                                    <h4>Starting Hand</h4>
+                                    <p>Each player is dealt <strong>7 cards</strong> (Configurable under dynamic rule options). The remaining deck forms the Draw Pile.</p>
+                                    
+                                    <h4>The Starting Card</h4>
+                                    <p>The top card of the Draw Pile is flipped over to create the Discard Pile.</p>
+                                    <ul>
+                                        <li><strong>Note:</strong> If a <strong>Wild Draw 4</strong> is flipped first, it is returned to the deck, and a new card is drawn.</li>
+                                        <li>If an Action Card or regular Wild is flipped, its effect applies immediately to the first player in order.</li>
+                                    </ul>
+
+                                    <h4>Objective</h4>
+                                    <p>Be the first player to discard all cards from your hand.</p>
+                                </div>
+                            }
+                            else if (_activeTab == "cards")
+                            {
+                                <div class="tab-pane">
+                                    <h3>2. Match Logic & Action Cards</h3>
+                                    <p>On your turn, you must match the top card of the Discard Pile by <strong>Color, Number, or Symbol</strong>.</p>
+
+                                    <div class="action-card-desc">
+                                        <UnoCardView Color="CardColor.Red" Value="CardValue.Skip" SizeClass="w-16 h-24" />
+                                        <div>
+                                            <strong>Skip Card</strong>
+                                            <p>The next player in sequence loses their turn, skipping immediately to the following player.</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="action-card-desc">
+                                        <UnoCardView Color="CardColor.Blue" Value="CardValue.Reverse" SizeClass="w-16 h-24" />
+                                        <div>
+                                            <strong>Reverse Card</strong>
+                                            <p>Swaps the direction of play (Clockwise &harr; Counter-Clockwise). In a 2-player game, it acts like a Skip.</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="action-card-desc">
+                                        <UnoCardView Color="CardColor.Green" Value="CardValue.Draw2" SizeClass="w-16 h-24" />
+                                        <div>
+                                            <strong>Draw Two (+2)</strong>
+                                            <p>The next player must draw 2 cards and completely forfeit their turn (unless Stacking is active!).</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="action-card-desc">
+                                        <UnoCardView Color="CardColor.Wild" Value="CardValue.Wild" SizeClass="w-16 h-24" />
+                                        <div>
+                                            <strong>Wild Card</strong>
+                                            <p>Can be played on any card. The player declares a new matching color.</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="action-card-desc">
+                                        <UnoCardView Color="CardColor.Wild" Value="CardValue.WildDraw4" SizeClass="w-16 h-24" />
+                                        <div>
+                                            <strong>Wild Draw Four (+4)</strong>
+                                            <p>Can only be legally played if you do not have any cards matching the active color on the discard pile. The next player draws 4 cards and skips their turn.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                            else if (_activeTab == "house")
+                            {
+                                <div class="tab-pane">
+                                    <h3>3. Advanced Mechanics & Penalties</h3>
+
+                                    <div class="house-rule-desc">
+                                        <h4>⚔️ The +4 Challenge</h4>
+                                        <p>When someone plays a Wild Draw 4, the target player can challenge its legality if they suspect the user holds a matching color.</p>
+                                        <ul>
+                                            <li><strong>If Guilty:</strong> (The player did have a matching color in hand), the guilty player draws 4 cards.</li>
+                                            <li><strong>If Innocent:</strong> (The player had no matching color), the challenger draws <strong>6 cards total</strong> (4 penalty + 2 extra) and skips their turn.</li>
+                                        </ul>
+                                    </div>
+
+                                    <div class="house-rule-desc">
+                                        <h4>⚖️ Reneging (Intentionally Drawing)</h4>
+                                        <p>You can choose to draw a card even if you hold a valid match. If the drawn card is playable, you can play it immediately, but you cannot play any other card from your hand on that turn.</p>
+                                    </div>
+
+                                    <div class="house-rule-desc">
+                                        <h4>🔔 Calling UNO</h4>
+                                        <p>You must trigger the "UNO" call before your second-to-last card touches the discard pile. If an opponent catches you with 1 card before the next player starts their turn, you face a **2-card penalty** (Draw 2).</p>
+                                    </div>
+
+                                    <div class="house-rule-desc">
+                                        <h4>🏆 Scoring Calculation</h4>
+                                        <p>At round end, the winner gets points from opponents' remaining hands:</p>
+                                        <ul>
+                                            <li><strong>Number Cards:</strong> Face Value</li>
+                                            <li><strong>Action Cards (Skip/Reverse/+2):</strong> 20 Points</li>
+                                            <li><strong>Wild / Wild Draw 4:</strong> 50 Points</li>
+                                        </ul>
+                                        <p>The first player to reach <strong>500 points</strong> across multiple rounds wins the match.</p>
+                                    </div>
+                                </div>
+                            }
+                            else if (_activeTab == "chaos")
+                            {
+                                <div class="tab-pane">
+                                    <h3>💥 Chaos House Rules</h3>
+
+                                    <div class="house-rule-desc text-orange">
+                                        <h4>🃏 Setup Overrides</h4>
+                                        <p>Starting Hand: Each player is dealt <strong>6 cards</strong> (Configurable).</p>
+                                    </div>
+
+                                    <div class="house-rule-desc">
+                                        <h4>🔥 Stacking (Progressive Draw)</h4>
+                                        <p>You can chain draw cards to avoid a penalty and pass it downstream:</p>
+                                        <ul>
+                                            <li>Respond to a +2 with a +2 (increases penalty to +4).</li>
+                                            <li>Respond to a +4 with a +4 (increases penalty to +8).</li>
+                                            <li><em>Note:</em> You cannot stack a +4 on top of a +2 unless customized otherwise.</li>
+                                        </ul>
+                                    </div>
+
+                                    <div class="house-rule-desc">
+                                        <h4>🔄 Draw Until Playable</h4>
+                                        <p>No simple draw-and-pass. If you don't have a match, you must continuously click the draw deck and draw cards until a legal, playable card is pulled.</p>
+                                    </div>
+
+                                    <div class="house-rule-desc">
+                                        <h4>🃏 7-Swap</h4>
+                                        <p>Playing any card with the number <strong>7</strong> forces you to select an opponent and instantly swap your entire hand with theirs.</p>
+                                    </div>
+
+                                    <div class="house-rule-desc">
+                                        <h4>🔃 Zero Rotate</h4>
+                                        <p>Playing any card with the number <strong>0</strong> forces every player to pass their entire hand to the next person following the active direction of play.</p>
+                                    </div>
+
+                                    <div class="house-rule-desc">
+                                        <h4>⚡ Jump-In</h4>
+                                        <p>If you hold an exact duplicate match (identical color AND identical number/symbol) to the top discard card, you can slam it down instantly, even if it's completely out of turn! Play immediately resumes from your seat, skipping whoever was supposed to go next.</p>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button class="confirm-rules-btn" @onclick="() => _showRuleBookModal = false">Understood</button>
+                    </div>
+                </div>
+            </div>
+        }
     }
     else
     {
@@ -74,24 +511,44 @@
         overflow: hidden; z-index: 2000;
     }
 
-    /* Top Tier: Rules Bar */
-    .rules-bar {
-        position: absolute; top: 0; left: 0; right: 0; height: 70px;
-        background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(15px);
-        display: flex; align-items: center; justify-content: center; gap: 30px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1); z-index: 10;
+    /* Floating Header Buttons */
+    .menu-header {
+        position: absolute; top: 30px; left: 30px; right: 30px;
+        display: flex; justify-content: space-between; align-items: center;
+        z-index: 10;
     }
-    .rule-toggle { display: flex; align-items: center; gap: 10px; }
-    .rule-toggle input { width: 18px; height: 18px; cursor: pointer; accent-color: #22c55e; }
-    .rule-toggle label { 
-        font-size: 0.9rem; font-weight: 700; color: #94a3b8; cursor: pointer;
-        display: flex; align-items: center; gap: 6px; transition: color 0.3s;
+    .glass-btn {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: white;
+        padding: 12px 24px;
+        border-radius: 12px;
+        font-size: 1rem;
+        font-weight: 700;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
     }
-    .rule-toggle input:checked + label { color: white; }
-    .rule-toggle span { font-size: 1.2rem; }
-    .timer-setting { flex-direction: column; align-items: flex-start; gap: 2px; }
-    .timer-setting label { color: #facc15; }
-    .timer-setting input[type="range"] { width: 100px; }
+    .glass-btn:hover {
+        background: rgba(255, 255, 255, 0.15);
+        border-color: rgba(255, 255, 255, 0.25);
+        transform: translateY(-2px);
+        box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
+    }
+    .active-preset-badge {
+        background: #22c55e;
+        color: black;
+        font-size: 0.75rem;
+        font-weight: 900;
+        padding: 2px 8px;
+        border-radius: 20px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
 
     /* Middle Tier: Center Stage */
     .center-stage {
@@ -127,18 +584,440 @@
         font-weight: 700; width: 100%; text-align: center;
     }
     .profile-input-box input:focus { outline: none; }
+
+    /* Modals CSS Styling */
+    .modal-backdrop {
+        position: fixed; inset: 0;
+        background: rgba(0, 0, 0, 0.8);
+        backdrop-filter: blur(8px);
+        display: flex; align-items: center; justify-content: center;
+        z-index: 3000;
+        animation: fadeIn 0.25s ease-out;
+    }
+    .modal-card {
+        background: rgba(15, 23, 42, 0.95);
+        border: 2px solid rgba(255, 255, 255, 0.08);
+        border-radius: 24px;
+        padding: 30px;
+        width: 90%;
+        max-width: 850px;
+        max-height: 85vh;
+        overflow-y: auto;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .modal-header {
+        display: flex; justify-content: space-between; align-items: center;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        padding-bottom: 15px;
+    }
+    .modal-header h2 { font-size: 1.8rem; font-weight: 900; margin: 0; color: #f8fafc; }
+    .close-btn {
+        background: transparent; border: none; color: #94a3b8; font-size: 2rem;
+        cursor: pointer; line-height: 1; transition: color 0.2s;
+    }
+    .close-btn:hover { color: white; }
+
+    /* Presets CSS */
+    .presets-section { display: flex; flex-direction: column; gap: 10px; }
+    .presets-section h3 { font-size: 1.1rem; color: #64748b; margin: 0; text-transform: uppercase; letter-spacing: 1px; }
+    .presets-row { display: flex; flex-wrap: wrap; gap: 12px; }
+    .preset-card {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+        padding: 12px 18px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .preset-card:hover {
+        background: rgba(255, 255, 255, 0.07);
+        border-color: rgba(255, 255, 255, 0.15);
+    }
+    .preset-card.active {
+        background: rgba(34, 197, 94, 0.15);
+        border-color: #22c55e;
+        box-shadow: 0 0 15px rgba(34, 197, 94, 0.25);
+    }
+    .preset-card-body { display: flex; align-items: center; gap: 10px; }
+    .preset-name { font-weight: 800; font-size: 1rem; color: white; }
+    .readonly-badge { font-size: 0.7rem; background: #475569; padding: 2px 6px; border-radius: 4px; color: #cbd5e1; }
+    .preset-rename-input {
+        background: transparent; border: none; border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+        color: white; font-weight: 800; font-size: 1rem; width: 100px; text-align: center;
+    }
+    .preset-rename-input:focus { outline: none; border-color: #22c55e; }
+    .delete-preset-btn { background: transparent; border: none; cursor: pointer; font-size: 0.9rem; filter: grayscale(1); transition: filter 0.2s; }
+    .delete-preset-btn:hover { filter: none; }
+    
+    .add-preset-btn {
+        background: transparent; border: 1px dashed rgba(255, 255, 255, 0.2);
+        color: #94a3b8; font-weight: 700; border-radius: 12px; padding: 12px 18px;
+        cursor: pointer; transition: all 0.2s;
+    }
+    .add-preset-btn:hover {
+        border-color: white; color: white; background: rgba(255, 255, 255, 0.03);
+    }
+
+    /* Rules Grid CSS */
+    .rules-section { display: flex; flex-direction: column; gap: 15px; }
+    .rules-section-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+    .rules-section h3 { font-size: 1.1rem; color: #64748b; margin: 0; text-transform: uppercase; letter-spacing: 1px; }
+    .rules-locked-banner { font-size: 0.8rem; color: #f59e0b; font-weight: 600; }
+    .rules-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 16px; }
+    .rule-card {
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 16px;
+        padding: 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 15px;
+        transition: all 0.3s ease;
+    }
+    .rule-card.active {
+        background: rgba(255, 255, 255, 0.04);
+        border-color: rgba(255, 255, 255, 0.12);
+    }
+    .rule-meta { display: flex; gap: 12px; align-items: flex-start; }
+    .rule-icon { font-size: 1.8rem; line-height: 1; }
+    .rule-text { display: flex; flex-direction: column; gap: 4px; }
+    .rule-title { font-weight: 800; font-size: 1rem; color: #f1f5f9; }
+    .rule-desc { font-size: 0.8rem; color: #64748b; line-height: 1.3; }
+
+    /* Switch CSS */
+    .switch {
+        position: relative; display: inline-block; width: 44px; height: 24px;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+        position: absolute; cursor: pointer; inset: 0;
+        background-color: #334155;
+        transition: .3s cubic-bezier(0.4, 0, 0.2, 1);
+        border-radius: 34px;
+    }
+    .slider:before {
+        position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px;
+        background-color: white;
+        transition: .3s cubic-bezier(0.4, 0, 0.2, 1);
+        border-radius: 50%;
+    }
+    input:checked + .slider { background-color: #22c55e; }
+    input:checked + .slider:before { transform: translateX(20px); }
+    input:disabled + .slider { opacity: 0.4; cursor: not-allowed; }
+
+    /* Hand Size & Advanced Options CSS */
+    .hand-size-config {
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 16px;
+        padding: 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 20px;
+    }
+    .hand-size-meta { display: flex; gap: 12px; align-items: flex-start; }
+    .hand-size-control { display: flex; align-items: center; gap: 15px; }
+    .hand-size-val { font-size: 1.1rem; font-weight: 900; color: #22c55e; min-width: 80px; text-align: right; }
+    .hand-size-control input[type="range"] {
+        accent-color: #22c55e; width: 120px; cursor: pointer;
+    }
+    .uno-penalty-config .hand-size-val { color: #ef4444; }
+    .uno-penalty-config .hand-size-control input[type="range"] { accent-color: #ef4444; }
+
+    .advanced-options-container {
+        border-top: 1px dashed rgba(255, 255, 255, 0.1);
+        padding-top: 20px;
+        margin-top: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+    }
+    .advanced-options-container h4 {
+        margin: 0;
+        font-size: 1.2rem;
+        color: #3b82f6;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    /* QTE Card Details */
+    .timer-config-card {
+        background: rgba(245, 158, 11, 0.05);
+        border: 1px solid rgba(245, 158, 11, 0.15);
+        border-radius: 16px;
+        padding: 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 20px;
+    }
+    .timer-meta { display: flex; gap: 12px; align-items: flex-start; }
+    .timer-slider-control { display: flex; align-items: center; gap: 15px; }
+    .timer-val { font-size: 1.1rem; font-weight: 900; color: #f59e0b; min-width: 45px; }
+    .timer-slider-control input[type="range"] {
+        accent-color: #f59e0b; width: 120px; cursor: pointer;
+    }
+
+    /* Modal Footer CSS */
+    .modal-footer {
+        display: flex; justify-content: flex-end;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        padding-top: 15px;
+    }
+    .confirm-rules-btn {
+        background: #22c55e; color: black; font-weight: 800; font-size: 1rem;
+        padding: 12px 30px; border-radius: 12px; border: none; cursor: pointer;
+        transition: all 0.2s;
+    }
+    .confirm-rules-btn:hover { background: #4ade80; transform: translateY(-1px); }
+
+    /* Rulebook Specific CSS Layout */
+    .rulebook-modal {
+        overflow: hidden !important; /* Eliminate redundant outer vertical scrollbar entirely */
+        max-height: 80vh !important;
+    }
+    .rulebook-layout {
+        display: flex;
+        gap: 20px;
+        height: 52vh; /* Lock height so content pane scrolls properly */
+        overflow: hidden;
+    }
+    .rulebook-sidebar {
+        flex: 1; display: flex; flex-direction: column; gap: 10px;
+        border-right: 1px solid rgba(255, 255, 255, 0.08); padding-right: 15px;
+        overflow-y: auto;
+    }
+    .sidebar-tab {
+        background: transparent; border: none; text-align: left; padding: 12px 16px;
+        border-radius: 8px; color: #94a3b8; font-weight: 700; cursor: pointer;
+        transition: all 0.2s;
+    }
+    .sidebar-tab:hover { background: rgba(255, 255, 255, 0.03); color: white; }
+    .sidebar-tab.active { background: rgba(255, 255, 255, 0.08); color: white; border-left: 3px solid #3b82f6; }
+    
+    .rulebook-content { 
+        flex: 2.5; 
+        overflow-y: auto; 
+        padding-left: 5px; 
+        padding-right: 8px; 
+    }
+
+
+
+    .tab-pane h3 { font-size: 1.4rem; font-weight: 900; margin-top: 0; color: #f8fafc; }
+    .tab-pane h4 { font-size: 1.1rem; font-weight: 800; color: #3b82f6; margin-bottom: 8px; }
+    .tab-pane p { font-size: 0.95rem; color: #94a3b8; line-height: 1.6; }
+    .tab-pane ul { padding-left: 20px; color: #94a3b8; line-height: 1.6; }
+    .tab-pane li { margin-bottom: 6px; }
+    .text-orange h4 { color: #f59e0b !important; }
+ 
+    .action-card-desc { display: flex; gap: 20px; align-items: flex-start; margin-bottom: 24px; }
+    .action-card-desc p { margin: 0; font-size: 0.85rem; line-height: 1.4; color: #94a3b8; }
+
+    .house-rule-desc {
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 12px;
+        padding: 14px;
+        margin-bottom: 15px;
+    }
+    .house-rule-desc h4 { color: #f59e0b; margin: 0 0 6px 0; }
+    .house-rule-desc p { margin: 0; font-size: 0.85rem; }
+
+    /* Animations */
+    @@keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    @@keyframes slideUp {
+        from { transform: translateY(30px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
 </style>
 
 @code {
     private bool _isGameStarted = false;
     private string _playerName = "PLAYER";
-    private GameSettings _settings = new();
     private UnoGame? _game;
+
+    private bool _showRulesModal = false;
+    private bool _showRuleBookModal = false;
+
+    private List<RulePresetProfile> _presets = new();
+    private RulePresetProfile _selectedPreset = null!;
+    
+    private RulePresetProfile? _editingPreset;
+    private GameSettings? _editingSettings;
+
+    private string _activeTab = "general";
 
     protected override void OnInitialized()
     {
-        // Hide sidebar on the home page by default
         NavigationState.IsArenaMode = true;
+
+        // Initialize Presets
+        var classicPreset = new RulePresetProfile
+        {
+            Name = "Classic",
+            IsReadonly = true,
+            Settings = new GameSettings
+            {
+                StartingHandSize = 7,
+                Stacking = false,
+                DrawUntilPlayable = false,
+                ForcedPlayReneging = true,
+                EnableWildDraw4Challenge = true,
+                SevenSwap = false,
+                ZeroRotate = false,
+                JumpInRule = false,
+                EnableWildShuffleCard = false,
+                UnoFailurePenaltyCards = 2
+            }
+        };
+
+        var chaosPreset = new RulePresetProfile
+        {
+            Name = "Chaos",
+            IsReadonly = false, // Editable per user feedback
+            Settings = new GameSettings
+            {
+                StartingHandSize = 6,
+                Stacking = true,
+                DrawUntilPlayable = true,
+                ForcedPlayReneging = true,
+                EnableWildDraw4Challenge = false,
+                SevenSwap = true,
+                ZeroRotate = true,
+                JumpInRule = true,
+                JumpInTimerSeconds = 1.5,
+                EnableWildShuffleCard = true,
+                UnoFailurePenaltyCards = 2
+            }
+        };
+
+        var customPreset = new RulePresetProfile
+        {
+            Name = "Custom",
+            IsReadonly = false,
+            Settings = new GameSettings
+            {
+                StartingHandSize = 7,
+                Stacking = true,
+                DrawUntilPlayable = true,
+                ForcedPlayReneging = true,
+                EnableWildDraw4Challenge = false,
+                SevenSwap = true,
+                ZeroRotate = true,
+                JumpInRule = true,
+                JumpInTimerSeconds = 2.5,
+                EnableWildShuffleCard = false,
+                UnoFailurePenaltyCards = 2
+            }
+        };
+
+        _presets.Add(classicPreset);
+        _presets.Add(chaosPreset);
+        _presets.Add(customPreset);
+
+        // Set default preset
+        _selectedPreset = classicPreset;
+    }
+
+    private void OpenRulesModal()
+    {
+        _editingPreset = _selectedPreset;
+        _editingSettings = _selectedPreset.Settings.Clone();
+        _showRulesModal = true;
+    }
+
+    private void SaveAndApplyRules()
+    {
+        if (_editingPreset != null && _editingSettings != null)
+        {
+            _editingPreset.Settings = _editingSettings;
+            _selectedPreset = _editingPreset;
+        }
+        _showRulesModal = false;
+    }
+
+    private void SelectPreset(RulePresetProfile preset)
+    {
+        _editingPreset = preset;
+        _editingSettings = preset.Settings.Clone();
+    }
+
+    private void CreateCustomPreset()
+    {
+        var newPreset = new RulePresetProfile
+        {
+            Name = $"Preset {_presets.Count - 1}",
+            IsReadonly = false,
+            Settings = (_editingSettings ?? _selectedPreset.Settings).Clone() // Clones currently selected start settings
+        };
+        _presets.Add(newPreset);
+        _editingPreset = newPreset;
+        _editingSettings = newPreset.Settings.Clone();
+    }
+
+    private void DeletePreset(RulePresetProfile preset)
+    {
+        if (preset.IsReadonly || preset.Name == "Chaos" || preset.Name == "Custom") return;
+        
+        _presets.Remove(preset);
+        if (_editingPreset == preset)
+        {
+            _editingPreset = _presets.First(p => p.Name == "Classic");
+            _editingSettings = _editingPreset.Settings.Clone();
+        }
+        if (_selectedPreset == preset)
+        {
+            _selectedPreset = _presets.First(p => p.Name == "Classic");
+        }
+    }
+
+    private void ToggleRule(Action<bool> setter, ChangeEventArgs e)
+    {
+        if (_editingPreset?.IsReadonly == true) return;
+
+        if (e.Value is bool val)
+        {
+            setter(val);
+        }
+    }
+
+    private void UpdateStartingHandSize(ChangeEventArgs e)
+    {
+        if (_editingPreset?.IsReadonly == true || _editingSettings == null) return;
+        if (int.TryParse(e.Value?.ToString(), out var val))
+        {
+            _editingSettings.StartingHandSize = Math.Clamp(val, 3, 10);
+        }
+    }
+
+    private void UpdateUnoPenaltyCards(ChangeEventArgs e)
+    {
+        if (_editingPreset?.IsReadonly == true || _editingSettings == null) return;
+        if (int.TryParse(e.Value?.ToString(), out var val))
+        {
+            _editingSettings.UnoFailurePenaltyCards = Math.Clamp(val, 1, 5);
+        }
+    }
+
+    private void UpdateTimer(ChangeEventArgs e)
+    {
+        if (_editingPreset?.IsReadonly == true || _editingSettings == null) return;
+
+        if (double.TryParse(e.Value?.ToString(), out var seconds))
+        {
+            _editingSettings.JumpInTimerSeconds = seconds;
+        }
     }
 
     private async Task StartMatch()
@@ -151,7 +1030,8 @@
             new Player { Id = Guid.NewGuid(), Name = "CPU 3", IsHuman = false }
         };
 
-        _game = new UnoGame(players, _settings);
+        // Pass the settings of the active selected preset directly to the game session!
+        _game = new UnoGame(players, _selectedPreset.Settings);
         _game.OnStateChanged += () => InvokeAsync(StateHasChanged);
         
         _isGameStarted = true;

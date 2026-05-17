@@ -1,77 +1,25 @@
 @using UnoEngine.Models
 
-<div class="uno-card @GetColorClass()" @onclick="OnClick" style="@Style">
-    <div class="card-content">
-        @if (!IsBack && Card != null)
-        {
-            var display = GetValueDisplay();
-            <div class="corner-val top-left">@display</div>
-            
-            <div class="white-oval">
-                @if (Card.Value == CardValue.Wild)
-                {
-                    <div class="wild-center-icon"></div>
-                }
-                else if (Card.Value == CardValue.WildShuffle)
-                {
-                    <div class="wild-center-icon shuffle-icon">🌪️</div>
-                }
-                else
-                {
-                    <span class="center-val" style="color: @GetHexColor(); font-size: @(display.Length > 1 || display == "⊘" ? "2.2rem" : "2.8rem")">@display</span>
-                }
-            </div>
-            
-            <div class="corner-val bot-right">@display</div>
-        }
-        else if (IsBack)
-        {
+@if (!IsBack && Card != null)
+{
+    <div @onclick="OnClick" style="cursor: pointer; display: inline-block;">
+        <UnoCardView Color="Card.Color" Value="Card.Value" SizeClass="w-24 h-36" Style="@Style" />
+    </div>
+}
+else if (IsBack)
+{
+    <div class="uno-card card-back" @onclick="OnClick" style="@Style">
+        <div class="card-content">
             <div class="white-oval">
                 <span class="back-text">UNO</span>
             </div>
-        }
+        </div>
     </div>
-</div>
+}
 
 @code {
     [Parameter] public UnoCard? Card { get; set; }
     [Parameter] public bool IsBack { get; set; }
     [Parameter] public string Style { get; set; } = "";
     [Parameter] public EventCallback OnClick { get; set; }
-
-    private string GetColorClass() => IsBack ? "card-back" : Card?.Color.ToString().ToLower() ?? "";
-
-    private string GetHexColor() => Card?.Color switch
-    {
-        CardColor.Red    => "var(--red)",
-        CardColor.Blue   => "var(--blue)",
-        CardColor.Green  => "var(--green)",
-        CardColor.Yellow => "var(--yellow)",
-        _                => "black" // Sharp contrast for Wild Draw 4
-    };
-
-    private string GetValueDisplay() 
-    {
-        if (Card == null) return "";
-        if (Card.Value == CardValue.Wild || Card.Value == CardValue.WildShuffle) return ""; // Ensure absolutely nothing for Wild
-        
-        return Card.Value switch
-        {
-            CardValue.Zero     => "0",
-            CardValue.One      => "1",
-            CardValue.Two      => "2",
-            CardValue.Three    => "3",
-            CardValue.Four     => "4",
-            CardValue.Five     => "5",
-            CardValue.Six      => "6",
-            CardValue.Seven    => "7",
-            CardValue.Eight    => "8",
-            CardValue.Nine     => "9",
-            CardValue.Skip     => "⊘",
-            CardValue.Reverse  => "⇄",
-            CardValue.Draw2    => "+2",
-            CardValue.WildDraw4 => "+4",
-            _                  => ""
-        };
-    }
 }

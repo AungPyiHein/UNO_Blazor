@@ -1,0 +1,268 @@
+@using UnoEngine.Models
+
+<div class="physical-uno-card @GetColorClass() @SizeClass" style="@Style">
+    <div class="card-inner-border">
+        <!-- Top Left Corner Val -->
+        <div class="card-corner top-left">
+            <span class="corner-text">@GetValueDisplay()</span>
+        </div>
+
+        <!-- Central Oval Recess -->
+        <div class="card-center-oval">
+            <div class="oval-content">
+                @if (Value == CardValue.Wild)
+                {
+                    <div class="wild-center conic-wheel">
+                        <div class="wild-inner-circle">🎨</div>
+                    </div>
+                }
+                else if (Value == CardValue.WildShuffle)
+                {
+                    <div class="wild-center conic-wheel spin-fast">
+                        <div class="wild-inner-circle">🌪️</div>
+                    </div>
+                }
+                else
+                {
+                    <span class="center-symbol" style="color: @GetHexColor();">@GetValueDisplay()</span>
+                }
+            </div>
+        </div>
+
+        <!-- Bottom Right Corner Val -->
+        <div class="card-corner bottom-right">
+            <span class="corner-text">@GetValueDisplay()</span>
+        </div>
+    </div>
+</div>
+
+<style>
+    .physical-uno-card {
+        border-radius: 14px;
+        background: #ffffff;
+        box-shadow: 
+            0 10px 20px rgba(0, 0, 0, 0.4), 
+            inset 0 1px 2px rgba(255, 255, 255, 0.8),
+            inset 0 -1px 2px rgba(0, 0, 0, 0.2);
+        padding: 6px;
+        box-sizing: border-box;
+        position: relative;
+        display: inline-block;
+        user-select: none;
+        overflow: hidden;
+        aspect-ratio: 2 / 3;
+        transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s;
+        flex-shrink: 0; /* Prevent flex squishing */
+    }
+
+    .physical-uno-card:hover {
+        transform: translateY(-4px) scale(1.02);
+        box-shadow: 
+            0 14px 28px rgba(0, 0, 0, 0.45), 
+            inset 0 1px 2px rgba(255, 255, 255, 0.9);
+    }
+
+    /* Size Class Fallbacks */
+    .w-16.h-24 { width: 64px; height: 96px; border-radius: 8px; padding: 4px; }
+    .w-16.h-24 .card-inner-border { border-radius: 5px; }
+    .w-16.h-24 .center-symbol { font-size: 1.8rem; }
+    .w-16.h-24 .card-corner { display: none !important; }
+    .w-16.h-24 .wild-inner-circle { font-size: 0.8rem; }
+
+    .w-20.h-30 { width: 80px; height: 120px; border-radius: 10px; padding: 5px; }
+    .w-20.h-30 .card-inner-border { border-radius: 6px; }
+    .w-20.h-30 .center-symbol { font-size: 2.2rem; }
+    .w-20.h-30 .card-corner { display: none !important; }
+    .w-20.h-30 .wild-inner-circle { font-size: 1rem; }
+
+    .w-24.h-36 { width: 96px; height: 144px; border-radius: 12px; padding: 6px; }
+    .w-24.h-36 .card-inner-border { border-radius: 8px; }
+    .w-24.h-36 .center-symbol { font-size: 2.8rem; }
+    .w-24.h-36 .corner-text { font-size: 1rem; }
+    .w-24.h-36 .wild-inner-circle { font-size: 1.2rem; }
+
+    .w-28.h-42 { width: 112px; height: 168px; border-radius: 14px; padding: 7px; }
+    .w-28.h-42 .card-inner-border { border-radius: 10px; }
+    .w-28.h-42 .center-symbol { font-size: 3.2rem; }
+    .w-28.h-42 .corner-text { font-size: 1.2rem; }
+    .w-28.h-42 .wild-inner-circle { font-size: 1.4rem; }
+
+    .w-32.h-48 { width: 128px; height: 192px; border-radius: 16px; padding: 8px; }
+    .w-32.h-48 .card-inner-border { border-radius: 12px; }
+    .w-32.h-48 .center-symbol { font-size: 3.8rem; }
+    .w-32.h-48 .corner-text { font-size: 1.35rem; }
+    .w-32.h-48 .wild-inner-circle { font-size: 1.6rem; }
+
+    /* Card Inner Color Face */
+    .card-inner-border {
+        width: 100%;
+        height: 100%;
+        border-radius: 8px;
+        border: 2px solid rgba(255, 255, 255, 0.25);
+        box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.3);
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        box-sizing: border-box;
+    }
+
+    /* Colors and Backgrounds */
+    .card-red { background: linear-gradient(135deg, #ff3838, #c0392b); }
+    .card-blue { background: linear-gradient(135deg, #1e90ff, #0652dd); }
+    .card-green { background: linear-gradient(135deg, #2ed573, #009432); }
+    .card-yellow { background: linear-gradient(135deg, #ffa502, #e1b12c); }
+    .card-wild {
+        background: conic-gradient(
+            #2ed573 0deg 90deg, 
+            #1e90ff 90deg 180deg, 
+            #ffa502 180deg 270deg, 
+            #ff3838 270deg 360deg
+        );
+    }
+
+    /* The Angled Central Recessed Oval */
+    .card-center-oval {
+        width: 90%;
+        height: 72%;
+        background: #ffffff;
+        border-radius: 50%;
+        transform: rotate(-35deg);
+        box-shadow: 
+            inset 0 4px 8px rgba(0, 0, 0, 0.2),
+            0 2px 4px rgba(0, 0, 0, 0.15);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10;
+    }
+
+    .oval-content {
+        transform: rotate(35deg); /* Counter-rotate content to be straight */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 100%;
+    }
+
+    /* Center Text/Symbol */
+    .center-symbol {
+        font-family: 'Outfit', 'Arial Black', sans-serif;
+        font-weight: 900;
+        line-height: 1;
+        text-shadow: 1px 1px 0px rgba(0, 0, 0, 0.15);
+    }
+
+    /* Conic Wild Color Wheel */
+    .wild-center {
+        width: 65%;
+        height: 65%;
+        border-radius: 50%;
+        border: 2px solid white;
+        background: conic-gradient(
+            #2ed573 0deg 90deg, 
+            #1e90ff 90deg 180deg, 
+            #ffa502 180deg 270deg, 
+            #ff3838 270deg 360deg
+        );
+        box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .wild-inner-circle {
+        background: white;
+        width: 50%;
+        height: 50%;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 900;
+        box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    /* Spin Animations */
+    .spin-fast {
+        animation: rotate-conic 4s linear infinite;
+    }
+    @@keyframes rotate-conic {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+
+    /* Corner Symbols */
+    .card-corner {
+        position: absolute;
+        color: white;
+        font-family: 'Outfit', 'Arial Black', sans-serif;
+        font-weight: 900;
+        z-index: 20;
+        text-shadow: 
+            -1px -1px 0 rgba(0,0,0,0.4),
+             1px -1px 0 rgba(0,0,0,0.4),
+            -1px  1px 0 rgba(0,0,0,0.4),
+             1px  1px 0 rgba(0,0,0,0.4),
+             0 2px 4px rgba(0,0,0,0.3);
+    }
+    .card-corner.top-left {
+        top: 6px;
+        left: 8px;
+    }
+    .card-corner.bottom-right {
+        bottom: 6px;
+        right: 8px;
+        transform: rotate(180deg);
+    }
+</style>
+
+@code {
+    [Parameter] public CardColor Color { get; set; }
+    [Parameter] public CardValue Value { get; set; }
+    [Parameter] public string SizeClass { get; set; } = "w-24 h-36";
+    [Parameter] public string Style { get; set; } = "";
+
+    private string GetColorClass() => Color switch
+    {
+        CardColor.Red    => "card-red",
+        CardColor.Blue   => "card-blue",
+        CardColor.Green  => "card-green",
+        CardColor.Yellow => "card-yellow",
+        _                => "card-wild"
+    };
+
+    private string GetHexColor() => Color switch
+    {
+        CardColor.Red    => "#ff3838",
+        CardColor.Blue   => "#1e90ff",
+        CardColor.Green  => "#2ed573",
+        CardColor.Yellow => "#ffa502",
+        _                => "#000000" // Wild colors contrast
+    };
+
+    private string GetValueDisplay()
+    {
+        if (Value == CardValue.Wild || Value == CardValue.WildShuffle) return "";
+
+        return Value switch
+        {
+            CardValue.Zero     => "0",
+            CardValue.One      => "1",
+            CardValue.Two      => "2",
+            CardValue.Three    => "3",
+            CardValue.Four     => "4",
+            CardValue.Five     => "5",
+            CardValue.Six      => "6",
+            CardValue.Seven    => "7",
+            CardValue.Eight    => "8",
+            CardValue.Nine     => "9",
+            CardValue.Skip     => "⊘",
+            CardValue.Reverse  => "⇄",
+            CardValue.Draw2    => "+2",
+            CardValue.WildDraw4 => "+4",
+            _                  => ""
+        };
+    }
+}
