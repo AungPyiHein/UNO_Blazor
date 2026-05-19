@@ -1,6 +1,7 @@
 @using UnoEngine
 @using UnoEngine.Models
 @using UnoApp.Components
+@implements IDisposable
 
 @if (Game != null)
 {
@@ -14,7 +15,7 @@
         <!-- CPU 2 (TOP) -->
         <div class="player-slot slot-cpu-2">
             <div class="cpu-badge" style="position:relative">
-                <PlayerProfile Player="@Game.Players[2]" IsActive="@(Game.CurrentPlayerIndex == 2)" />
+                <PlayerProfile Player="@Game.Players[2]" IsActive="@(Game.CurrentPlayerIndex == 2)" IsUnoDeclared="@(Game.Players[2].Hand.Count == 1 && Game.PlayerAtRisk != Game.Players[2])" />
                 @if (_skippedPlayerIndex == 2)
                 {
                     <div class="skip-overlay" @key="_skipKey">
@@ -45,7 +46,7 @@
         <!-- CPU 1 (LEFT) -->
         <div class="player-slot slot-cpu-1">
             <div class="cpu-badge" style="position:relative">
-                <PlayerProfile Player="@Game.Players[1]" IsActive="@(Game.CurrentPlayerIndex == 1)" />
+                <PlayerProfile Player="@Game.Players[1]" IsActive="@(Game.CurrentPlayerIndex == 1)" IsUnoDeclared="@(Game.Players[1].Hand.Count == 1 && Game.PlayerAtRisk != Game.Players[1])" />
                 @if (_skippedPlayerIndex == 1)
                 {
                     <div class="skip-overlay" @key="_skipKey">
@@ -74,25 +75,61 @@
         <!-- CENTER AREA (THE HUB) -->
         <div class="center-area">
             <!-- Turn Direction Indicator -->
-            <div class="turn-indicator @(Game.GameDirection == 1 ? "clockwise" : "counter-clockwise")">
-                <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <!-- Base subtle track -->
-                    <circle cx="100" cy="100" r="95" stroke="rgba(255,255,255,0.05)" stroke-width="2"/>
-                    <!-- Sleek rotating arrows -->
-                    <path d="M100 5 A 95 95 0 0 1 195 100" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
-                    <path d="M195 100 A 95 95 0 0 1 100 195" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
-                    <path d="M100 195 A 95 95 0 0 1 5 100" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
-                    <path d="M5 100 A 95 95 0 0 1 100 5" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
-                    
-                    <!-- Right (pointing DOWN) -->
-                    <polygon points="190,95 200,95 195,105" fill="currentColor" class="arrow-head arrow-right" />
-                    <!-- Bottom (pointing LEFT) -->
-                    <polygon points="105,190 105,200 95,195" fill="currentColor" class="arrow-head arrow-bottom" />
-                    <!-- Left (pointing UP) -->
-                    <polygon points="0,105 10,105 5,95" fill="currentColor" class="arrow-head arrow-left" />
-                    <!-- Top (pointing RIGHT) -->
-                    <polygon points="95,0 95,10 105,5" fill="currentColor" class="arrow-head arrow-top" />
-                </svg>
+            <div class="turn-indicator-container">
+                @if (GameState.IsClockwise)
+                {
+                    <svg viewBox="0 0 100 100" class="turn-indicator-svg spin-clockwise">
+                        <defs>
+                            <filter id="neon-glow-cw" x="-30%" y="-30%" width="160%" height="160%">
+                                <feGaussianBlur stdDeviation="1.2" result="blur" />
+                                <feComponentTransfer in="blur" result="brightBlur">
+                                    <feFuncA type="linear" slope="0.5"/>
+                                </feComponentTransfer>
+                                <feMerge>
+                                    <feMergeNode in="brightBlur" />
+                                    <feMergeNode in="SourceGraphic" />
+                                </feMerge>
+                            </filter>
+                            <marker id="arrowhead-cw" viewBox="0 0 10 10" refX="0" refY="5" markerWidth="11" markerHeight="11" orient="auto" markerUnits="userSpaceOnUse">
+                                <path d="M 0,1.5 L 9,5 L 0,8.5 Z" fill="rgba(255, 255, 255, 0.28)" />
+                            </marker>
+                            <g id="arrow-half-cw">
+                                <path d="M 17.2,58.8 A 34,34 0 0,1 74.0,26.0" fill="none" stroke="rgba(255, 255, 255, 0.28)" stroke-width="4.5" stroke-linecap="round" marker-end="url(#arrowhead-cw)" />
+                            </g>
+                        </defs>
+                        <g filter="url(#neon-glow-cw)">
+                            <use href="#arrow-half-cw" />
+                            <use href="#arrow-half-cw" transform="rotate(180 50 50)" />
+                        </g>
+                    </svg>
+                }
+                else
+                {
+                    <svg viewBox="0 0 100 100" class="turn-indicator-svg spin-counter">
+                        <defs>
+                            <filter id="neon-glow-ccw" x="-30%" y="-30%" width="160%" height="160%">
+                                <feGaussianBlur stdDeviation="1.2" result="blur" />
+                                <feComponentTransfer in="blur" result="brightBlur">
+                                    <feFuncA type="linear" slope="0.5"/>
+                                </feComponentTransfer>
+                                <feMerge>
+                                    <feMergeNode in="brightBlur" />
+                                    <feMergeNode in="SourceGraphic" />
+                                </feMerge>
+                            </filter>
+                            <marker id="arrowhead-ccw" viewBox="0 0 10 10" refX="0" refY="5" markerWidth="11" markerHeight="11" orient="auto" markerUnits="userSpaceOnUse">
+                                <path d="M 0,1.5 L 9,5 L 0,8.5 Z" fill="rgba(255, 255, 255, 0.28)" />
+                            </marker>
+                            <g id="arrow-half-ccw">
+                                <path d="M 17.2,58.8 A 34,34 0 0,1 74.0,26.0" fill="none" stroke="rgba(255, 255, 255, 0.28)" stroke-width="4.5" stroke-linecap="round" marker-end="url(#arrowhead-ccw)" />
+                            </g>
+                        </defs>
+                        <g filter="url(#neon-glow-ccw)" transform="translate(50, 50) scale(-1, 1) translate(-50, -50)">
+                            <use href="#arrow-half-ccw" />
+                            <use href="#arrow-half-ccw" transform="rotate(180 50 50)" />
+                        </g>
+                    </svg>
+                }
             </div>
 
             <div class="draw-pile" @onclick="HandleDraw">
@@ -114,7 +151,7 @@
                     string glowClass = "";
                     if (Game.TopCard != null && _cpuStagedWild == null && Game.Status != GameStatus.WaitingForColorSelection)
                     {
-                        glowClass = Game.LastValidColor switch
+                        glowClass = Game.TopCard.Color switch
                         {
                             CardColor.Red => "active-glow-red",
                             CardColor.Blue => "active-glow-blue",
@@ -155,7 +192,7 @@
         <!-- CPU 3 (RIGHT) -->
         <div class="player-slot slot-cpu-3">
             <div class="cpu-badge" style="position:relative">
-                <PlayerProfile Player="@Game.Players[3]" IsActive="@(Game.CurrentPlayerIndex == 3)" />
+                <PlayerProfile Player="@Game.Players[3]" IsActive="@(Game.CurrentPlayerIndex == 3)" IsUnoDeclared="@(Game.Players[3].Hand.Count == 1 && Game.PlayerAtRisk != Game.Players[3])" />
                 @if (_skippedPlayerIndex == 3)
                 {
                     <div class="skip-overlay" @key="_skipKey">
@@ -184,7 +221,7 @@
         <!-- HUMAN (BOTTOM) -->
         <div class="player-slot slot-human">
             <div class="human-profile-wrapper" style="position:relative">
-                <PlayerProfile Player="@Game.Players[0]" IsActive="@(Game.CurrentPlayerIndex == 0)" />
+                <PlayerProfile Player="@Game.Players[0]" IsActive="@(Game.CurrentPlayerIndex == 0)" IsUnoDeclared="@(Game.Players[0].Hand.Count == 1 && Game.PlayerAtRisk != Game.Players[0])" />
                 @if (_skippedPlayerIndex == 0)
                 {
                     <div class="skip-overlay" @key="_skipKey">
@@ -288,25 +325,23 @@
         </div>
     }
 
-    @if (Game.Status == GameStatus.WaitingForUnoCall)
+    <div class="hud-action-container">
+        @if (GameState.Players[0].Hand.Count == 1 && GameState.PlayerAtRisk == GameState.Players[0])
+        {
+            <button class="ubisoft-uno-btn" @onclick="DeclareUno">UNO!</button>
+        }
+
+        @if (GameState.CanChallengeUno)
+        {
+            <button class="ubisoft-catch-btn" @onclick="HandleCatchAction">!</button>
+        }
+    </div>
+
+    @if (!string.IsNullOrEmpty(GameState.ActiveNotificationBanner))
     {
-        <div class="modal-overlay uno-qte-overlay">
-            <div class="uno-qte-container">
-                <svg class="qte-ring uno-ring" viewBox="0 0 100 100" style="--qte-duration: 2.5s;">
-                    <circle cx="50" cy="50" r="45"></circle>
-                </svg>
-                <button class="mega-uno-btn" @onclick="() => Game.AttemptUnoCallAsync(Game.Players[0])">
-                    UNO!
-                </button>
-                @if (Game.PlayerAtRisk == Game.Players[0])
-                {
-                    <div class="uno-hint">CALL IT FAST!</div>
-                }
-                else
-                {
-                    <div class="uno-hint">CATCH @Game.PlayerAtRisk?.Name.ToUpper()!</div>
-                }
-            </div>
+        <div class="ubisoft-announcement-banner">
+            <div class="banner-glitch-line"></div>
+            <span class="banner-text">@GameState.ActiveNotificationBanner</span>
         </div>
     }
 
@@ -345,13 +380,53 @@
     private bool IsSwapPartner(int playerIndex) =>
         _swapP1 == playerIndex || _swapP2 == playerIndex;
 
+    private UnoGame GameState => Game!;
+    private System.Threading.CancellationTokenSource? _bannerCts;
+    private string _lastObservedBanner = "";
+
     protected override void OnParametersSet()
     {
         if (Game != null)
         {
             Game.OnBoardAnimation -= HandleBoardAnimation;
             Game.OnBoardAnimation += HandleBoardAnimation;
+
+            Game.OnStateChanged -= HandleStateChanged;
+            Game.OnStateChanged += HandleStateChanged;
         }
+    }
+
+    private void HandleStateChanged()
+    {
+        if (Game != null && Game.ActiveNotificationBanner != _lastObservedBanner)
+        {
+            _lastObservedBanner = Game.ActiveNotificationBanner;
+            if (!string.IsNullOrEmpty(_lastObservedBanner))
+            {
+                ShowBanner(_lastObservedBanner);
+            }
+        }
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void ShowBanner(string message)
+    {
+        if (Game == null) return;
+
+        _bannerCts?.Cancel();
+        _bannerCts = new System.Threading.CancellationTokenSource();
+        var token = _bannerCts.Token;
+
+        Game.ActiveNotificationBanner = message;
+        StateHasChanged();
+
+        _ = Task.Delay(3000, token).ContinueWith(t => {
+            if (!t.IsCanceled && Game != null)
+            {
+                Game.ActiveNotificationBanner = "";
+                InvokeAsync(StateHasChanged);
+            }
+        });
     }
 
     private async Task HandleBoardAnimation(string animType)
@@ -538,6 +613,7 @@
         try
         {
             await Game.PlayCardAsync(Game.Players[0], Game.PendingCard, color);
+            StateHasChanged();
         }
         finally
         {
@@ -557,5 +633,41 @@
         {
             _isProcessingAction = false;
         }
+    }
+
+    private async Task HandleCatchAction()
+    {
+        if (Game == null || Game.PlayerAtRisk == null) return;
+        var targetPlayer = Game.PlayerAtRisk;
+        Game.LogAction($"PLAYER clicked Catch on {targetPlayer.Name}!");
+        await Game.AttemptUnoCallAsync(Game.Players[0]);
+    }
+
+    private async Task DeclareUno()
+    {
+        if (Game == null) return;
+        if (Game.Status == GameStatus.WaitingForUnoCall)
+        {
+            await Game.AttemptUnoCallAsync(Game.Players[0]);
+            StateHasChanged();
+        }
+        else
+        {
+            Game.IsUnoCalled = true;
+            Game.LogAction("PLAYER proactively declared UNO!");
+            ShowBanner("YOU DECLARED UNO!");
+            StateHasChanged();
+        }
+    }
+
+    public void Dispose()
+    {
+        if (Game != null)
+        {
+            Game.OnBoardAnimation -= HandleBoardAnimation;
+            Game.OnStateChanged -= HandleStateChanged;
+        }
+        _bannerCts?.Cancel();
+        _bannerCts?.Dispose();
     }
 }

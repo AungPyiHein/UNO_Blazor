@@ -368,6 +368,7 @@ body {
 .draw-pile {
     cursor: pointer;
     position: relative;
+    z-index: 5;
 }
 
 .discard-pile {
@@ -375,6 +376,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    z-index: 5;
 }
 
 .discard-glow-ring {
@@ -508,52 +510,34 @@ body {
 /* ============================================================
    TURN INDICATOR
    ============================================================ */
-.turn-indicator {
+.turn-indicator-container {
     position: absolute;
-    top: 50%;
-    left: 50%;
+    top: 50%; left: 50%;
+    width: 360px; height: 360px;
     transform: translate(-50%, -50%);
-    width: 380px;
-    height: 380px;
     pointer-events: none;
-    z-index: 1; /* Below the cards */
-    opacity: 0.15;
-    transition: transform 0.5s ease, opacity 0.5s ease;
+    z-index: 1;
 }
 
-.turn-indicator svg {
+.turn-indicator-svg {
     width: 100%;
     height: 100%;
-    color: white;
-    filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.5));
+}
+.turn-indicator-svg path:not([fill="none"]) {
+    fill: rgba(255, 255, 255, 0.7);
+    transition: fill 0.3s ease;
 }
 
-.clockwise {
-    animation: rotate-cw 20s linear infinite;
+.turn-indicator-svg.spin-clockwise {
+    animation: simple-spin 25s linear infinite;
+}
+.turn-indicator-svg.spin-counter {
+    animation: simple-spin 25s linear infinite reverse;
 }
 
-.counter-clockwise {
-    animation: rotate-ccw 20s linear infinite;
-}
-
-/* Flip arrow heads for counter-clockwise */
-.counter-clockwise .arrow-head {
-    transform-origin: center;
-    transform: rotate(180deg);
-}
-.counter-clockwise .arrow-top { transform-origin: 100px 5px; transform: rotate(180deg); }
-.counter-clockwise .arrow-right { transform-origin: 195px 100px; transform: rotate(180deg); }
-.counter-clockwise .arrow-bottom { transform-origin: 100px 195px; transform: rotate(180deg); }
-.counter-clockwise .arrow-left { transform-origin: 5px 100px; transform: rotate(180deg); }
-
-@keyframes rotate-cw {
-    from { transform: translate(-50%, -50%) rotate(0deg); }
-    to { transform: translate(-50%, -50%) rotate(360deg); }
-}
-
-@keyframes rotate-ccw {
-    from { transform: translate(-50%, -50%) rotate(360deg); }
-    to { transform: translate(-50%, -50%) rotate(0deg); }
+@keyframes simple-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 
 /* ============================================================
@@ -1047,4 +1031,338 @@ body {
 
   /* Phase 4: Exploding Out / Spitting & Collapsing */
   100% { transform: translate(-50%, -50%) scale(0) rotate(1800deg);  opacity: 0; filter: brightness(0.5); }
+}
+
+/* ============================================================
+   UBISOFT TACTILE ACTION BUTTONS — Console HUD System
+   ============================================================ */
+
+/* Master class: depth, gradients, aggressive click physics */
+.btn-ubisoft {
+    position: relative;
+    padding: 12px 32px;
+    border-radius: 50px;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    font-family: 'Arial Black', Impact, sans-serif;
+    font-size: 1.2rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    cursor: pointer;
+    outline: none;
+    transition: all 0.15s cubic-bezier(0.25, 0.8, 0.25, 1);
+    /* The Ubisoft 3D depth trick: outer glow + inner highlight */
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.3), inset 0 3px 0 rgba(255, 255, 255, 0.3);
+    overflow: hidden;
+}
+
+/* The aggressive physical click-down */
+.btn-ubisoft:active {
+    transform: scale(0.92) translateY(4px);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4), inset 0 4px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* The iconic UNO button — Vibrant Red/Orange gradient with heavy red glow */
+.btn-uno-call {
+    background: linear-gradient(135deg, #ff416c, #ff4b2b);
+    box-shadow: 0 8px 25px rgba(255, 75, 43, 0.5), inset 0 3px 0 rgba(255, 255, 255, 0.4);
+    animation: btn-uno-pulse 0.7s infinite alternate ease-in-out;
+}
+.btn-uno-call:hover {
+    filter: brightness(1.15);
+    box-shadow: 0 12px 30px rgba(255, 75, 43, 0.7), inset 0 3px 0 rgba(255, 255, 255, 0.5);
+}
+@keyframes btn-uno-pulse {
+    from { box-shadow: 0 8px 25px rgba(255, 75, 43, 0.5), inset 0 3px 0 rgba(255, 255, 255, 0.4); }
+    to   { box-shadow: 0 14px 40px rgba(255, 75, 43, 0.85), inset 0 3px 0 rgba(255, 255, 255, 0.5); transform: scale(1.04); }
+}
+
+/* The Catch button — Warning Gold gradient */
+.btn-catch {
+    background: linear-gradient(135deg, #fceabb, #f8b500);
+    color: #111;
+    border-color: rgba(0, 0, 0, 0.1);
+    box-shadow: 0 8px 25px rgba(248, 181, 0, 0.4), inset 0 3px 0 rgba(255, 255, 255, 0.6);
+    animation: btn-catch-pulse 0.9s infinite alternate ease-in-out;
+}
+.btn-catch:hover {
+    filter: brightness(1.1);
+    box-shadow: 0 12px 30px rgba(248, 181, 0, 0.6), inset 0 3px 0 rgba(255, 255, 255, 0.7);
+}
+@keyframes btn-catch-pulse {
+    from { box-shadow: 0 8px 25px rgba(248, 181, 0, 0.4), inset 0 3px 0 rgba(255, 255, 255, 0.6); }
+    to   { box-shadow: 0 14px 40px rgba(248, 181, 0, 0.75), inset 0 3px 0 rgba(255, 255, 255, 0.7); transform: scale(1.03); }
+}
+
+/* Override: :active must always win over the pulse animation scale */
+.btn-uno-call:active,
+.btn-catch:active {
+    animation: none;
+    transform: scale(0.92) translateY(4px) !important;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4), inset 0 4px 8px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* ============================================================
+   HUD ACTION CONTAINER — Fixed bottom-right, console-style
+   ============================================================ */
+.hud-action-container {
+    position: fixed;
+    bottom: 22%; /* Elevates it to the middle of the lower-right quadrant */
+    right: 22%;  /* Shifts it inward, safely away from the right-side CPU hand */
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    z-index: 1000;
+    align-items: center;
+    pointer-events: all;
+    animation: hud-cluster-enter 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes hud-cluster-enter {
+    from { opacity: 0; transform: translateX(40px) scale(0.85); }
+    to   { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+/* Small context label above the button */
+.hud-action-label {
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: rgba(255, 255, 255, 0.55);
+    text-align: right;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+    padding-right: 4px;
+}
+
+/* Compact QTE countdown ring sitting just above the button */
+.hud-qte-ring-wrapper {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    align-self: flex-end;
+    margin-bottom: 2px;
+}
+
+.hud-qte-ring {
+    position: absolute;
+    inset: 0;
+    transform: rotate(-90deg);
+    pointer-events: none;
+}
+
+.hud-qte-ring circle {
+    fill: none;
+    stroke: #ff4757;
+    stroke-width: 6;
+    stroke-linecap: round;
+    stroke-dasharray: 126; /* 2 * PI * 20 */
+    stroke-dashoffset: 0;
+    animation: qte-countdown var(--qte-duration) linear forwards;
+    filter: drop-shadow(0 0 5px #ff4757);
+}
+
+/* Absolute Fix for Player Status Clipping */
+.player-status-text {
+    display: block;
+    width: 100%;
+    text-align: center;
+    font-size: 0.8rem;
+    font-weight: 500;
+    line-height: 1.1;
+    margin: 0;
+    padding-bottom: 6px; /* Forces vertical breathing room inside the panel boundary */
+    box-sizing: border-box;
+}
+
+.player-status-text.active-thinking {
+    color: #a5d6a7; /* Subtle clean light green, or change to match your aesthetic */
+    font-size: 0.85rem;
+    font-weight: 500;
+    animation: status-fade 1.5s infinite ease-in-out;
+}
+
+@keyframes status-fade {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+}
+
+/* ============================================================
+   UBISOFT PREMIUM CATCH, UNO & ANNOUNCEMENT STYLES
+   ============================================================ */
+
+/* Action Container Placement */
+.hud-action-container {
+    position: absolute;
+    bottom: 15%;
+    right: 18%;
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    z-index: 100;
+}
+
+/* Premium UNO Capsule Button */
+.ubisoft-uno-btn {
+    background: linear-gradient(135deg, #ff512f 0%, #dd2476 100%); /* vibrant orange-to-red gradient */
+    border: 4px solid #ffffff; /* thick white border */
+    border-radius: 30px;
+    color: #ffffff;
+    font-size: 1.4rem;
+    font-weight: 900; /* high font weight */
+    padding: 12px 35px;
+    cursor: pointer;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    /* inner and outer glowing drop-shadow */
+    box-shadow: 0 0 25px rgba(221, 36, 118, 0.85), inset 0 0 15px rgba(255, 255, 255, 0.6);
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+    transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.ubisoft-uno-btn:hover {
+    transform: scale(1.1); /* slight scale transform on hover */
+    box-shadow: 0 0 35px rgba(221, 36, 118, 1.0), inset 0 0 20px rgba(255, 255, 255, 0.8);
+}
+.ubisoft-uno-btn:active {
+    transform: scale(0.92);
+    box-shadow: 0 0 15px rgba(221, 36, 118, 0.6), inset 0 0 10px rgba(255, 255, 255, 0.4);
+}
+
+/* Premium Circular UNO! Side Badge */
+.uno-circular-badge {
+    position: absolute;
+    left: -28px;
+    top: 50%;
+    transform: translateY(-50%) scale(1);
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #ff7e00 0%, #ff003c 100%); /* bold orange-to-red gradient background */
+    border: 3px solid #ffffff; /* clean white outline border */
+    color: #ffffff; /* high-contrast white text */
+    font-family: 'Outfit', 'Segoe UI', Arial, sans-serif;
+    font-size: 0.68rem;
+    font-weight: 900;
+    text-align: center;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    pointer-events: none;
+    /* noticeable neon drop-shadow glow and deep shadow */
+    box-shadow: 0 0 20px #ff003c, 0 4px 10px rgba(0,0,0,0.5);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+    animation: uno-badge-pop-in 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.4) forwards; /* scale pop-in animation */
+}
+
+@keyframes uno-badge-pop-in {
+    0% {
+        transform: translateY(-50%) scale(0);
+        opacity: 0;
+    }
+    75% {
+        transform: translateY(-50%) scale(1.2);
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(-50%) scale(1);
+        opacity: 1;
+    }
+}
+
+/* Ubisoft Catch Button */
+.ubisoft-catch-btn {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #ff1744 0%, #d50000 100%);
+    border: 3px solid #fff;
+    color: #fff;
+    font-size: 2.8rem;
+    font-weight: 900;
+    cursor: pointer;
+    box-shadow: 0 0 30px rgba(255, 23, 68, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    animation: catch-pulse 0.8s infinite alternate ease-in-out;
+    transition: all 0.2s ease;
+}
+.ubisoft-catch-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0 45px rgba(255, 23, 68, 0.9);
+}
+.ubisoft-catch-btn:active {
+    transform: scale(0.9);
+}
+
+@keyframes catch-pulse {
+    0% { transform: scale(1); box-shadow: 0 0 20px rgba(255, 23, 68, 0.5); }
+    100% { transform: scale(1.12); box-shadow: 0 0 40px rgba(255, 23, 68, 0.8); }
+}
+
+.ubisoft-announcement-banner {
+    position: absolute;
+    top: 15%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(10, 15, 30, 0.85);
+    border: 2px solid rgba(255, 255, 255, 0.25);
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.8), 0 0 20px rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    padding: 18px 40px;
+    z-index: 99999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(10px);
+    animation: banner-slide-in 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    overflow: hidden;
+}
+
+.banner-glitch-line {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: linear-gradient(90deg, #ff3838, #f0932b, #22c55e, #3b82f6, #ff3838);
+    background-size: 400% 100%;
+    animation: glitch-gradient 3s linear infinite;
+}
+
+.banner-text {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 2rem;
+    font-weight: 900;
+    letter-spacing: 4px;
+    color: #ffffff;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8), 0 0 10px rgba(255, 255, 255, 0.3);
+    text-align: center;
+    text-transform: uppercase;
+    animation: glitch-skew 1s infinite alternate;
+}
+
+@keyframes banner-slide-in {
+    0% { transform: translate(-50%, -150%) scale(0.8); opacity: 0; }
+    100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+
+@keyframes glitch-gradient {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+@keyframes glitch-skew {
+    0%, 100% { transform: skew(0deg); }
+    20% { transform: skew(-2deg); }
+    40% { transform: skew(2deg); }
+    60% { transform: skew(0deg); }
+    80% { transform: skew(3deg); }
+    90% { transform: skew(-3deg); }
 }

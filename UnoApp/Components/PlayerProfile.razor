@@ -9,17 +9,24 @@
             <div class="tiny-card"></div>
             <span class="count" @key="Player.Hand.Count">@Player.Hand.Count</span>
         </div>
+
+        @if (IsUnoDeclared)
+        {
+            <div class="uno-circular-badge">UNO!</div>
+        }
     </div>
     
     <div class="profile-info">
         <div class="player-name">@Player.Name</div>
-        <div class="player-status">@Player.CurrentStatus</div>
+        @if (IsActive)
+        {
+            <div class="player-status-text active-thinking">@Player.CurrentStatus</div>
+        }
+        else
+        {
+            <div class="player-status-text" style="visibility: hidden;">&nbsp;</div>
+        }
     </div>
-    
-    @if (Player.Hand.Count == 1)
-    {
-        <div class="uno-alert">UNO!</div>
-    }
 </div>
 
 <style>
@@ -142,28 +149,11 @@
         text-transform: uppercase;
     }
 
-    .player-status {
+    .player-status-text {
         color: #60a5fa;
         font-size: 0.6rem;
         font-weight: 600;
         height: 12px;
-    }
-
-    .uno-alert {
-        position: absolute;
-        bottom: -15px;
-        background: #ef4444;
-        color: white;
-        padding: 2px 8px;
-        border-radius: 10px;
-        font-size: 0.6rem;
-        font-weight: 900;
-        animation: pop-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    }
-
-    @@keyframes pop-in {
-        from { transform: scale(0); }
-        to { transform: scale(1); }
     }
 
     .uno-warning .avatar-circle {
@@ -180,6 +170,7 @@
 @code {
     [Parameter] public Player Player { get; set; } = null!;
     [Parameter] public bool IsActive { get; set; }
+    [Parameter] public bool IsUnoDeclared { get; set; }
 
     private string GetInitials()
     {

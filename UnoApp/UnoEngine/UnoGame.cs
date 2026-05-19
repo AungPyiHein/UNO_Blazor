@@ -36,6 +36,11 @@ namespace UnoEngine
         public Player? Winner { get; private set; }
         public int WinnerScore { get; private set; }
         public bool IsUnoCalled { get; set; } = false;
+        public bool IsClockwise => GameDirection == 1;
+        public bool CanChallengeUno => Status == GameStatus.WaitingForUnoCall && PlayerAtRisk != null && PlayerAtRisk != Players[0];
+        public bool CanCallUno => (CurrentPlayerIndex == 0 && Players[0].Hand.Count == 2 && !IsUnoCalled && Status == GameStatus.Playing) || (Status == GameStatus.WaitingForUnoCall && PlayerAtRisk == Players[0]);
+        public int LastUnoViolatorIndex { get; set; } = -1;
+        public string ActiveNotificationBanner { get; set; } = "";
         public CardColor LastValidColor { get; set; }
 
         private Random _random = new();
@@ -212,6 +217,7 @@ namespace UnoEngine
             }
 
             foreach (var p in Players) p.CurrentStatus = p == currentPlayer ? "Thinking..." : "";
+            OnStateChanged?.Invoke();
 
             if (!currentPlayer.IsHuman)
             {
@@ -452,9 +458,17 @@ namespace UnoEngine
 
             if (player.Hand.Count == 1)
             {
-                PlayerAtRisk = player;
-                SafeFireAndForget(() => RunUnoTimerAsync(player));
-                return; // Turn sequence will resume after UNO QTE
+                if (IsUnoCalled)
+                {
+                    IsUnoCalled = false; // Reset
+                    PlayerAtRisk = null;
+                }
+                else
+                {
+                    PlayerAtRisk = player;
+                    SafeFireAndForget(() => RunUnoTimerAsync(player));
+                    return; // Turn sequence will resume after UNO QTE
+                }
             }
 
             if (player.Hand.Count == 0)
@@ -591,10 +605,13 @@ namespace UnoEngine
                 if (caller == PlayerAtRisk)
                 {
                     LogAction($"{caller.Name} successfully called UNO!");
+                    ActiveNotificationBanner = $"{caller.Name.ToUpper()} CALLED UNO!";
                 }
                 else
                 {
                     LogAction($"{caller.Name} CAUGHT {PlayerAtRisk.Name}! {PlayerAtRisk.Name} draws 2.");
+                    LastUnoViolatorIndex = Players.IndexOf(PlayerAtRisk);
+                    ActiveNotificationBanner = $"{caller.Name.ToUpper()} CAUGHT {PlayerAtRisk.Name.ToUpper()}!";
                     for (int i = 0; i < 2; i++) PlayerAtRisk.Hand.Add(DrawOne());
                 }
 
