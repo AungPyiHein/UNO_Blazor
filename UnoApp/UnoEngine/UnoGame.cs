@@ -232,6 +232,9 @@ namespace UnoEngine
                 // We only reach here if Stacking is ON and CPU has a stackable card (guaranteed by StartTurnAsync)
                 var stackable = cpu.Hand.First(c => c.Value == TopCard?.Value);
                 LogAction($"{cpu.Name} STACKED a {stackable}!");
+                // Phase A: Drop the multi-color wild art on the pile before declaring color
+                if (stackable.Color == CardColor.Wild && OnBoardAnimation != null)
+                    await OnBoardAnimation.Invoke($"wild-drop-{Players.IndexOf(cpu)}");
                 // Always pass a declared color — WildDraw4 is Wild color and would trigger color picker without it
                 await PlayCardAsync(cpu, stackable, CardColor.Red);
                 return;
@@ -275,6 +278,9 @@ namespace UnoEngine
                 if (nextPlayer.Hand.Count <= 3) // Threat detected
                 {
                     LogAction($"{cpu.Name} played a {powerCard.Value} against {nextPlayer.Name}!");
+                    // Phase A: Drop multi-color wild art before declaring color
+                    if (powerCard.Color == CardColor.Wild && OnBoardAnimation != null)
+                        await OnBoardAnimation.Invoke($"wild-drop-{Players.IndexOf(cpu)}");
                     await PlayCardAsync(cpu, powerCard, CardColor.Red); 
                     return;
                 }
@@ -285,6 +291,9 @@ namespace UnoEngine
             if (match != null)
             {
                 LogAction($"{cpu.Name} played {match}.");
+                // Phase A: Drop multi-color wild art before declaring color
+                if (match.Color == CardColor.Wild && OnBoardAnimation != null)
+                    await OnBoardAnimation.Invoke($"wild-drop-{Players.IndexOf(cpu)}");
                 await PlayCardAsync(cpu, match, CardColor.Red);
                 return;
             }
@@ -298,6 +307,9 @@ namespace UnoEngine
             if (CanPlayCard(drawn) && !(drawn.Value == CardValue.Seven && Settings.SevenSwap))
             {
                 LogAction($"{cpu.Name} played the drawn {drawn}.");
+                // Phase A: Drop multi-color wild art before declaring color
+                if (drawn.Color == CardColor.Wild && OnBoardAnimation != null)
+                    await OnBoardAnimation.Invoke($"wild-drop-{Players.IndexOf(cpu)}");
                 await PlayCardAsync(cpu, drawn, CardColor.Red);
             }
             else

@@ -99,8 +99,36 @@
                 <UnoCardComponent IsBack="true" />
             </div>
             <div class="discard-pile" style="position: relative;">
-                <div @key="Game.TopCard?.Id" class="discard-anim-@Game.LastPlayerIndex">
-                    <UnoCardComponent Card="@Game.TopCard" />
+                @{
+                    // 2-Phase Wild Lifecycle display logic:
+                    // Phase A (Drop): Show the unresolved 4-color Wild art on the pile.
+                    //   - CPU: _cpuStagedWild is set during the 1000ms "thinking" window.
+                    //   - Human: PendingCard holds the Wild while WaitingForColorSelection.
+                    // Phase C (Resolve): Game.TopCard already has the chosen color stamped on it.
+                    var displayCard = _cpuStagedWild
+                        ?? (Game.Status == GameStatus.WaitingForColorSelection && Game.PendingCard != null
+                            ? Game.PendingCard  // Shows 4-color Wild art while picker is open
+                            : Game.TopCard);
+                            
+                    // Determine the active color glow
+                    string glowClass = "";
+                    if (Game.TopCard != null && _cpuStagedWild == null && Game.Status != GameStatus.WaitingForColorSelection)
+                    {
+                        glowClass = Game.LastValidColor switch
+                        {
+                            CardColor.Red => "active-glow-red",
+                            CardColor.Blue => "active-glow-blue",
+                            CardColor.Green => "active-glow-green",
+                            CardColor.Yellow => "active-glow-yellow",
+                            _ => ""
+                        };
+                    }
+                }
+                
+                <div class="discard-glow-ring @glowClass"></div>
+                
+                <div @key="displayCard?.Id" class="discard-anim-@Game.LastPlayerIndex" style="position: relative; z-index: 2;">
+                    <UnoCardComponent Card="@displayCard" />
                 </div>
                 @if (Game.PendingDrawCount > 0)
                 {
@@ -311,6 +339,8 @@
     private bool _isSpittingCards = false;
     // Snapshot counts used during ingest so DOM elements stay alive for CSS transition
     private int[]? _vortexHandSnapshot = null;
+    // Wild card staged on the pile before color is chosen (CPU "thinking" phase)
+    private UnoCard? _cpuStagedWild = null;
 
     private bool IsSwapPartner(int playerIndex) =>
         _swapP1 == playerIndex || _swapP2 == playerIndex;
@@ -416,6 +446,25 @@
             _isSpittingCards = false;
             _showVortexAnimation = false;
             _isAnimating = false;
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        // Wild card CPU drop — Phase A: stage the multi-color Wild on the pile for 1000ms
+        // so players see the 4-color art land before the CPU "decides" a color.
+        if (animType.StartsWith("wild-drop-") && int.TryParse(animType.Split('-')[2], out int wildIdx))
+        {
+            if (Game != null)
+            {
+                // Find the wild card the CPU is about to play (top candidate in hand)
+                var cpuPlayer = Game.Players[wildIdx];
+                _cpuStagedWild = cpuPlayer.Hand.FirstOrDefault(c => c.Color == CardColor.Wild)
+                    // Fallback: create a display-only Wild record if not yet in hand (edge case)
+                    ?? new UnoCard(Guid.NewGuid(), CardColor.Wild, CardValue.Wild);
+            }
+            await InvokeAsync(StateHasChanged); // Phase A: 4-color Wild lands on pile
+            await Task.Delay(1000);             // Cinematic "thinking" beat
+            _cpuStagedWild = null;             // Phase C: engine will stamp TopCard with chosen color
             await InvokeAsync(StateHasChanged);
             return;
         }
