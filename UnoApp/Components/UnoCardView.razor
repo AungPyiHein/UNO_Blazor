@@ -16,10 +16,10 @@
                         <div class="wild-inner-circle">🎨</div>
                     </div>
                 }
-                else if (Value == CardValue.WildShuffle)
+                else if (Value == CardValue.Vortex)
                 {
                     <div class="wild-center conic-wheel spin-fast">
-                        <div class="wild-inner-circle">🌪️</div>
+                        <div class="wild-inner-circle">🌀</div>
                     </div>
                 }
                 else
@@ -244,7 +244,7 @@
 
     private string GetValueDisplay()
     {
-        if (Value == CardValue.Wild || Value == CardValue.WildShuffle) return "";
+        if (Value == CardValue.Wild || Value == CardValue.Vortex) return "";
 
         return Value switch
         {

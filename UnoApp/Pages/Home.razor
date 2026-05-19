@@ -292,19 +292,19 @@
                                         </div>
                                     </div>
 
-                                    <!-- Wild Shuffle -->
-                                    <div class="rule-card @(_editingSettings.EnableWildShuffleCard ? "active" : "")">
+                                    <!-- Vortex -->
+                                    <div class="rule-card @(_editingSettings.EnableVortex ? "active" : "")">
                                         <div class="rule-meta">
-                                            <span class="rule-icon">🌪️</span>
+                                            <span class="rule-icon">🌀</span>
                                             <div class="rule-text">
-                                                <span class="rule-title">Wild Shuffle</span>
-                                                <span class="rule-desc">Adds 4 Wild Shuffle cards to shuffle and redeal everyone's hand.</span>
+                                                <span class="rule-title">Vortex</span>
+                                                <span class="rule-desc">Adds 4 Vortex cards to pool and redistribute everyone's hand.</span>
                                             </div>
                                         </div>
                                         <div class="rule-control">
                                             <label class="switch">
-                                                <input type="checkbox" checked="@_editingSettings.EnableWildShuffleCard" 
-                                                       @onchange="(e) => ToggleRule(val => _editingSettings.EnableWildShuffleCard = val, e)" />
+                                                <input type="checkbox" checked="@_editingSettings.EnableVortex" 
+                                                       @onchange="(e) => ToggleRule(val => _editingSettings.EnableVortex = val, e)" />
                                                 <span class="slider"></span>
                                             </label>
                                         </div>
@@ -527,6 +527,15 @@
                                     <div class="house-rule-desc">
                                         <h4>⚡ Jump-In</h4>
                                         <p>If you hold an exact duplicate match (identical color AND identical number/symbol) to the top discard card, you can slam it down instantly, even if it's completely out of turn! Play immediately resumes from your seat, skipping whoever was supposed to go next.</p>
+                                    </div>
+
+                                    <div class="house-rule-desc text-purple" style="border-left: 4px solid #a855f7; padding-left: 12px; margin-top: 15px;">
+                                        <h4>🌀 VORTEX (Chaos Special Card)</h4>
+                                        <p>When the Vortex card is played, the void opens. It instantly confiscates every card from all players' hands, pooling them together into a chaotic vortex before redistributing them evenly back to the table.</p>
+                                        <ul style="margin-top: 8px; padding-left: 20px; list-style-type: disc;">
+                                            <li><strong>Mathematical Balance Rule:</strong> If the total pooled cards cannot be divided perfectly by the number of active players, the remainder cards are dealt one-by-one to players starting clockwise from the active player until the pool is empty (e.g., 15 total cards split across 4 players means three players receive 4 cards, and one player receives 3 cards).</li>
+                                            <li><strong>Color Nullification:</strong> Unlike standard wild cards, the Vortex card does not allow the player to choose a matching color. The active game color remains exactly what it was before the Vortex was cast.</li>
+                                        </ul>
                                     </div>
                                 </div>
                             }
@@ -1006,12 +1015,12 @@
             },
             new RuleItem
             {
-                Title = "Wild Shuffle",
-                Description = "Adds 4 Wild Shuffle cards to shuffle and redeal everyone's hand.",
-                Icon = "🌪️",
+                Title = "Vortex",
+                Description = "Vortex swallows all the card and redistribute everyone's hand.",
+                Icon = "🌀",
                 Type = RuleType.Toggle,
-                GetBoolValue = s => s.EnableWildShuffleCard,
-                SetBoolValue = (s, v) => s.EnableWildShuffleCard = v
+                GetBoolValue = s => s.EnableVortex,
+                SetBoolValue = (s, v) => s.EnableVortex = v
             },
             new RuleItem
             {
@@ -1057,7 +1066,7 @@
                 SevenSwap = false,
                 ZeroRotate = false,
                 JumpInRule = false,
-                EnableWildShuffleCard = false,
+                EnableVortex = false,
                 UnoFailurePenaltyCards = 2
             }
         };
@@ -1077,7 +1086,7 @@
                 ZeroRotate = true,
                 JumpInRule = true,
                 JumpInTimerSeconds = 1.0, // 1 second QTE timer for ultimate speed/chaos
-                EnableWildShuffleCard = true,
+                EnableVortex = true,
                 UnoFailurePenaltyCards = 5 // Max draw penalty
             }
         };
@@ -1097,7 +1106,7 @@
                 ZeroRotate = true,
                 JumpInRule = true,
                 JumpInTimerSeconds = 2.5,
-                EnableWildShuffleCard = false,
+                EnableVortex = false,
                 UnoFailurePenaltyCards = 2
             }
         };

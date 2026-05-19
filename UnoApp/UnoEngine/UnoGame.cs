@@ -130,9 +130,9 @@ namespace UnoEngine
                 deck.Add(new UnoCard(Guid.NewGuid(), CardColor.Wild, CardValue.Wild));
                 deck.Add(new UnoCard(Guid.NewGuid(), CardColor.Wild, CardValue.WildDraw4));
                 
-                if (Settings.EnableWildShuffleCard)
+                if (Settings.EnableVortex)
                 {
-                    deck.Add(new UnoCard(Guid.NewGuid(), CardColor.Wild, CardValue.WildShuffle));
+                    deck.Add(new UnoCard(Guid.NewGuid(), CardColor.Wild, CardValue.Vortex));
                 }
             }
 
@@ -376,8 +376,8 @@ namespace UnoEngine
             // Only validate match if it's NOT a jump-in (JumpIn validation happens before calling this)
             // But for simplicity, we assume InternalPlayCard is always called with valid intent.
             
-            // Handle Wild requiring color selection
-            if (card.Color == CardColor.Wild && declaredColor == null)
+            // Handle Wild requiring color selection (Vortex is Color Nullified and skips selection)
+            if (card.Color == CardColor.Wild && card.Value != CardValue.Vortex && declaredColor == null)
             {
                 PendingCard = card;
                 Status = GameStatus.WaitingForColorSelection;
@@ -420,7 +420,11 @@ namespace UnoEngine
             }
             
             UnoCard playedCard = card;
-            if (card.Color == CardColor.Wild && declaredColor.HasValue)
+            if (card.Value == CardValue.Vortex)
+            {
+                playedCard = card with { Color = LastValidColor };
+            }
+            else if (card.Color == CardColor.Wild && declaredColor.HasValue)
             {
                 playedCard = card with { Color = declaredColor.Value };
             }
@@ -603,9 +607,9 @@ namespace UnoEngine
             OnStateChanged?.Invoke();
         }
 
-        private async Task TriggerCpuUnoCheck()
+        private Task TriggerCpuUnoCheck()
         {
-            if (Status != GameStatus.WaitingForUnoCall || PlayerAtRisk == null) return;
+            if (Status != GameStatus.WaitingForUnoCall || PlayerAtRisk == null) return Task.CompletedTask;
 
             // Each CPU starts its own independent reaction timer
             foreach (var cpu in Players.Where(p => !p.IsHuman))
@@ -625,6 +629,7 @@ namespace UnoEngine
                     }
                 });
             }
+            return Task.CompletedTask;
         }
 
         private int CalculateWinnerScore()
@@ -642,7 +647,7 @@ namespace UnoEngine
                         CardValue.Draw2 => 20,
                         CardValue.Wild => 50,
                         CardValue.WildDraw4 => 50,
-                        CardValue.WildShuffle => 50,
+                        CardValue.Vortex => 50,
                         _ => 0
                     };
                 }
@@ -670,7 +675,7 @@ namespace UnoEngine
             }
         }
 
-        private async Task HandleSpecialActions(Player currentPlayer, UnoCard card, Player targetPlayer)
+        private async Task HandleSpecialActions(Player currentPlayer, UnoCard card, Player? targetPlayer)
         {
             switch (card.Value)
             {
@@ -709,8 +714,8 @@ namespace UnoEngine
                         await PerformZeroRotate();
                     }
                     break;
-                case CardValue.WildShuffle:
-                    await PerformWildShuffleAsync();
+                case CardValue.Vortex:
+                    await PerformVortexAsync(currentPlayer);
                     break;
             }
         }
@@ -867,46 +872,60 @@ namespace UnoEngine
             // State is broadcast by InternalPlayCard after this returns
         }
 
-        private async Task PerformWildShuffleAsync()
+        private async Task PerformVortexAsync(Player activePlayer)
         {
             if (OnBoardAnimation != null)
             {
                 await OnBoardAnimation.Invoke("vortex-shuffle");
             }
+            else
+            {
+                ResolveVortex(activePlayer);
+            }
+        }
 
-            // Collect all cards
-            List<UnoCard> allCards = new();
+        public void ResolveVortex(Player activePlayer)
+        {
+            List<UnoCard> vortexPool = new();
             foreach (var p in Players)
             {
-                allCards.AddRange(p.Hand);
+                vortexPool.AddRange(p.Hand);
                 p.Hand.Clear();
             }
 
-            // Shuffle them
-            Shuffle(allCards);
+            Shuffle(vortexPool);
 
-            // Distribute evenly
-            int totalCards = allCards.Count;
-            int baseCount = totalCards / Players.Count;
-            int remainder = totalCards % Players.Count;
+            int totalPoolCount = vortexPool.Count;
+            if (totalPoolCount == 0) return;
 
-            int cardIndex = 0;
+            int activePlayerCount = Players.Count;
+            int baseCardsPerPlayer = totalPoolCount / activePlayerCount;
+            int remainderCards = totalPoolCount % activePlayerCount;
+
+            // Deal base cards
             foreach (var p in Players)
             {
-                int cardsToGive = baseCount;
-                if (remainder > 0)
+                for (int i = 0; i < baseCardsPerPlayer; i++)
                 {
-                    // Give remainder randomly. For simplicity, just give to the first few players after shuffle
-                    cardsToGive++;
-                    remainder--;
-                }
-
-                for (int i = 0; i < cardsToGive; i++)
-                {
-                    p.Hand.Add(allCards[cardIndex++]);
+                    p.Hand.Add(vortexPool[vortexPool.Count - 1]);
+                    vortexPool.RemoveAt(vortexPool.Count - 1);
                 }
             }
-            
+
+            // Deal remainder cards clockwise starting from active player
+            if (remainderCards > 0)
+            {
+                int activeIndex = Players.IndexOf(activePlayer);
+                int nextIndex = activeIndex;
+                while (remainderCards > 0)
+                {
+                    Players[nextIndex].Hand.Add(vortexPool[vortexPool.Count - 1]);
+                    vortexPool.RemoveAt(vortexPool.Count - 1);
+                    nextIndex = (nextIndex + 1) % Players.Count;
+                    remainderCards--;
+                }
+            }
+
             OnStateChanged?.Invoke();
         }
 

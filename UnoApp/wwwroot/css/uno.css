@@ -952,3 +952,71 @@ body {
 ::-webkit-scrollbar-corner {
     background: transparent;
 }
+
+/* ====================================================
+   VORTEX COSMIC ANIMATION OVERLAY
+   ==================================================== */
+.vortex-animation-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 280px;
+    height: 280px;
+    z-index: 10000;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    box-shadow: 0 0 60px rgba(0, 162, 255, 0.6);
+    animation: vortex-cinematic-sequence 2.5s cubic-bezier(0.25, 1, 0.2, 1) forwards;
+}
+
+.vortex-swirl-graphic {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: 50%;
+    mix-blend-mode: screen;
+    opacity: 0.9;
+    /* Tighter feather: strips the harsh sticker boundary at 70% radius */
+    -webkit-mask-image: radial-gradient(circle, rgba(0,0,0,1) 40%, rgba(0,0,0,0) 70%);
+    mask-image: radial-gradient(circle, rgba(0,0,0,1) 40%, rgba(0,0,0,0) 70%);
+}
+
+/* position: fixed breaks cards free of all parent containers so they can
+   fly across the full viewport into the center vortex */
+.vortex-ingest {
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) scale(0.05) rotate(720deg) !important;
+    opacity: 0 !important;
+    filter: brightness(2) blur(2px) !important;
+    transition: all 0.8s cubic-bezier(0.5, 0, 0.75, 0) !important;
+    z-index: 9999 !important;
+}
+
+.vortex-eject {
+    animation: vortex-eject-bounce 1.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+@keyframes vortex-eject-bounce {
+    0% { transform: scale(0.05); opacity: 0; filter: brightness(2) blur(4px); }
+    60% { transform: scale(1.08); opacity: 1; filter: brightness(1.1) blur(0); }
+    100% { transform: scale(1) rotate(0deg); opacity: 1; filter: brightness(1) blur(0); }
+}
+
+@keyframes vortex-cinematic-sequence {
+  /* Phase 1: Erupting / Appearing */
+  0% { transform: translate(-50%, -50%) scale(0) rotate(0deg); opacity: 0; filter: brightness(2); }
+  20% { transform: translate(-50%, -50%) scale(1.1) rotate(240deg); opacity: 1; filter: brightness(1.2); box-shadow: 0 0 80px rgba(0, 162, 255, 0.8); }
+  
+  /* Phase 2: Deep Suction / Swallowing Cards */
+  50% { transform: translate(-50%, -50%) scale(0.95) rotate(480deg); opacity: 1; box-shadow: 0 0 40px rgba(0, 100, 255, 0.5); }
+  
+  /* Phase 3: Peak Kinetic Vortex Churning */
+  85% { transform: translate(-50%, -50%) scale(1.05) rotate(1440deg); opacity: 1; filter: brightness(1.5); box-shadow: 0 0 90px rgba(0, 200, 255, 0.9); }
+  
+  /* Phase 4: Exploding Out / Spitting & Collapsing */
+  100% { transform: translate(-50%, -50%) scale(0) rotate(1800deg); opacity: 0; filter: brightness(0.5); }
+}

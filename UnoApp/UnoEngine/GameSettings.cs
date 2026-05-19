@@ -38,9 +38,9 @@ namespace UnoEngine.Models
         public double JumpInTimerSeconds { get; set; } = 2.5;
 
         /// <summary>
-        /// If enabled, 4 Wild Shuffle cards are added to the deck.
+        /// If enabled, 4 Vortex cards are added to the deck.
         /// </summary>
-        public bool EnableWildShuffleCard { get; set; } = false;
+        public bool EnableVortex { get; set; } = false;
 
         /// <summary>
         /// A player can choose to draw a card even if they hold a playable card in hand.
@@ -68,7 +68,7 @@ namespace UnoEngine.Models
                 Stacking = this.Stacking,
                 JumpInRule = this.JumpInRule,
                 JumpInTimerSeconds = this.JumpInTimerSeconds,
-                EnableWildShuffleCard = this.EnableWildShuffleCard,
+                EnableVortex = this.EnableVortex,
                 ForcedPlayReneging = this.ForcedPlayReneging,
                 EnableWildDraw4Challenge = this.EnableWildDraw4Challenge,
                 UnoFailurePenaltyCards = this.UnoFailurePenaltyCards

@@ -26,9 +26,16 @@
                 }
             </div>
             <div class="hand @(IsSwapPartner(2) ? "swap-anim" : "") @(_rotateAnim)">
-                @for (int i = 0; i < Math.Min(Game.Players[2].Hand.Count, 5); i++)
+@{
+                    // During ingest we use the frozen snapshot so the DOM elements
+                    // stay alive for the full CSS transition before data is mutated.
+                    int cpu2Count = _vortexHandSnapshot != null
+                        ? _vortexHandSnapshot[2]
+                        : Math.Min(Game.Players[2].Hand.Count, 5);
+                }
+                @for (int i = 0; i < cpu2Count; i++)
                 {
-                    <div class="hand-card-wrapper">
+                    <div class="hand-card-wrapper @(_isSwallowingCards ? "vortex-ingest" : "") @(_isSpittingCards ? "vortex-eject" : "")">
                         <UnoCardComponent IsBack="true" />
                     </div>
                 }
@@ -50,9 +57,14 @@
                 }
             </div>
             <div class="hand @(IsSwapPartner(1) ? "swap-anim" : "") @(_rotateAnim)">
-                @for (int i = 0; i < Math.Min(Game.Players[1].Hand.Count, 5); i++)
+@{
+                    int cpu1Count = _vortexHandSnapshot != null
+                        ? _vortexHandSnapshot[1]
+                        : Math.Min(Game.Players[1].Hand.Count, 5);
+                }
+                @for (int i = 0; i < cpu1Count; i++)
                 {
-                    <div class="hand-card-wrapper">
+                    <div class="hand-card-wrapper @(_isSwallowingCards ? "vortex-ingest" : "") @(_isSpittingCards ? "vortex-eject" : "")">
                         <UnoCardComponent IsBack="true" />
                     </div>
                 }
@@ -103,6 +115,13 @@
                     </svg>
                 }
             </div>
+
+            @if (_showVortexAnimation)
+            {
+                <div class="vortex-animation-overlay">
+                    <img src="/images/image_144935.png" alt="Vortex Swirl" class="vortex-swirl-graphic" />
+                </div>
+            }
         </div>
 
         <!-- CPU 3 (RIGHT) -->
@@ -120,9 +139,14 @@
                 }
             </div>
             <div class="hand @(IsSwapPartner(3) ? "swap-anim" : "") @(_rotateAnim)">
-                @for (int i = 0; i < Math.Min(Game.Players[3].Hand.Count, 5); i++)
+@{
+                    int cpu3Count = _vortexHandSnapshot != null
+                        ? _vortexHandSnapshot[3]
+                        : Math.Min(Game.Players[3].Hand.Count, 5);
+                }
+                @for (int i = 0; i < cpu3Count; i++)
                 {
-                    <div class="hand-card-wrapper">
+                    <div class="hand-card-wrapper @(_isSwallowingCards ? "vortex-ingest" : "") @(_isSpittingCards ? "vortex-eject" : "")">
                         <UnoCardComponent IsBack="true" />
                     </div>
                 }
@@ -166,15 +190,29 @@
                     // Scale the translateY down too for large hands
                     double tyFactor = count <= 7 ? 1.5 : count <= 14 ? 0.8 : 0.4;
                 }
-                @for (int i = 0; i < count; i++)
+@{
+                    // Freeze count during ingest so the human's cards stay in the DOM
+                    int humanCount = _vortexHandSnapshot != null ? _vortexHandSnapshot[0] : count;
+                    double snapshotMiddle = (humanCount - 1) / 2.0;
+                }
+                @for (int i = 0; i < humanCount; i++)
                 {
-                    var card = humanHand[i];
-                    double offset = i - middleIndex;
+                    // During ingest we don't have real card references for ghost slots,
+                    // so we fall back to the real hand where possible.
+                    var card = i < humanHand.Count ? humanHand[i] : null;
+                    double offset = i - snapshotMiddle;
                     double rotateAngle = offset * anglePerCard;
                     double translateY = Math.Pow(offset, 2) * tyFactor;
 
-                    <div @key="card.Id" class="hand-card-wrapper" style="--card-rot: @(rotateAngle.ToString(System.Globalization.CultureInfo.InvariantCulture))deg; --card-ty: @(translateY.ToString(System.Globalization.CultureInfo.InvariantCulture))px; z-index: @i;">
-                        <UnoCardComponent Card="@card" OnClick="() => OnCardClicked(card)" />
+                    <div @key="@(card != null ? card.Id.ToString() : $"ghost-{i}")" class="hand-card-wrapper @(_isSwallowingCards ? "vortex-ingest" : "") @(_isSpittingCards ? "vortex-eject" : "")" style="--card-rot: @(rotateAngle.ToString(System.Globalization.CultureInfo.InvariantCulture))deg; --card-ty: @(translateY.ToString(System.Globalization.CultureInfo.InvariantCulture))px; z-index: @i;">
+                        @if (card != null && !_isSwallowingCards)
+                        {
+                            <UnoCardComponent Card="@card" OnClick="() => OnCardClicked(card)" />
+                        }
+                        else
+                        {
+                            <UnoCardComponent IsBack="true" />
+                        }
                     </div>
                 }
             </div>
@@ -267,6 +305,12 @@
     private int _swapP1 = -1;
     private int _swapP2 = -1;
     private string _rotateAnim = ""; // "rotate-cw" or "rotate-ccw" — applied to ALL hands
+    private bool _showVortexAnimation = false;
+    private bool _isAnimating = false;
+    private bool _isSwallowingCards = false;
+    private bool _isSpittingCards = false;
+    // Snapshot counts used during ingest so DOM elements stay alive for CSS transition
+    private int[]? _vortexHandSnapshot = null;
 
     private bool IsSwapPartner(int playerIndex) =>
         _swapP1 == playerIndex || _swapP2 == playerIndex;
@@ -320,7 +364,63 @@
             return;
         }
 
-        // Vortex / other animations via container class
+        // Vortex animation
+        if (animType == "vortex-shuffle")
+        {
+            // Step A: Fire Vortex Opening — show swirl, lock input
+            _showVortexAnimation = true;
+            _isAnimating = true;
+            await InvokeAsync(StateHasChanged);
+            await Task.Delay(400); // cinematic opening beat
+
+            // Step B: Snapshot current hand counts BEFORE touching data.
+            // This keeps the DOM elements alive so the CSS transition has
+            // something to actually animate (the critical decoupling fix).
+            if (Game != null)
+            {
+                _vortexHandSnapshot = new int[]
+                {
+                    Math.Min(Game.Players[0].Hand.Count, 10), // human
+                    Math.Min(Game.Players[1].Hand.Count, 5),  // cpu1
+                    Math.Min(Game.Players[2].Hand.Count, 5),  // cpu2
+                    Math.Min(Game.Players[3].Hand.Count, 5),  // cpu3
+                };
+            }
+
+            // Step C: Trigger the suction class — cards physically fly inward.
+            // The DOM count is still the snapshot, so elements are still present.
+            _isSwallowingCards = true;
+            await InvokeAsync(StateHasChanged);
+
+            // Step D: Wait the full CSS transition duration before mutating data
+            await Task.Delay(900);
+
+            // Step E: Peak churn — NOW mutate the underlying data.
+            // Cards are invisible (opacity 0) so the DOM wipe is seamless.
+            _vortexHandSnapshot = null; // release snapshot, let real data render
+            if (Game != null)
+            {
+                var activePlayer = Game.Players[Game.LastPlayerIndex];
+                Game.ResolveVortex(activePlayer);
+            }
+            _isSwallowingCards = false;
+            await InvokeAsync(StateHasChanged);
+            await Task.Delay(400); // brief peak churn hold
+
+            // Step F: Ejection — new cards bounce out from center to their slots
+            _isSpittingCards = true;
+            await InvokeAsync(StateHasChanged);
+
+            // Step G: Await ejection animation, then clean everything up
+            await Task.Delay(900);
+            _isSpittingCards = false;
+            _showVortexAnimation = false;
+            _isAnimating = false;
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        // Other animations via container class
         _animClass = animType;
         await InvokeAsync(StateHasChanged);
         await Task.Delay(1000);
@@ -330,7 +430,7 @@
 
     private async Task OnCardClicked(UnoCard card)
     {
-        if (Game == null || _isProcessingAction) return;
+        if (Game == null || _isProcessingAction || _isAnimating) return;
         _isProcessingAction = true;
         try
         {
@@ -350,7 +450,7 @@
 
     private async Task HandleDraw()
     {
-        if (Game == null || Game.CurrentPlayerIndex != 0 || _isProcessingAction) return;
+        if (Game == null || Game.CurrentPlayerIndex != 0 || _isProcessingAction || _isAnimating) return;
         _isProcessingAction = true;
         try
         {
