@@ -82,72 +82,123 @@
                             <h3>Configure Rules (@_editingPreset.Name)</h3>
                             @if (_editingPreset.IsReadonly)
                             {
-                                <span class="rules-locked-banner">⚠️ Classic rules are locked and cannot be edited. Create a New Preset to customize.</span>
+                                <span class="rules-locked-banner">⚠️ @_editingPreset.Name rules are locked and cannot be edited. Create a New Preset to customize.</span>
                             }
                         </div>
 
-                        <!-- Starting Hand Size (Always Visible) -->
-                        <div class="hand-size-config">
-                            <div class="hand-size-meta">
-                                <span class="rule-icon">🃏</span>
-                                <div class="rule-text">
-                                    <span class="rule-title">Starting Hand Size</span>
-                                    <span class="rule-desc">Cards dealt to each player at the match start (Clamped 3 to 10).</span>
-                                </div>
-                            </div>
-                            <div class="hand-size-control">
-                                <span class="hand-size-val">@_editingSettings.StartingHandSize Cards</span>
-                                <input type="range" min="3" max="10" step="1" 
-                                       value="@_editingSettings.StartingHandSize" 
-                                       disabled="@_editingPreset.IsReadonly"
-                                       @onchange="UpdateStartingHandSize" />
-                            </div>
-                        </div>
-
-                        <!-- Core Rules Grid -->
-                        <div class="rules-grid">
-                            <!-- Stacking -->
-                            <div class="rule-card @(_editingSettings.Stacking ? "active" : "")">
-                                <div class="rule-meta">
-                                    <span class="rule-icon">🔥</span>
-                                    <div class="rule-text">
-                                        <span class="rule-title">Stacking (+2 / +4)</span>
-                                        <span class="rule-desc">Stack draw penalty cards to pass the accumulated total downstream.</span>
-                                    </div>
-                                </div>
-                                <div class="rule-control">
-                                    <label class="switch">
-                                        <input type="checkbox" checked="@_editingSettings.Stacking" 
-                                               disabled="@_editingPreset.IsReadonly"
-                                               @onchange="(e) => ToggleRule(val => _editingSettings.Stacking = val, e)" />
-                                        <span class="slider"></span>
-                                    </label>
-                                </div>
-                            </div>
-
-                            <!-- Draw Until Playable -->
-                            <div class="rule-card @(_editingSettings.DrawUntilPlayable ? "active" : "")">
-                                <div class="rule-meta">
-                                    <span class="rule-icon">🔄</span>
-                                    <div class="rule-text">
-                                        <span class="rule-title">Draw Until Playable</span>
-                                        <span class="rule-desc">Must draw continuous cards until a playable card is pulled.</span>
-                                    </div>
-                                </div>
-                                <div class="rule-control">
-                                    <label class="switch">
-                                        <input type="checkbox" checked="@_editingSettings.DrawUntilPlayable" 
-                                               disabled="@_editingPreset.IsReadonly"
-                                               @onchange="(e) => ToggleRule(val => _editingSettings.DrawUntilPlayable = val, e)" />
-                                        <span class="slider"></span>
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Conditional Advanced Options Section -->
-                        @if (!_editingPreset.IsReadonly)
+                        @if (_editingPreset.Name == "Classic" || _editingPreset.Name == "Chaos")
                         {
+                            <!-- Unified Read-Only Status Board for Locked System Presets -->
+                            <div class="classic-guide-card" style="background: rgba(34, 197, 94, 0.05); border: 2px solid rgba(34, 197, 94, 0.2); border-radius: 16px; padding: 24px; display: flex; flex-direction: column; gap: 18px; margin-top: 10px;">
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <span style="font-size: 2.5rem; line-height: 1;">🏆</span>
+                                    <div>
+                                        <h4 style="margin: 0; font-size: 1.3rem; font-weight: 900; color: #22c55e;">@_editingPreset.Name UNO Rules</h4>
+                                        <span style="font-size: 0.85rem; color: #94a3b8; font-weight: 500;">
+                                            @(_editingPreset.Name == "Classic" ? "The authentic, standard, out-of-the-box UNO experience." : "All current and future rule modifiers are fully unlocked and forced active!")
+                                        </span>
+                                    </div>
+                                </div>
+                                
+                                <div style="border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 18px; display: flex; flex-direction: column; gap: 12px;">
+                                    @foreach (var rule in _ruleItems.Where(r => r.IsVisible(_editingSettings)))
+                                    {
+                                        var isChaos = _editingPreset.Name == "Chaos";
+                                        
+                                        <div class="rule-readonly-row" style="background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; gap: 15px;">
+                                            <div style="display: flex; gap: 12px; align-items: center;">
+                                                <span style="font-size: 1.5rem; line-height: 1;">@rule.Icon</span>
+                                                <div style="display: flex; flex-direction: column;">
+                                                    <span style="font-weight: 700; color: #f1f5f9; font-size: 0.95rem;">@rule.Title</span>
+                                                    <span style="font-size: 0.8rem; color: #64748b;">@rule.Description</span>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="rule-readonly-badge">
+                                                @if (rule.Type == RuleType.Toggle)
+                                                {
+                                                    var isEnabled = isChaos || rule.GetBoolValue(_editingSettings);
+                                                    @if (isEnabled)
+                                                    {
+                                                        <span class="passive-badge enabled" style="background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); padding: 6px 14px; border-radius: 20px; font-size: 0.8rem; font-weight: 800; text-transform: uppercase;">Enabled</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="passive-badge disabled" style="background: rgba(255, 255, 255, 0.05); color: #94a3b8; border: 1px solid rgba(255, 255, 255, 0.1); padding: 6px 14px; border-radius: 20px; font-size: 0.8rem; font-weight: 800; text-transform: uppercase;">Disabled</span>
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    var value = rule.GetNumberValue(_editingSettings);
+                                                    <span class="readonly-value-badge" style="color: @(isChaos ? "#f59e0b" : "#4ade80"); background: @(isChaos ? "rgba(245, 158, 11, 0.1)" : "rgba(34, 197, 94, 0.1)"); border: 1px solid @(isChaos ? "rgba(245, 158, 11, 0.2)" : "rgba(34, 197, 94, 0.2)"); padding: 6px 14px; border-radius: 8px; font-weight: 800; font-size: 0.9rem;">
+                                                        @(value.ToString(rule.Format)) @rule.Unit
+                                                    </span>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <!-- Starting Hand Size (Editable for Custom Presets) -->
+                            <div class="hand-size-config">
+                                <div class="hand-size-meta">
+                                    <span class="rule-icon">🃏</span>
+                                    <div class="rule-text">
+                                        <span class="rule-title">Starting Hand Size</span>
+                                        <span class="rule-desc">Cards dealt to each player at the match start (Clamped 3 to 10).</span>
+                                    </div>
+                                </div>
+                                <div class="hand-size-control">
+                                    <span class="hand-size-val">@_editingSettings.StartingHandSize Cards</span>
+                                    <input type="range" min="3" max="10" step="1" 
+                                           value="@_editingSettings.StartingHandSize" 
+                                           @onchange="UpdateStartingHandSize" />
+                                </div>
+                            </div>
+
+                            <!-- Core Rules Grid -->
+                            <div class="rules-grid">
+                                <!-- Stacking -->
+                                <div class="rule-card @(_editingSettings.Stacking ? "active" : "")">
+                                    <div class="rule-meta">
+                                        <span class="rule-icon">🔥</span>
+                                        <div class="rule-text">
+                                            <span class="rule-title">Stacking (+2 / +4)</span>
+                                            <span class="rule-desc">Stack draw penalty cards to pass the accumulated total downstream.</span>
+                                        </div>
+                                    </div>
+                                    <div class="rule-control">
+                                        <label class="switch">
+                                            <input type="checkbox" checked="@_editingSettings.Stacking" 
+                                                   @onchange="(e) => ToggleRule(val => _editingSettings.Stacking = val, e)" />
+                                            <span class="slider"></span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <!-- Draw Until Playable -->
+                                <div class="rule-card @(_editingSettings.DrawUntilPlayable ? "active" : "")">
+                                    <div class="rule-meta">
+                                        <span class="rule-icon">🔄</span>
+                                        <div class="rule-text">
+                                            <span class="rule-title">Draw Until Playable</span>
+                                            <span class="rule-desc">Must draw continuous cards until a playable card is pulled.</span>
+                                        </div>
+                                    </div>
+                                    <div class="rule-control">
+                                        <label class="switch">
+                                            <input type="checkbox" checked="@_editingSettings.DrawUntilPlayable" 
+                                                   @onchange="(e) => ToggleRule(val => _editingSettings.DrawUntilPlayable = val, e)" />
+                                            <span class="slider"></span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Conditional Advanced Options Section -->
                             <div class="advanced-options-container">
                                 <h4>🛠️ Advanced Options</h4>
                                 <div class="rules-grid">
@@ -163,7 +214,6 @@
                                         <div class="rule-control">
                                             <label class="switch">
                                                 <input type="checkbox" checked="@_editingSettings.ForcedPlayReneging" 
-                                                       disabled="@_editingPreset.IsReadonly"
                                                        @onchange="(e) => ToggleRule(val => _editingSettings.ForcedPlayReneging = val, e)" />
                                                 <span class="slider"></span>
                                             </label>
@@ -182,7 +232,6 @@
                                         <div class="rule-control">
                                             <label class="switch">
                                                 <input type="checkbox" checked="@_editingSettings.EnableWildDraw4Challenge" 
-                                                       disabled="@_editingPreset.IsReadonly"
                                                        @onchange="(e) => ToggleRule(val => _editingSettings.EnableWildDraw4Challenge = val, e)" />
                                                 <span class="slider"></span>
                                             </label>
@@ -201,7 +250,6 @@
                                         <div class="rule-control">
                                             <label class="switch">
                                                 <input type="checkbox" checked="@_editingSettings.SevenSwap" 
-                                                       disabled="@_editingPreset.IsReadonly"
                                                        @onchange="(e) => ToggleRule(val => _editingSettings.SevenSwap = val, e)" />
                                                 <span class="slider"></span>
                                             </label>
@@ -220,7 +268,6 @@
                                         <div class="rule-control">
                                             <label class="switch">
                                                 <input type="checkbox" checked="@_editingSettings.ZeroRotate" 
-                                                       disabled="@_editingPreset.IsReadonly"
                                                        @onchange="(e) => ToggleRule(val => _editingSettings.ZeroRotate = val, e)" />
                                                 <span class="slider"></span>
                                             </label>
@@ -239,7 +286,6 @@
                                         <div class="rule-control">
                                             <label class="switch">
                                                 <input type="checkbox" checked="@_editingSettings.JumpInRule" 
-                                                       disabled="@_editingPreset.IsReadonly"
                                                        @onchange="(e) => ToggleRule(val => _editingSettings.JumpInRule = val, e)" />
                                                 <span class="slider"></span>
                                             </label>
@@ -258,7 +304,6 @@
                                         <div class="rule-control">
                                             <label class="switch">
                                                 <input type="checkbox" checked="@_editingSettings.EnableWildShuffleCard" 
-                                                       disabled="@_editingPreset.IsReadonly"
                                                        @onchange="(e) => ToggleRule(val => _editingSettings.EnableWildShuffleCard = val, e)" />
                                                 <span class="slider"></span>
                                             </label>
@@ -279,7 +324,6 @@
                                         <span class="hand-size-val">@_editingSettings.UnoFailurePenaltyCards Cards</span>
                                         <input type="range" min="1" max="5" step="1" 
                                                value="@_editingSettings.UnoFailurePenaltyCards" 
-                                               disabled="@_editingPreset.IsReadonly"
                                                @onchange="UpdateUnoPenaltyCards" />
                                     </div>
                                 </div>
@@ -299,7 +343,6 @@
                                             <span class="timer-val">@_editingSettings.JumpInTimerSeconds.ToString("0.0")s</span>
                                             <input type="range" min="1.0" max="5.0" step="0.5" 
                                                    value="@_editingSettings.JumpInTimerSeconds" 
-                                                   disabled="@_editingPreset.IsReadonly"
                                                    @onchange="UpdateTimer" />
                                         </div>
                                     </div>
@@ -858,9 +901,146 @@
 
     private string _activeTab = "general";
 
+    private enum RuleType
+    {
+        Toggle,
+        Slider
+    }
+
+    private class RuleItem
+    {
+        public string Title { get; set; } = "";
+        public string Description { get; set; } = "";
+        public string Icon { get; set; } = "";
+        public RuleType Type { get; set; }
+        public Func<GameSettings, bool> GetBoolValue { get; set; } = _ => false;
+        public Action<GameSettings, bool> SetBoolValue { get; set; } = (_, _) => { };
+        public Func<GameSettings, double> GetNumberValue { get; set; } = _ => 0;
+        public Action<GameSettings, double> SetNumberValue { get; set; } = (_, _) => { };
+        public double Min { get; set; }
+        public double Max { get; set; }
+        public double Step { get; set; } = 1.0;
+        public string Unit { get; set; } = "";
+        public string Format { get; set; } = "0";
+        public Func<GameSettings, bool> IsVisible { get; set; } = _ => true;
+    }
+
+    private List<RuleItem> _ruleItems = new();
+
+    private void InitializeRuleItems()
+    {
+        _ruleItems = new List<RuleItem>
+        {
+            new RuleItem
+            {
+                Title = "Starting Hand Size",
+                Description = "Cards dealt to each player at the match start (Clamped 3 to 10).",
+                Icon = "🃏",
+                Type = RuleType.Slider,
+                Min = 3, Max = 10, Step = 1, Unit = "Cards", Format = "0",
+                GetNumberValue = s => s.StartingHandSize,
+                SetNumberValue = (s, v) => s.StartingHandSize = (int)v
+            },
+            new RuleItem
+            {
+                Title = "Stacking (+2 / +4)",
+                Description = "Stack draw penalty cards to pass the accumulated total downstream.",
+                Icon = "🔥",
+                Type = RuleType.Toggle,
+                GetBoolValue = s => s.Stacking,
+                SetBoolValue = (s, v) => s.Stacking = v
+            },
+            new RuleItem
+            {
+                Title = "Draw Until Playable",
+                Description = "Must draw continuous cards until a playable card is pulled.",
+                Icon = "🔄",
+                Type = RuleType.Toggle,
+                GetBoolValue = s => s.DrawUntilPlayable,
+                SetBoolValue = (s, v) => s.DrawUntilPlayable = v
+            },
+            new RuleItem
+            {
+                Title = "Forced Play / Reneging",
+                Description = "Players can choose to draw even if they hold a playable card.",
+                Icon = "⚖️",
+                Type = RuleType.Toggle,
+                GetBoolValue = s => s.ForcedPlayReneging,
+                SetBoolValue = (s, v) => s.ForcedPlayReneging = v
+            },
+            new RuleItem
+            {
+                Title = "Wild Draw 4 Challenge",
+                Description = "Targets can challenge played +4s for illegal matching color.",
+                Icon = "⚔️",
+                Type = RuleType.Toggle,
+                GetBoolValue = s => s.EnableWildDraw4Challenge,
+                SetBoolValue = (s, v) => s.EnableWildDraw4Challenge = v
+            },
+            new RuleItem
+            {
+                Title = "7-Swap",
+                Description = "Forces hand-swaps with another player when a 7 is played.",
+                Icon = "🃏",
+                Type = RuleType.Toggle,
+                GetBoolValue = s => s.SevenSwap,
+                SetBoolValue = (s, v) => s.SevenSwap = v
+            },
+            new RuleItem
+            {
+                Title = "Zero Rotate",
+                Description = "Rotates everyone's hands along direction of play on a 0.",
+                Icon = "🔃",
+                Type = RuleType.Toggle,
+                GetBoolValue = s => s.ZeroRotate,
+                SetBoolValue = (s, v) => s.ZeroRotate = v
+            },
+            new RuleItem
+            {
+                Title = "Jump-In Rule",
+                Description = "Play out of turn if you hold an exact color AND value duplicate match.",
+                Icon = "⚡",
+                Type = RuleType.Toggle,
+                GetBoolValue = s => s.JumpInRule,
+                SetBoolValue = (s, v) => s.JumpInRule = v
+            },
+            new RuleItem
+            {
+                Title = "Wild Shuffle",
+                Description = "Adds 4 Wild Shuffle cards to shuffle and redeal everyone's hand.",
+                Icon = "🌪️",
+                Type = RuleType.Toggle,
+                GetBoolValue = s => s.EnableWildShuffleCard,
+                SetBoolValue = (s, v) => s.EnableWildShuffleCard = v
+            },
+            new RuleItem
+            {
+                Title = "Uno Call Failure Penalty",
+                Description = "Cards drawn if caught failing to call UNO (Clamped 1 to 5).",
+                Icon = "🔔",
+                Type = RuleType.Slider,
+                Min = 1, Max = 5, Step = 1, Unit = "Cards", Format = "0",
+                GetNumberValue = s => s.UnoFailurePenaltyCards,
+                SetNumberValue = (s, v) => s.UnoFailurePenaltyCards = (int)v
+            },
+            new RuleItem
+            {
+                Title = "Jump-In QTE Timer",
+                Description = "Speed window (seconds) to intercept duplicates out of turn.",
+                Icon = "⏱️",
+                Type = RuleType.Slider,
+                Min = 1.0, Max = 5.0, Step = 0.5, Unit = "s", Format = "0.0",
+                GetNumberValue = s => s.JumpInTimerSeconds,
+                SetNumberValue = (s, v) => s.JumpInTimerSeconds = v,
+                IsVisible = s => s.JumpInRule
+            }
+        };
+    }
+
     protected override void OnInitialized()
     {
         NavigationState.IsArenaMode = true;
+        InitializeRuleItems();
 
         // Initialize Presets
         var classicPreset = new RulePresetProfile
@@ -885,20 +1065,20 @@
         var chaosPreset = new RulePresetProfile
         {
             Name = "Chaos",
-            IsReadonly = false, // Editable per user feedback
+            IsReadonly = true, // Locked system preset forcing all modifiers to max
             Settings = new GameSettings
             {
-                StartingHandSize = 6,
+                StartingHandSize = 6, // 6 cards starting hand for Chaos
                 Stacking = true,
                 DrawUntilPlayable = true,
                 ForcedPlayReneging = true,
-                EnableWildDraw4Challenge = false,
+                EnableWildDraw4Challenge = true,
                 SevenSwap = true,
                 ZeroRotate = true,
                 JumpInRule = true,
-                JumpInTimerSeconds = 1.5,
+                JumpInTimerSeconds = 1.0, // 1 second QTE timer for ultimate speed/chaos
                 EnableWildShuffleCard = true,
-                UnoFailurePenaltyCards = 2
+                UnoFailurePenaltyCards = 5 // Max draw penalty
             }
         };
 
