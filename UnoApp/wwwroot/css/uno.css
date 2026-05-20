@@ -147,11 +147,10 @@ body {
 /* CENTER AREA - The Hub */
 .center-area {
     grid-area: center;
+    position: relative;
     display: flex;
-    flex-direction: row;
     align-items: center;
     justify-content: center;
-    gap: 40px;
 }
 
 /* ============================================================
@@ -367,15 +366,26 @@ body {
 
 .draw-pile {
     cursor: pointer;
-    position: relative;
+    position: absolute;
+    top: 15%;
+    left: 15%;
+    transform: rotate(-35deg);
     z-index: 5;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.draw-pile:hover {
+    transform: rotate(-35deg) scale(1.05);
+    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.7);
 }
 
 .discard-pile {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    margin: 0;
     z-index: 5;
 }
 
@@ -512,9 +522,12 @@ body {
    ============================================================ */
 .turn-indicator-container {
     position: absolute;
-    top: 50%; left: 50%;
-    width: 360px; height: 360px;
+    top: 50%;
+    left: 50%;
+    width: 260px;
+    height: 260px;
     transform: translate(-50%, -50%);
+    margin: 0;
     pointer-events: none;
     z-index: 1;
 }

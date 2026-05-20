@@ -43,9 +43,19 @@ namespace UnoEngine.Models
         public bool EnableVortex { get; set; } = false;
 
         /// <summary>
-        /// A player can choose to draw a card even if they hold a playable card in hand.
+        /// If enabled, players MUST play a card if they have a playable card in hand (cannot draw).
         /// </summary>
-        public bool ForcedPlayReneging { get; set; } = true;
+        public bool ForcedPlay { get; set; } = false;
+
+        /// <summary>
+        /// A player can choose to draw a card even if they hold a playable card in hand.
+        /// This is the exact opposite of ForcedPlay.
+        /// </summary>
+        public bool AllowReneging
+        {
+            get => !ForcedPlay;
+            set => ForcedPlay = !value;
+        }
 
         /// <summary>
         /// Next player can challenge if they suspect the user holds a matching color on Wild Draw 4.
@@ -69,7 +79,8 @@ namespace UnoEngine.Models
                 JumpInRule = this.JumpInRule,
                 JumpInTimerSeconds = this.JumpInTimerSeconds,
                 EnableVortex = this.EnableVortex,
-                ForcedPlayReneging = this.ForcedPlayReneging,
+                ForcedPlay = this.ForcedPlay,
+                AllowReneging = this.AllowReneging,
                 EnableWildDraw4Challenge = this.EnableWildDraw4Challenge,
                 UnoFailurePenaltyCards = this.UnoFailurePenaltyCards
             };

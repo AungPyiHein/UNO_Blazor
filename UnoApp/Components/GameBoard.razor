@@ -135,7 +135,7 @@
             <div class="draw-pile" @onclick="HandleDraw">
                 <UnoCardComponent IsBack="true" />
             </div>
-            <div class="discard-pile" style="position: relative;">
+            <div class="discard-pile">
                 @{
                     // 2-Phase Wild Lifecycle display logic:
                     // Phase A (Drop): Show the unresolved 4-color Wild art on the pile.
@@ -575,6 +575,35 @@
     private async Task HandleDraw()
     {
         if (Game == null || Game.CurrentPlayerIndex != 0 || _isProcessingAction || _isAnimating) return;
+        
+        // Check if ForcedPlay is enabled and player has playable card
+        if (Game.Settings.ForcedPlay && Game.PendingDrawCount == 0)
+        {
+            var hasPlayableCard = Game.Players[0].Hand.Any(card => Game.CanPlayCard(card));
+            if (hasPlayableCard)
+            {
+                // Forced Play is enabled and player has playable card, cannot draw
+                Game.ActiveNotificationBanner = "YOU MUST PLAY A CARD!";
+                Game.LogAction($"{Game.Players[0].Name} must play a card instead of drawing.");
+                ShowBanner("YOU MUST PLAY A CARD!");
+                return;
+            }
+        }
+        
+        // Check if AllowReneging is disabled and player has playable card
+        if (!Game.Settings.AllowReneging && Game.PendingDrawCount == 0)
+        {
+            var hasPlayableCard = Game.Players[0].Hand.Any(card => Game.CanPlayCard(card));
+            if (hasPlayableCard)
+            {
+                // Reneging is disabled and player has playable card, cannot draw
+                Game.ActiveNotificationBanner = "YOU MUST PLAY A CARD!";
+                Game.LogAction($"{Game.Players[0].Name} must play a card instead of drawing.");
+                ShowBanner("YOU MUST PLAY A CARD!");
+                return;
+            }
+        }
+        
         _isProcessingAction = true;
         try
         {
@@ -585,6 +614,11 @@
             else
             {
                 var drawn = await Game.DrawCardAsync(Game.Players[0]);
+                if (drawn == null)
+                {
+                    ShowBanner("YOU MUST PLAY A CARD!");
+                    return;
+                }
                 
                 if (!Game.CanPlayCard(drawn))
                 {

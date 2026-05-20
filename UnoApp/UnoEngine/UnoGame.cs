@@ -164,8 +164,10 @@ namespace UnoEngine
             DrawPile = new Stack<UnoCard>(deckList);
         }
 
-        public bool CanPlayCard(UnoCard card)
+        public bool CanPlayCard(UnoCard? card)
         {
+            if (card == null) return false;
+
             if (Settings.Stacking && PendingDrawCount > 0)
             {
                 if (TopCard?.Value == CardValue.Draw2)
@@ -308,6 +310,12 @@ namespace UnoEngine
             cpu.CurrentStatus = "Drawing...";
             LogAction($"{cpu.Name} had no moves and is drawing...");
             var drawn = await DrawCardAsync(cpu);
+            if (drawn == null)
+            {
+                MoveToNextTurn();
+                await StartTurnAsync();
+                return;
+            }
             LogAction($"{cpu.Name} drew {drawn}.");
             
             if (CanPlayCard(drawn) && !(drawn.Value == CardValue.Seven && Settings.SevenSwap))
@@ -803,8 +811,21 @@ namespace UnoEngine
             await StartTurnAsync();
         }
 
-        public async Task<UnoCard> DrawCardAsync(Player player)
+        public async Task<UnoCard?> DrawCardAsync(Player player)
         {
+            // Strict Rule Constraint: Under forced-play / no-reneging, block drawing if player holds a playable card
+            if ((Settings.ForcedPlay || !Settings.AllowReneging) && PendingDrawCount == 0)
+            {
+                var hasPlayableCard = player.Hand.Any(card => CanPlayCard(card));
+                if (hasPlayableCard)
+                {
+                    ActiveNotificationBanner = $"{player.Name.ToUpper()} MUST PLAY A CARD!";
+                    LogAction($"{player.Name} tried to draw but has a playable card.");
+                    OnStateChanged?.Invoke();
+                    return null;
+                }
+            }
+
             if (Settings.DrawUntilPlayable)
             {
                 UnoCard drawn;

@@ -202,23 +202,24 @@
                             <div class="advanced-options-container">
                                 <h4>🛠️ Advanced Options</h4>
                                 <div class="rules-grid">
-                                    <!-- Forced Play / Reneging -->
-                                    <div class="rule-card @(_editingSettings.ForcedPlayReneging ? "active" : "")">
+                                    <!-- Forced Play -->
+                                    <div class="rule-card @(_editingSettings.ForcedPlay ? "active" : "")">
                                         <div class="rule-meta">
-                                            <span class="rule-icon">⚖️</span>
+                                            <span class="rule-icon">🔒</span>
                                             <div class="rule-text">
-                                                <span class="rule-title">Forced Play / Reneging</span>
-                                                <span class="rule-desc">Players can choose to draw even if they hold a playable card.</span>
+                                                <span class="rule-title">Forced Play</span>
+                                                <span class="rule-desc">Players MUST play a card if they have a match in hand (disables reneging/drawing).</span>
                                             </div>
                                         </div>
                                         <div class="rule-control">
                                             <label class="switch">
-                                                <input type="checkbox" checked="@_editingSettings.ForcedPlayReneging" 
-                                                       @onchange="(e) => ToggleRule(val => _editingSettings.ForcedPlayReneging = val, e)" />
+                                                <input type="checkbox" checked="@_editingSettings.ForcedPlay" 
+                                                       @onchange="(e) => ToggleForcedPlay(e)" />
                                                 <span class="slider"></span>
                                             </label>
                                         </div>
                                     </div>
+
 
                                     <!-- Wild Draw 4 Challenge -->
                                     <div class="rule-card @(_editingSettings.EnableWildDraw4Challenge ? "active" : "")">
@@ -970,12 +971,12 @@
             },
             new RuleItem
             {
-                Title = "Forced Play / Reneging",
-                Description = "Players can choose to draw even if they hold a playable card.",
-                Icon = "⚖️",
+                Title = "Forced Play",
+                Description = "Players MUST play a card if they have a match in hand (disables reneging/drawing).",
+                Icon = "🔒",
                 Type = RuleType.Toggle,
-                GetBoolValue = s => s.ForcedPlayReneging,
-                SetBoolValue = (s, v) => s.ForcedPlayReneging = v
+                GetBoolValue = s => s.ForcedPlay,
+                SetBoolValue = (s, v) => s.ForcedPlay = v
             },
             new RuleItem
             {
@@ -1061,7 +1062,7 @@
                 StartingHandSize = 7,
                 Stacking = false,
                 DrawUntilPlayable = false,
-                ForcedPlayReneging = true,
+                ForcedPlay = false,
                 EnableWildDraw4Challenge = true,
                 SevenSwap = false,
                 ZeroRotate = false,
@@ -1080,7 +1081,7 @@
                 StartingHandSize = 6, // 6 cards starting hand for Chaos
                 Stacking = true,
                 DrawUntilPlayable = true,
-                ForcedPlayReneging = true,
+                ForcedPlay = false,
                 EnableWildDraw4Challenge = true,
                 SevenSwap = true,
                 ZeroRotate = true,
@@ -1100,7 +1101,7 @@
                 StartingHandSize = 7,
                 Stacking = true,
                 DrawUntilPlayable = true,
-                ForcedPlayReneging = true,
+                ForcedPlay = false,
                 EnableWildDraw4Challenge = false,
                 SevenSwap = true,
                 ZeroRotate = true,
@@ -1178,6 +1179,16 @@
         if (e.Value is bool val)
         {
             setter(val);
+        }
+    }
+
+    private void ToggleForcedPlay(ChangeEventArgs e)
+    {
+        if (_editingPreset?.IsReadonly == true) return;
+
+        if (e.Value is bool val)
+        {
+            _editingSettings.ForcedPlay = val;
         }
     }
 
