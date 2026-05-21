@@ -7,69 +7,46 @@
 {
     <div class="game-container @(_animClass)">
 
-        <!-- Grid Spacers -->
-        <div class="grid-tl"></div>
-        <div class="grid-tr"></div>
-        <div class="grid-bl"></div>
+        <!-- Opponents dynamically rendered along 3D ellipse -->
+        @for (int j = 0; j < Opponents.Count; j++)
+        {
+            var opponent = Opponents[j];
+            var opponentIndex = Game.Players.IndexOf(opponent);
+            var opponentStyle = GetOpponentStyle(j, Opponents.Count);
+            var opponentPositionClass = GetOpponentPositionClass(j, Opponents.Count);
+            
+            <div class="player-slot slot-opponent @opponentPositionClass" style="@opponentStyle">
+                <div class="cpu-badge" style="position:relative">
+                    <PlayerProfile Player="@opponent" IsActive="@(Game.CurrentPlayerIndex == opponentIndex)" IsUnoDeclared="@(opponent.Hand.Count == 1 && Game.PlayerAtRisk != opponent)" />
+                    @if (_skippedPlayerIndex == opponentIndex)
+                    {
+                        <div class="skip-overlay" @key="_skipKey">
+                            <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="50" cy="50" r="45" stroke="#cc0000" stroke-width="10" fill="rgba(180,0,0,0.15)"/>
+                                <line x1="18" y1="18" x2="82" y2="82" stroke="#cc0000" stroke-width="10" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+                    }
+                </div>
+                <div class="hand @(IsSwapPartner(opponentIndex) ? "swap-anim" : "") @(_rotateAnim)">
+                    @{
+                        int cardCount = _vortexHandSnapshot != null && opponentIndex < _vortexHandSnapshot.Length
+                            ? _vortexHandSnapshot[opponentIndex]
+                            : Math.Min(opponent.Hand.Count, 5);
+                    }
+                    @for (int i = 0; i < cardCount; i++)
+                    {
+                        <div class="hand-card-wrapper @(_isSwallowingCards ? "vortex-ingest" : "") @(_isSpittingCards ? "vortex-eject" : "")">
+                            <UnoCardComponent IsBack="true" />
+                        </div>
+                    }
+                </div>
+            </div>
+        }
 
-        <!-- CPU 2 (TOP) -->
-        <div class="player-slot slot-cpu-2">
-            <div class="cpu-badge" style="position:relative">
-                <PlayerProfile Player="@Game.Players[2]" IsActive="@(Game.CurrentPlayerIndex == 2)" IsUnoDeclared="@(Game.Players[2].Hand.Count == 1 && Game.PlayerAtRisk != Game.Players[2])" />
-                @if (_skippedPlayerIndex == 2)
-                {
-                    <div class="skip-overlay" @key="_skipKey">
-                        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-                            <circle cx="50" cy="50" r="45" stroke="#cc0000" stroke-width="10" fill="rgba(180,0,0,0.15)"/>
-                            <line x1="18" y1="18" x2="82" y2="82" stroke="#cc0000" stroke-width="10" stroke-linecap="round"/>
-                        </svg>
-                    </div>
-                }
-            </div>
-            <div class="hand @(IsSwapPartner(2) ? "swap-anim" : "") @(_rotateAnim)">
-@{
-                    // During ingest we use the frozen snapshot so the DOM elements
-                    // stay alive for the full CSS transition before data is mutated.
-                    int cpu2Count = _vortexHandSnapshot != null
-                        ? _vortexHandSnapshot[2]
-                        : Math.Min(Game.Players[2].Hand.Count, 5);
-                }
-                @for (int i = 0; i < cpu2Count; i++)
-                {
-                    <div class="hand-card-wrapper @(_isSwallowingCards ? "vortex-ingest" : "") @(_isSpittingCards ? "vortex-eject" : "")">
-                        <UnoCardComponent IsBack="true" />
-                    </div>
-                }
-            </div>
-        </div>
-
-        <!-- CPU 1 (LEFT) -->
-        <div class="player-slot slot-cpu-1">
-            <div class="cpu-badge" style="position:relative">
-                <PlayerProfile Player="@Game.Players[1]" IsActive="@(Game.CurrentPlayerIndex == 1)" IsUnoDeclared="@(Game.Players[1].Hand.Count == 1 && Game.PlayerAtRisk != Game.Players[1])" />
-                @if (_skippedPlayerIndex == 1)
-                {
-                    <div class="skip-overlay" @key="_skipKey">
-                        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-                            <circle cx="50" cy="50" r="45" stroke="#cc0000" stroke-width="10" fill="rgba(180,0,0,0.15)"/>
-                            <line x1="18" y1="18" x2="82" y2="82" stroke="#cc0000" stroke-width="10" stroke-linecap="round"/>
-                        </svg>
-                    </div>
-                }
-            </div>
-            <div class="hand @(IsSwapPartner(1) ? "swap-anim" : "") @(_rotateAnim)">
-@{
-                    int cpu1Count = _vortexHandSnapshot != null
-                        ? _vortexHandSnapshot[1]
-                        : Math.Min(Game.Players[1].Hand.Count, 5);
-                }
-                @for (int i = 0; i < cpu1Count; i++)
-                {
-                    <div class="hand-card-wrapper @(_isSwallowingCards ? "vortex-ingest" : "") @(_isSpittingCards ? "vortex-eject" : "")">
-                        <UnoCardComponent IsBack="true" />
-                    </div>
-                }
-            </div>
+        <!-- DRAW PILE (direct child of game-container for absolute positioning) -->
+        <div class="draw-pile" @onclick="HandleDraw">
+            <UnoCardComponent IsBack="true" />
         </div>
 
         <!-- CENTER AREA (THE HUB) -->
@@ -132,21 +109,11 @@
                 }
             </div>
 
-            <div class="draw-pile" @onclick="HandleDraw">
-                <UnoCardComponent IsBack="true" />
-            </div>
+
             <div class="discard-pile">
                 @{
-                    // 2-Phase Wild Lifecycle display logic:
-                    // Phase A (Drop): Show the unresolved 4-color Wild art on the pile.
-                    //   - CPU: _cpuStagedWild is set during the 1000ms "thinking" window.
-                    //   - Human: PendingCard holds the Wild while WaitingForColorSelection.
-                    // Phase C (Resolve): Game.TopCard already has the chosen color stamped on it.
-                    var displayCard = _cpuStagedWild
-                        ?? (Game.Status == GameStatus.WaitingForColorSelection && Game.PendingCard != null
-                            ? Game.PendingCard  // Shows 4-color Wild art while picker is open
-                            : Game.TopCard);
-                            
+                    var history = Game.DiscardHistory;
+                    
                     // Determine the active color glow
                     string glowClass = "";
                     if (Game.TopCard != null && _cpuStagedWild == null && Game.Status != GameStatus.WaitingForColorSelection)
@@ -162,11 +129,29 @@
                     }
                 }
                 
-                <div class="discard-glow-ring @glowClass"></div>
-                
-                <div @key="displayCard?.Id" class="discard-anim-@Game.LastPlayerIndex" style="position: relative; z-index: 2;">
-                    <UnoCardComponent Card="@displayCard" />
-                </div>
+                <div class="discard-glow-ring" style="display: none;"></div>
+
+                @for (int i = 0; i < history.Count; i++)
+                {
+                    var card = history[i];
+                    var isTop = (i == history.Count - 1);
+                    var displayCard = isTop && _cpuStagedWild != null ? _cpuStagedWild : card;
+                    var messyStyle = GetMessyStyle(displayCard, isTop);
+                    
+                    if (isTop)
+                    {
+                        <div @key="displayCard.Id" class="discard-active-card" style="@messyStyle @GetDiscardAnimStyle(Game.LastPlayerIndex, displayCard)">
+                            <UnoCardComponent Card="@displayCard" />
+                        </div>
+                    }
+                    else
+                    {
+                        <div @key="card.Id" class="discard-history-card" style="@messyStyle">
+                            <UnoCardComponent Card="@card" />
+                        </div>
+                    }
+                }
+
                 @if (Game.PendingDrawCount > 0)
                 {
                     <div class="stack-badge">
@@ -187,35 +172,6 @@
                     <img src="/images/image_144935.png" alt="Vortex Swirl" class="vortex-swirl-graphic" />
                 </div>
             }
-        </div>
-
-        <!-- CPU 3 (RIGHT) -->
-        <div class="player-slot slot-cpu-3">
-            <div class="cpu-badge" style="position:relative">
-                <PlayerProfile Player="@Game.Players[3]" IsActive="@(Game.CurrentPlayerIndex == 3)" IsUnoDeclared="@(Game.Players[3].Hand.Count == 1 && Game.PlayerAtRisk != Game.Players[3])" />
-                @if (_skippedPlayerIndex == 3)
-                {
-                    <div class="skip-overlay" @key="_skipKey">
-                        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-                            <circle cx="50" cy="50" r="45" stroke="#cc0000" stroke-width="10" fill="rgba(180,0,0,0.15)"/>
-                            <line x1="18" y1="18" x2="82" y2="82" stroke="#cc0000" stroke-width="10" stroke-linecap="round"/>
-                        </svg>
-                    </div>
-                }
-            </div>
-            <div class="hand @(IsSwapPartner(3) ? "swap-anim" : "") @(_rotateAnim)">
-@{
-                    int cpu3Count = _vortexHandSnapshot != null
-                        ? _vortexHandSnapshot[3]
-                        : Math.Min(Game.Players[3].Hand.Count, 5);
-                }
-                @for (int i = 0; i < cpu3Count; i++)
-                {
-                    <div class="hand-card-wrapper @(_isSwallowingCards ? "vortex-ingest" : "") @(_isSpittingCards ? "vortex-eject" : "")">
-                        <UnoCardComponent IsBack="true" />
-                    </div>
-                }
-            </div>
         </div>
 
         <!-- HUMAN (BOTTOM) -->
@@ -361,6 +317,156 @@
     [Parameter] public UnoGame? Game { get; set; }
     [Parameter] public EventCallback OnStartGame { get; set; }
 
+    private List<Player> Opponents => Game?.Players.Skip(1).ToList() ?? new();
+
+    private string GetOpponentStyle(int j, int totalOpponents)
+    {
+        if (totalOpponents <= 0) return "";
+        
+        double x = 50;
+        double y = 15;
+        double scale = 0.7;
+
+        if (totalOpponents == 1)
+        {
+            x = 50; y = 15; scale = 0.7;
+        }
+        else if (totalOpponents == 2)
+        {
+            if (j == 0) { x = 15; y = 50; scale = 0.85; }
+            else { x = 85; y = 50; scale = 0.85; }
+        }
+        else if (totalOpponents == 3)
+        {
+            if (j == 0) { x = 15; y = 50; scale = 0.85; }
+            else if (j == 1) { x = 50; y = 15; scale = 0.7; }
+            else { x = 85; y = 50; scale = 0.85; }
+        }
+        else if (totalOpponents == 4)
+        {
+            if (j == 0) { x = 15; y = 50; scale = 0.85; }
+            else if (j == 1) { x = 35; y = 15; scale = 0.7; }
+            else if (j == 2) { x = 65; y = 15; scale = 0.7; }
+            else { x = 85; y = 50; scale = 0.85; }
+        }
+        else if (totalOpponents == 5)
+        {
+            if (j == 0) { x = 15; y = 50; scale = 0.85; }
+            else if (j == 1) { x = 30; y = 15; scale = 0.7; }
+            else if (j == 2) { x = 50; y = 15; scale = 0.7; }
+            else if (j == 3) { x = 70; y = 15; scale = 0.7; }
+            else { x = 85; y = 50; scale = 0.85; }
+        }
+
+        var culture = System.Globalization.CultureInfo.InvariantCulture;
+        return $"position: absolute; left: {x.ToString("0.0", culture)}%; top: {y.ToString("0.0", culture)}%; transform: translate(-50%, -50%) scale({scale.ToString("0.0", culture)});";
+    }
+
+    private string GetOpponentPositionClass(int j, int totalOpponents)
+    {
+        if (totalOpponents == 1) return "slot-cpu-top";
+        if (totalOpponents == 2) return j == 0 ? "slot-cpu-left" : "slot-cpu-right";
+        if (totalOpponents == 3)
+        {
+            if (j == 0) return "slot-cpu-left";
+            if (j == 1) return "slot-cpu-top";
+            return "slot-cpu-right";
+        }
+        if (totalOpponents == 4)
+        {
+            if (j == 0) return "slot-cpu-left";
+            if (j == 1) return "slot-cpu-top";
+            if (j == 2) return "slot-cpu-top";
+            return "slot-cpu-right";
+        }
+        if (totalOpponents == 5)
+        {
+            if (j == 0) return "slot-cpu-left";
+            if (j == 1 || j == 2 || j == 3) return "slot-cpu-top";
+            return "slot-cpu-right";
+        }
+        return "slot-cpu-top";
+    }
+
+    private string GetMessyStyle(UnoCard card, bool isActiveTop)
+    {
+        if (card == null) return "";
+        
+        // Use the Guid hash code to generate pseudo-random numbers for deterministic offsets
+        int hash = card.Id.GetHashCode();
+        
+        // Read persistent tilt
+        double rotation = card.RotationAngle;
+        
+        // X offset between -10px and 10px
+        double offsetX = (hash % 17) / 16.0 * 20.0 - 10.0;
+        
+        // Y offset between -10px and 10px
+        double offsetY = ((hash >> 4) % 17) / 16.0 * 20.0 - 10.0;
+
+        var culture = System.Globalization.CultureInfo.InvariantCulture;
+        string style = $"position: absolute; left: calc(50% + {offsetX.ToString("0.0", culture)}px); top: calc(50% + {offsetY.ToString("0.0", culture)}px); transform: translate(-50%, -50%) rotate({rotation.ToString("0.0", culture)}deg);";
+        
+        if (isActiveTop)
+        {
+            style += " z-index: 10;"; // highest z-index for active top card
+        }
+        else
+        {
+            style += " z-index: 2; opacity: 0.85;"; // slightly faded and lower z-index
+        }
+        
+        return style;
+    }
+
+    private string GetDiscardAnimStyle(int lastPlayerIndex, UnoCard card)
+    {
+        if (lastPlayerIndex < 0 || Game == null) return "";
+        
+        var culture = System.Globalization.CultureInfo.InvariantCulture;
+        
+        if (lastPlayerIndex == 0)
+        {
+            // Human player
+            return "animation: play-from-human 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);";
+        }
+        else
+        {
+            // Opponent player
+            int totalOpponents = Game.Players.Count - 1;
+            int j = lastPlayerIndex - 1;
+            
+            double x = 50;
+            double y = 15;
+            
+            if (totalOpponents == 1) { x = 50; y = 15; }
+            else if (totalOpponents == 2) { x = (j == 0) ? 15 : 85; y = 50; }
+            else if (totalOpponents == 3) {
+                if (j == 0) { x = 15; y = 50; }
+                else if (j == 1) { x = 50; y = 15; }
+                else { x = 85; y = 50; }
+            }
+            else if (totalOpponents == 4) {
+                if (j == 0) { x = 15; y = 50; }
+                else if (j == 1) { x = 35; y = 15; }
+                else if (j == 2) { x = 65; y = 15; }
+                else { x = 85; y = 50; }
+            }
+            else if (totalOpponents == 5) {
+                if (j == 0) { x = 15; y = 50; }
+                else if (j == 1) { x = 30; y = 15; }
+                else if (j == 2) { x = 50; y = 15; }
+                else if (j == 3) { x = 70; y = 15; }
+                else { x = 85; y = 50; }
+            }
+
+            double dx = x - 50.0;
+            double dy = y - 50.0;
+
+            return $"--play-origin-x: {dx.ToString("0.0", culture)}vw; --play-origin-y: {dy.ToString("0.0", culture)}vh; animation: play-from-opponent 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);";
+        }
+    }
+
     private bool _isProcessingAction = false;
     private string _animClass = "";
     private int _skippedPlayerIndex = -1;
@@ -483,13 +589,9 @@
             // something to actually animate (the critical decoupling fix).
             if (Game != null)
             {
-                _vortexHandSnapshot = new int[]
-                {
-                    Math.Min(Game.Players[0].Hand.Count, 10), // human
-                    Math.Min(Game.Players[1].Hand.Count, 5),  // cpu1
-                    Math.Min(Game.Players[2].Hand.Count, 5),  // cpu2
-                    Math.Min(Game.Players[3].Hand.Count, 5),  // cpu3
-                };
+                _vortexHandSnapshot = Game.Players.Select((p, idx) => 
+                    idx == 0 ? Math.Min(p.Hand.Count, 10) : Math.Min(p.Hand.Count, 5)
+                ).ToArray();
             }
 
             // Step C: Trigger the suction class — cards physically fly inward.

@@ -30,6 +30,7 @@ namespace UnoEngine
         public int PendingDrawCount { get; private set; } = 0;
         public GameStatus Status { get; private set; } = GameStatus.Playing;
         public UnoCard? TopCard => DiscardPile.LastOrDefault();
+        public List<UnoCard> DiscardHistory => DiscardPile.TakeLast(4).ToList();
         public UnoCard? PendingCard { get; private set; }
         public Player? PlayerAtRisk { get; private set; }
         public List<string> GameLog { get; private set; } = new();
@@ -97,6 +98,7 @@ namespace UnoEngine
                 ShuffleDeck(); // Re-shuffle or just insert at bottom? Let's just re-shuffle for simplicity.
                 firstCard = DrawPile.Pop();
             }
+            firstCard.RotationAngle = (float)(_random.NextDouble() * 30.0 - 15.0);
             DiscardPile.Add(firstCard);
             LastValidColor = firstCard.Color;
         }
@@ -458,6 +460,9 @@ namespace UnoEngine
             {
                 playedCard = card with { Color = CardColor.Red }; // Fallback
             }
+            
+            // Assign persistent tilt immediately when played
+            playedCard.RotationAngle = (float)(_random.NextDouble() * 30.0 - 15.0); // -15 to 15
             
             DiscardPile.Add(playedCard);
             Status = GameStatus.Playing;

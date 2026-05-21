@@ -21,6 +21,7 @@ namespace UnoEngine.Models
 
     public record UnoCard(Guid Id, CardColor Color, CardValue Value)
     {
+        public float RotationAngle { get; set; } = 0f;
         public override string ToString() => $"{Color} {Value}";
     }
 

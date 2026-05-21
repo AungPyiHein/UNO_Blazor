@@ -24,7 +24,7 @@
             <button class="mega-start-btn" @onclick="StartMatch">START MATCH</button>
         </div>
 
-        <!-- Bottom Tier: Player Identity -->
+        <!-- Bottom Tier: Player Identity & Setup -->
         <div class="identity-anchor">
             <div class="profile-input-box">
                 <div class="avatar-silhouette">
@@ -33,6 +33,17 @@
                     </svg>
                 </div>
                 <input type="text" @bind="_playerName" placeholder="YOUR NAME" maxlength="12" />
+            </div>
+            
+            <div class="player-count-box">
+                <span class="player-count-label">PLAYERS:</span>
+                <div class="count-selector">
+                    @for (int i = 3; i <= 6; i++)
+                    {
+                        var currentVal = i;
+                        <button type="button" class="count-btn @(_playerCount == currentVal ? "active" : "")" @onclick="() => _playerCount = currentVal">@currentVal</button>
+                    }
+                </div>
             </div>
         </div>
 
@@ -622,21 +633,78 @@
         border-color: #4ade80; color: #4ade80;
     }
 
-    /* Bottom Tier: Identity */
+    /* Bottom Tier: Identity & Player Count Setup */
     .identity-anchor {
-        position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%);
-        width: 300px;
+        position: absolute; bottom: 35px; left: 50%; transform: translateX(-50%);
+        width: 350px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        align-items: center;
     }
     .profile-input-box {
         display: flex; align-items: center; gap: 15px; background: rgba(255, 255, 255, 0.05);
-        padding: 12px 25px; border-radius: 50px; border: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 10px 25px; border-radius: 50px; border: 1px solid rgba(255, 255, 255, 0.1);
+        width: 100%;
+        box-sizing: border-box;
     }
-    .avatar-silhouette { width: 40px; height: 40px; color: #64748b; }
+    .avatar-silhouette { width: 35px; height: 35px; color: #64748b; flex-shrink: 0; }
     .profile-input-box input {
-        background: transparent; border: none; color: white; font-size: 1.3rem;
+        background: transparent; border: none; color: white; font-size: 1.2rem;
         font-weight: 700; width: 100%; text-align: center;
     }
     .profile-input-box input:focus { outline: none; }
+
+    .player-count-box {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        padding: 8px 18px;
+        border-radius: 30px;
+        width: 100%;
+        box-sizing: border-box;
+    }
+    .player-count-label {
+        font-size: 0.85rem;
+        font-weight: 800;
+        color: #94a3b8;
+        letter-spacing: 1px;
+    }
+    .count-selector {
+        display: flex;
+        gap: 8px;
+        flex-grow: 1;
+        justify-content: space-around;
+    }
+    .count-btn {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: #cbd5e1;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        font-weight: 800;
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .count-btn:hover {
+        background: rgba(255, 255, 255, 0.15);
+        border-color: rgba(255, 255, 255, 0.3);
+        color: white;
+    }
+    .count-btn.active {
+        background: #22c55e;
+        border-color: #4ade80;
+        color: black;
+        box-shadow: 0 0 10px rgba(34, 197, 94, 0.5);
+        transform: scale(1.1);
+    }
 
     /* Modals CSS Styling */
     .modal-backdrop {
@@ -898,6 +966,7 @@
 @code {
     private bool _isGameStarted = false;
     private string _playerName = "PLAYER";
+    private int _playerCount = 4;
     private UnoGame? _game;
 
     private bool _showRulesModal = false;
@@ -1224,11 +1293,13 @@
     {
         var players = new List<Player>
         {
-            new Player { Id = Guid.NewGuid(), Name = string.IsNullOrWhiteSpace(_playerName) ? "PLAYER" : _playerName.ToUpper(), IsHuman = true },
-            new Player { Id = Guid.NewGuid(), Name = "CPU 1", IsHuman = false },
-            new Player { Id = Guid.NewGuid(), Name = "CPU 2", IsHuman = false },
-            new Player { Id = Guid.NewGuid(), Name = "CPU 3", IsHuman = false }
+            new Player { Id = Guid.NewGuid(), Name = string.IsNullOrWhiteSpace(_playerName) ? "PLAYER" : _playerName.ToUpper(), IsHuman = true }
         };
+
+        for (int i = 1; i < _playerCount; i++)
+        {
+            players.Add(new Player { Id = Guid.NewGuid(), Name = $"CPU {i}", IsHuman = false });
+        }
 
         // Pass the settings of the active selected preset directly to the game session!
         _game = new UnoGame(players, _selectedPreset.Settings);
