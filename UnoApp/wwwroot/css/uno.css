@@ -64,7 +64,7 @@ body {
 }
 
 /* TOP CPU */
-.slot-cpu-top {
+
     flex-direction: row-reverse;
     align-items: center;
     gap: 12px;
@@ -76,16 +76,21 @@ body {
     display: flex; 
     flex-direction: row; 
 }
-.slot-cpu-top .hand .hand-card-wrapper { 
-    margin-left: -70px; 
-    transform: scale(0.75);
-    transition: all 0.3s ease;
+.slot-cpu-top .hand .hand-card-wrapper {
+    margin-left: -40px;
+    transform: none !important;
+    width: 65px !important;
+    height: 95px !important;
+    aspect-ratio: 2 / 3 !important;
+}
+.slot-cpu-top .hand .hand-card-wrapper:first-child {
+    margin-left: 0;
 }
 .slot-cpu-top .hand .hand-card-wrapper:first-child { margin-left: 0; }
 
 /* LEFT CPU */
 .slot-cpu-left {
-    flex-direction: row;
+    flex-direction: column;
     align-items: center;
     gap: 12px;
 }
@@ -94,18 +99,24 @@ body {
 }
 .slot-cpu-left .hand {
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
+    align-items: center;
 }
 .slot-cpu-left .hand .hand-card-wrapper {
-    margin-left: -60px;
-    transform: scale(0.75);
-    transition: all 0.3s ease;
+    margin-left: 0;
+    margin-top: -65px;
+    transform: none !important;
+    width: 65px !important;
+    height: 95px !important;
+    aspect-ratio: 2 / 3 !important;
 }
-.slot-cpu-left .hand .hand-card-wrapper:first-child { margin-left: 0; }
+.slot-cpu-left .hand .hand-card-wrapper:first-child {
+    margin-left: 0;
+}
 
 /* RIGHT CPU */
 .slot-cpu-right {
-    flex-direction: row-reverse;
+    flex-direction: column;
     align-items: center;
     gap: 12px;
 }
@@ -114,14 +125,30 @@ body {
 }
 .slot-cpu-right .hand {
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
+    align-items: center;
 }
 .slot-cpu-right .hand .hand-card-wrapper {
-    margin-left: -60px;
-    transform: scale(0.75);
-    transition: all 0.3s ease;
+    margin-left: 0;
+    margin-top: -65px;
+    transform: none !important;
+    width: 65px !important;
+    height: 95px !important;
+    aspect-ratio: 2 / 3 !important;
 }
-.slot-cpu-right .hand .hand-card-wrapper:first-child { margin-left: 0; }
+.slot-cpu-right .hand .hand-card-wrapper:first-child {
+    margin-left: 0;
+}
+
+/* Opponent hand wrapper override */
+.slot-opponent .hand .hand-card-wrapper {
+    margin-left: -40px;
+    transform: none !important;
+}
+
+.slot-opponent .hand-card-wrapper {
+    transform: none !important;
+}
 
 /* BOTTOM - HUMAN */
 .slot-human { 
@@ -158,7 +185,7 @@ body {
 /* CENTER AREA - The Hub */
 .center-area {
     position: absolute;
-    top: 40%;
+    top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
     width: 320px;
@@ -169,9 +196,30 @@ body {
     z-index: 10;
 }
 
-/* ============================================================
-   CARD STYLES
-   ============================================================ */
+/* Opponent hand layout - horizontal row with overlap */
+.slot-opponent .hand {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+.slot-cpu-top .hand .hand-card-wrapper .uno-card,
+.slot-cpu-left .hand .hand-card-wrapper .uno-card,
+.slot-cpu-right .hand .hand-card-wrapper .uno-card {
+    width: 65px !important;
+    height: 95px !important;
+    aspect-ratio: 2 / 3 !important;
+    transform: none !important;
+}
+
+    width: 65px !important;
+    height: 95px !important;
+    aspect-ratio: 2 / 3 !important;
+    transform: none !important;
+}
+.slot-opponent .hand .hand-card-wrapper:first-child {
+    margin-left: 0;
+}
+
 .uno-card {
     width: var(--card-width);
     height: var(--card-height);
@@ -336,6 +384,9 @@ body {
 .card-back .card-content {
     background-color: black;
     border: 2px solid white;
+    overflow: hidden;
+    max-width: 100%;
+    max-height: 100%;
 }
 .card-back .white-oval {
     background: #eb2f06;
