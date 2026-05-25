@@ -6,6 +6,10 @@
     --bg-color: #1a2a5e;
     --card-width: 90px;
     --card-height: 135px;
+    --human-card-width: 70px;
+    --human-card-height: 105px;
+    --cpu-card-width: 50px;
+    --cpu-card-height: 75px;
     --red: #eb2f06;
     --blue: #1e3799;
     --green: #009432;
@@ -61,114 +65,84 @@ body {
 /* OPPONENTS DYNAMICALLY POSITIONED */
 .slot-opponent {
     display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-/* TOP CPU */
-.slot-cpu-top {
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-}
-.slot-cpu-top .cpu-badge {
-    margin-right: 12px;
-}
-.slot-cpu-top .hand { 
-    display: flex; 
-    flex-direction: row; 
-}
-.slot-cpu-top .hand .hand-card-wrapper {
-    margin-left: -35px;
-    transform: none !important;
-}
-.slot-cpu-top .hand .hand-card-wrapper:first-child {
-    margin-left: 0;
+/* Force all opponent slots to just center their content, we will position the badge absolutely */
+.slot-cpu-top, .slot-cpu-left, .slot-cpu-right {
+    flex-direction: row !important;
+    gap: 0 !important;
 }
 
-/* LEFT CPU */
-.slot-cpu-left {
-    flex-direction: row;
-    align-items: center;
-    gap: 12px;
+/* Badge placed beside and a little above */
+.slot-opponent .cpu-badge {
+    position: absolute;
+    top: -40px;
+    left: -50px;
+    z-index: 20;
+    margin: 0 !important;
 }
-.slot-cpu-left .cpu-badge {
-    margin-right: 12px;
-}
-.slot-cpu-left .hand {
+
+/* Opponent hand wrapper */
+.slot-opponent .hand {
     display: flex;
-    flex-direction: column;
+    flex-direction: row !important;
     align-items: center;
-}
-.slot-cpu-left .hand .hand-card-wrapper {
-    margin-left: -35px;
-    margin-top: 0;
-    transform: none !important;
-}
-.slot-cpu-left .hand .hand-card-wrapper:first-child {
-    margin-left: 0;
 }
 
-/* RIGHT CPU */
-.slot-cpu-right {
-    flex-direction: row-reverse;
-    align-items: center;
-    gap: 12px;
-}
-.slot-cpu-right .cpu-badge {
-    margin-left: 12px;
-}
-.slot-cpu-right .hand {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-.slot-cpu-right .hand .hand-card-wrapper {
-    margin-left: -35px;
-    margin-top: 0;
-    transform: none !important;
-}
-.slot-cpu-right .hand .hand-card-wrapper:first-child {
-    margin-left: 0;
-}
-
-/* Opponent hand wrapper override */
 .slot-opponent .hand .hand-card-wrapper {
-    margin-left: -40px;
+    margin-left: -35px;
+    margin-top: 0;
     transform: none !important;
+    transition: margin 0.3s ease;
 }
 
-.slot-opponent .hand-card-wrapper {
-    transform: none !important;
+.slot-opponent .hand .hand-card-wrapper:first-child {
+    margin-left: 0 !important;
 }
 
 /* BOTTOM - HUMAN */
 .slot-human { 
-    bottom: 25px; 
+    bottom: 30px; 
     left: 50%; 
     transform: translateX(-50%);
     flex-direction: row; 
-    align-items: flex-end;
+    align-items: center;
+    justify-content: center;
     z-index: 100;
+    position: absolute;
 }
 .human-profile-wrapper {
-    margin-right: 25px;
-    margin-bottom: 8px;
+    position: absolute;
+    top: -40px;
+    left: -100px;
+    z-index: 20;
+    margin: 0 !important;
 }
 .slot-human .hand { 
     display: flex; 
     flex-direction: row; 
+    justify-content: center;
+    position: relative;
+    /* Add padding so expanded cards don't get cut off during hover */
+    padding: 0 40px;
 }
 .slot-human .hand .hand-card-wrapper { 
-    margin-left: -32px; /* Overlap for better fanning visibility */
+    margin-left: var(--overlap, -45px); /* Scaled for 70px cards */
     cursor: pointer;
-    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), margin 0.3s ease;
     transform: translateY(var(--card-ty)) rotate(var(--card-rot));
     transform-origin: bottom center;
 }
 .slot-human .hand .hand-card-wrapper:first-child {
-    margin-left: 0;
+    margin-left: 0 !important;
+}
+.slot-human .hand:hover .hand-card-wrapper {
+    margin-left: var(--hover-overlap, var(--overlap, -45px));
 }
 .slot-human .hand .hand-card-wrapper:hover { 
-    transform: translateY(calc(var(--card-ty) - 35px)) rotate(var(--card-rot)) scale(1.15);
+    transform: translateY(calc(var(--card-ty) - 40px)) rotate(var(--card-rot)) scale(1.15);
     z-index: 200 !important;
 }
 
@@ -192,21 +166,26 @@ body {
     flex-direction: row;
     align-items: center;
 }
-.slot-cpu-top .hand .hand-card-wrapper .uno-card,
-.slot-cpu-left .hand .hand-card-wrapper .uno-card,
-.slot-cpu-right .hand .hand-card-wrapper .uno-card {
-    width: 65px !important;
-    height: 95px !important;
-    aspect-ratio: 2 / 3 !important;
+.slot-opponent .uno-card {
+    width: var(--cpu-card-width) !important;
+    height: var(--cpu-card-height) !important;
     transform: none !important;
 }
 
-.slot-opponent .uno-card .white-oval {
+.slot-human .uno-card {
+    width: var(--human-card-width) !important;
+    height: var(--human-card-height) !important;
+}
+
+.slot-opponent .uno-card .white-oval, .slot-human .uno-card .white-oval {
     width: 90%;
     height: 65%;
 }
 
 .slot-opponent .uno-card .back-text {
+    font-size: 1rem !important;
+}
+.slot-human .uno-card .back-text {
     font-size: 1.25rem !important;
 }
 .slot-opponent .hand .hand-card-wrapper:first-child {

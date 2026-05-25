@@ -30,9 +30,10 @@
                 </div>
                 <div class="hand @(IsSwapPartner(opponentIndex) ? "swap-anim" : "") @(_rotateAnim)">
                     @{
+                        int maxDisplay = Opponents.Count >= 4 ? 10 : 15;
                         int cardCount = _vortexHandSnapshot != null && opponentIndex < _vortexHandSnapshot.Length
                             ? _vortexHandSnapshot[opponentIndex]
-                            : Math.Min(opponent.Hand.Count, 5);
+                            : Math.Min(opponent.Hand.Count, maxDisplay);
                     }
                     @for (int i = 0; i < cardCount; i++)
                     {
@@ -175,7 +176,12 @@
         </div>
 
         <!-- HUMAN (BOTTOM) -->
-        <div class="player-slot slot-human">
+        @{
+            int humanCountCurrent = Game.Players[0].Hand.Count;
+            int overlap = humanCountCurrent > 20 ? -55 : (humanCountCurrent > 12 ? -50 : -45);
+            int hoverOverlap = humanCountCurrent > 20 ? -30 : (humanCountCurrent > 12 ? -20 : -10);
+        }
+        <div class="player-slot slot-human" style="--overlap: @(overlap)px; --hover-overlap: @(hoverOverlap)px;">
             <div class="human-profile-wrapper" style="position:relative">
                 <PlayerProfile Player="@Game.Players[0]" IsActive="@(Game.CurrentPlayerIndex == 0)" IsUnoDeclared="@(Game.Players[0].Hand.Count == 1 && Game.PlayerAtRisk != Game.Players[0])" />
                 @if (_skippedPlayerIndex == 0)
@@ -203,13 +209,13 @@
                         .ToList();
                     int count = humanHand.Count;
                     double middleIndex = (count - 1) / 2.0;
-                    // Scale angle down as hand grows to prevent cards going off-screen
                     double anglePerCard = count <= 7  ? 5.0
                                        : count <= 12 ? 3.5
                                        : count <= 18 ? 2.5
-                                       : 1.8;
+                                       : count <= 25 ? 1.5
+                                       : 1.0;
                     // Scale the translateY down too for large hands
-                    double tyFactor = count <= 7 ? 1.5 : count <= 14 ? 0.8 : 0.4;
+                    double tyFactor = count <= 7 ? 1.5 : count <= 14 ? 0.8 : count <= 20 ? 0.4 : 0.2;
                 }
 @{
                     // Freeze count during ingest so the human's cards stay in the DOM
