@@ -187,7 +187,7 @@
         <!-- HUMAN (BOTTOM) -->
         @{
             int humanCountCurrent = Game.Players[0].Hand.Count;
-            int overlap = humanCountCurrent > 20 ? -45 : (humanCountCurrent > 12 ? -40 : -35);
+            int overlap = humanCountCurrent > 20 ? -35 : (humanCountCurrent > 12 ? -30 : -25);
         }
         <div class="player-slot slot-human" style="--overlap: @(overlap)px;">
             <div class="human-profile-wrapper" style="position:relative">
@@ -347,29 +347,29 @@
         }
         else if (totalOpponents == 2)
         {
-            if (j == 0) { x = 15; y = 50; scale = 0.85; }
-            else { x = 85; y = 50; scale = 0.85; }
+            if (j == 0) { x = 10; y = 45; scale = 0.85; }
+            else { x = 90; y = 45; scale = 0.85; }
         }
         else if (totalOpponents == 3)
         {
-            if (j == 0) { x = 15; y = 50; scale = 0.85; }
+            if (j == 0) { x = 10; y = 45; scale = 0.85; }
             else if (j == 1) { x = 50; y = 15; scale = 0.7; }
-            else { x = 85; y = 50; scale = 0.85; }
+            else { x = 90; y = 45; scale = 0.85; }
         }
         else if (totalOpponents == 4)
         {
-            if (j == 0) { x = 15; y = 50; scale = 0.85; }
+            if (j == 0) { x = 10; y = 45; scale = 0.85; }
             else if (j == 1) { x = 35; y = 15; scale = 0.7; }
             else if (j == 2) { x = 65; y = 15; scale = 0.7; }
-            else { x = 85; y = 50; scale = 0.85; }
+            else { x = 90; y = 45; scale = 0.85; }
         }
         else if (totalOpponents == 5)
         {
-            if (j == 0) { x = 15; y = 50; scale = 0.85; }
+            if (j == 0) { x = 10; y = 45; scale = 0.85; }
             else if (j == 1) { x = 25; y = 15; scale = 0.7; }
             else if (j == 2) { x = 50; y = 15; scale = 0.7; }
             else if (j == 3) { x = 75; y = 15; scale = 0.7; }
-            else { x = 85; y = 50; scale = 0.85; }
+            else { x = 90; y = 45; scale = 0.85; }
         }
 
         var culture = System.Globalization.CultureInfo.InvariantCulture;
@@ -454,24 +454,24 @@
             double y = 15;
             
             if (totalOpponents == 1) { x = 50; y = 15; }
-            else if (totalOpponents == 2) { x = (j == 0) ? 15 : 85; y = 50; }
+            else if (totalOpponents == 2) { x = (j == 0) ? 10 : 90; y = 45; }
             else if (totalOpponents == 3) {
-                if (j == 0) { x = 15; y = 50; }
+                if (j == 0) { x = 10; y = 45; }
                 else if (j == 1) { x = 50; y = 15; }
-                else { x = 85; y = 50; }
+                else { x = 90; y = 45; }
             }
             else if (totalOpponents == 4) {
-                if (j == 0) { x = 15; y = 50; }
+                if (j == 0) { x = 10; y = 45; }
                 else if (j == 1) { x = 35; y = 15; }
                 else if (j == 2) { x = 65; y = 15; }
-                else { x = 85; y = 50; }
+                else { x = 90; y = 45; }
             }
             else if (totalOpponents == 5) {
-                if (j == 0) { x = 15; y = 50; }
+                if (j == 0) { x = 10; y = 45; }
                 else if (j == 1) { x = 25; y = 15; }
                 else if (j == 2) { x = 50; y = 15; }
                 else if (j == 3) { x = 75; y = 15; }
-                else { x = 85; y = 50; }
+                else { x = 90; y = 45; }
             }
 
             double dx = x - 50.0;

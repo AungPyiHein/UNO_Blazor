@@ -6,8 +6,8 @@
     --bg-color: #1a2a5e;
     --card-width: 70px;
     --card-height: 105px;
-    --human-card-width: 60px;
-    --human-card-height: 90px;
+    --human-card-width: 50px;
+    --human-card-height: 75px;
     --cpu-card-width: 65px;
     --cpu-card-height: 95px;
     --red: #eb2f06;
@@ -70,18 +70,44 @@ body {
 }
 
 /* Force all opponent slots to just center their content, we will position the badge absolutely */
-.slot-cpu-top, .slot-cpu-left, .slot-cpu-right {
+.slot-cpu-top {
     flex-direction: row !important;
     gap: 0 !important;
 }
 
-/* Badge placed beside and a little above */
-.slot-opponent .cpu-badge {
+.slot-cpu-left, .slot-cpu-right {
+    flex-direction: column !important;
+    gap: 15px !important;
+    align-items: center !important;
+}
+
+/* CPU Badges placed dynamically based on position */
+.slot-cpu-top .cpu-badge {
     position: absolute;
     top: -40px;
-    left: -50px;
+    left: -40px;
     z-index: 20;
     margin: 0 !important;
+}
+
+.slot-cpu-left .cpu-badge, .slot-cpu-right .cpu-badge {
+    position: relative !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    margin: 0 auto !important;
+    z-index: 20;
+}
+
+/* Sideway hand rotation for side opponents */
+.slot-cpu-left .hand {
+    transform: rotate(-90deg);
+    margin-top: 40px;
+}
+
+.slot-cpu-right .hand {
+    transform: rotate(90deg);
+    margin-top: 40px;
 }
 
 /* Opponent hand wrapper */
@@ -116,10 +142,11 @@ body {
 }
 .human-profile-wrapper {
     position: absolute;
-    top: -40px;
-    left: -100px;
+    top: -20px;
+    left: -80px;
     z-index: 20;
     margin: 0 !important;
+    transform: scale(0.75);
 }
 .slot-human .hand { 
     display: flex; 
