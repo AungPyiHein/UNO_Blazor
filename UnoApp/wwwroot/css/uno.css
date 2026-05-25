@@ -64,10 +64,10 @@ body {
 }
 
 /* TOP CPU */
-
-    flex-direction: row-reverse;
+.slot-cpu-top {
+    flex-direction: column;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
 }
 .slot-cpu-top .cpu-badge {
     margin-right: 12px;
@@ -77,20 +77,16 @@ body {
     flex-direction: row; 
 }
 .slot-cpu-top .hand .hand-card-wrapper {
-    margin-left: -40px;
+    margin-left: -35px;
     transform: none !important;
-    width: 65px !important;
-    height: 95px !important;
-    aspect-ratio: 2 / 3 !important;
 }
 .slot-cpu-top .hand .hand-card-wrapper:first-child {
     margin-left: 0;
 }
-.slot-cpu-top .hand .hand-card-wrapper:first-child { margin-left: 0; }
 
 /* LEFT CPU */
 .slot-cpu-left {
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
     gap: 12px;
 }
@@ -103,12 +99,9 @@ body {
     align-items: center;
 }
 .slot-cpu-left .hand .hand-card-wrapper {
-    margin-left: 0;
-    margin-top: -65px;
+    margin-left: -35px;
+    margin-top: 0;
     transform: none !important;
-    width: 65px !important;
-    height: 95px !important;
-    aspect-ratio: 2 / 3 !important;
 }
 .slot-cpu-left .hand .hand-card-wrapper:first-child {
     margin-left: 0;
@@ -116,7 +109,7 @@ body {
 
 /* RIGHT CPU */
 .slot-cpu-right {
-    flex-direction: column;
+    flex-direction: row-reverse;
     align-items: center;
     gap: 12px;
 }
@@ -129,12 +122,9 @@ body {
     align-items: center;
 }
 .slot-cpu-right .hand .hand-card-wrapper {
-    margin-left: 0;
-    margin-top: -65px;
+    margin-left: -35px;
+    margin-top: 0;
     transform: none !important;
-    width: 65px !important;
-    height: 95px !important;
-    aspect-ratio: 2 / 3 !important;
 }
 .slot-cpu-right .hand .hand-card-wrapper:first-child {
     margin-left: 0;
@@ -211,10 +201,13 @@ body {
     transform: none !important;
 }
 
-    width: 65px !important;
-    height: 95px !important;
-    aspect-ratio: 2 / 3 !important;
-    transform: none !important;
+.slot-opponent .uno-card .white-oval {
+    width: 90%;
+    height: 65%;
+}
+
+.slot-opponent .uno-card .back-text {
+    font-size: 1.25rem !important;
 }
 .slot-opponent .hand .hand-card-wrapper:first-child {
     margin-left: 0;
@@ -228,6 +221,7 @@ body {
     border-radius: 10px;
     box-shadow: 0 4px 10px rgba(0,0,0,0.5);
     position: relative;
+    z-index: 1;
     flex-shrink: 0;
     transition: transform 0.2s;
     user-select: none;
@@ -424,17 +418,36 @@ body {
 .draw-pile {
     cursor: pointer;
     position: absolute;
-    top: 25%;
-    left: 25%;
+    top: 40%;
+    left: 36%;
     transform: translate(-50%, -50%) rotate(-30deg);
-    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    transition: transform 0.2s ease;
     z-index: 5;
+}
+
+.draw-pile .uno-card {
+    box-shadow: 
+        -1px 1px 0px #fff, -2px 2px 0px #111,
+        -3px 3px 0px #fff, -4px 4px 0px #111,
+        -5px 5px 0px #fff, -6px 6px 0px #111,
+        -7px 7px 0px #fff, -8px 8px 0px #111,
+        -9px 9px 0px #fff, -10px 10px 0px #111,
+        -11px 11px 0px #fff, -12px 12px 0px #111,
+        -13px 13px 0px #fff, -14px 14px 10px rgba(0,0,0,0.8);
 }
 
 .draw-pile:hover {
     transform: translate(-50%, -50%) rotate(-30deg) scale(1.05);
-    box-shadow: 0 8px 20px rgba(0,0,0,0.8);
+}
+.draw-pile:hover .uno-card {
+    box-shadow: 
+        -1px 1px 0px #fff, -2px 2px 0px #111,
+        -3px 3px 0px #fff, -4px 4px 0px #111,
+        -5px 5px 0px #fff, -6px 6px 0px #111,
+        -7px 7px 0px #fff, -8px 8px 0px #111,
+        -9px 9px 0px #fff, -10px 10px 0px #111,
+        -11px 11px 0px #fff, -12px 12px 0px #111,
+        -13px 13px 0px #fff, -14px 14px 15px rgba(0,0,0,0.9);
     filter: drop-shadow(0 0 10px rgba(255,255,255,0.5));
 }
 
