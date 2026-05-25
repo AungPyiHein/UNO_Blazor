@@ -4,12 +4,12 @@
 
 :root {
     --bg-color: #1a2a5e;
-    --card-width: 90px;
-    --card-height: 135px;
-    --human-card-width: 70px;
-    --human-card-height: 105px;
-    --cpu-card-width: 50px;
-    --cpu-card-height: 75px;
+    --card-width: 70px;
+    --card-height: 105px;
+    --human-card-width: 60px;
+    --human-card-height: 90px;
+    --cpu-card-width: 65px;
+    --cpu-card-height: 95px;
     --red: #eb2f06;
     --blue: #1e3799;
     --green: #009432;
@@ -94,8 +94,9 @@ body {
 .slot-opponent .hand .hand-card-wrapper {
     margin-left: -35px;
     margin-top: 0;
-    transform: none !important;
-    transition: margin 0.3s ease;
+    transform: translateY(var(--card-ty, 0px)) rotate(var(--card-rot, 0deg)) !important;
+    transform-origin: bottom center;
+    transition: margin 0.3s ease, transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .slot-opponent .hand .hand-card-wrapper:first-child {
@@ -129,20 +130,17 @@ body {
     padding: 0 40px;
 }
 .slot-human .hand .hand-card-wrapper { 
-    margin-left: var(--overlap, -45px); /* Scaled for 70px cards */
+    margin-left: var(--overlap, -35px);
     cursor: pointer;
-    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), margin 0.3s ease;
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     transform: translateY(var(--card-ty)) rotate(var(--card-rot));
     transform-origin: bottom center;
 }
 .slot-human .hand .hand-card-wrapper:first-child {
     margin-left: 0 !important;
 }
-.slot-human .hand:hover .hand-card-wrapper {
-    margin-left: var(--hover-overlap, var(--overlap, -45px));
-}
 .slot-human .hand .hand-card-wrapper:hover { 
-    transform: translateY(calc(var(--card-ty) - 40px)) rotate(var(--card-rot)) scale(1.15);
+    transform: translateY(calc(var(--card-ty) - 30px)) rotate(var(--card-rot)) scale(1.15);
     z-index: 200 !important;
 }
 

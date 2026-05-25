@@ -34,10 +34,19 @@
                         int cardCount = _vortexHandSnapshot != null && opponentIndex < _vortexHandSnapshot.Length
                             ? _vortexHandSnapshot[opponentIndex]
                             : Math.Min(opponent.Hand.Count, maxDisplay);
+                            
+                        double oppMiddleIndex = (cardCount - 1) / 2.0;
+                        double oppAnglePerCard = cardCount <= 7  ? 5.0
+                                           : cardCount <= 12 ? 3.5
+                                           : 2.5;
+                        double oppTyFactor = cardCount <= 7 ? 1.0 : cardCount <= 12 ? 0.6 : 0.3;
                     }
                     @for (int i = 0; i < cardCount; i++)
                     {
-                        <div class="hand-card-wrapper @(_isSwallowingCards ? "vortex-ingest" : "") @(_isSpittingCards ? "vortex-eject" : "")">
+                        double offset = i - oppMiddleIndex;
+                        double rotateAngle = offset * oppAnglePerCard;
+                        double translateY = Math.Pow(offset, 2) * oppTyFactor;
+                        <div class="hand-card-wrapper @(_isSwallowingCards ? "vortex-ingest" : "") @(_isSpittingCards ? "vortex-eject" : "")" style="--card-rot: @(rotateAngle.ToString(System.Globalization.CultureInfo.InvariantCulture))deg; --card-ty: @(translateY.ToString(System.Globalization.CultureInfo.InvariantCulture))px; z-index: @i;">
                             <UnoCardComponent IsBack="true" />
                         </div>
                     }
@@ -178,10 +187,9 @@
         <!-- HUMAN (BOTTOM) -->
         @{
             int humanCountCurrent = Game.Players[0].Hand.Count;
-            int overlap = humanCountCurrent > 20 ? -55 : (humanCountCurrent > 12 ? -50 : -45);
-            int hoverOverlap = humanCountCurrent > 20 ? -30 : (humanCountCurrent > 12 ? -20 : -10);
+            int overlap = humanCountCurrent > 20 ? -45 : (humanCountCurrent > 12 ? -40 : -35);
         }
-        <div class="player-slot slot-human" style="--overlap: @(overlap)px; --hover-overlap: @(hoverOverlap)px;">
+        <div class="player-slot slot-human" style="--overlap: @(overlap)px;">
             <div class="human-profile-wrapper" style="position:relative">
                 <PlayerProfile Player="@Game.Players[0]" IsActive="@(Game.CurrentPlayerIndex == 0)" IsUnoDeclared="@(Game.Players[0].Hand.Count == 1 && Game.PlayerAtRisk != Game.Players[0])" />
                 @if (_skippedPlayerIndex == 0)
@@ -358,9 +366,9 @@
         else if (totalOpponents == 5)
         {
             if (j == 0) { x = 15; y = 50; scale = 0.85; }
-            else if (j == 1) { x = 30; y = 15; scale = 0.7; }
+            else if (j == 1) { x = 25; y = 15; scale = 0.7; }
             else if (j == 2) { x = 50; y = 15; scale = 0.7; }
-            else if (j == 3) { x = 70; y = 15; scale = 0.7; }
+            else if (j == 3) { x = 75; y = 15; scale = 0.7; }
             else { x = 85; y = 50; scale = 0.85; }
         }
 
@@ -460,9 +468,9 @@
             }
             else if (totalOpponents == 5) {
                 if (j == 0) { x = 15; y = 50; }
-                else if (j == 1) { x = 30; y = 15; }
+                else if (j == 1) { x = 25; y = 15; }
                 else if (j == 2) { x = 50; y = 15; }
-                else if (j == 3) { x = 70; y = 15; }
+                else if (j == 3) { x = 75; y = 15; }
                 else { x = 85; y = 50; }
             }
 
