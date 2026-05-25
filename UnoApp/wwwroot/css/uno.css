@@ -395,7 +395,7 @@ body {
 .card-back .back-text {
     display: block !important;
     color: white;
-    font-size: 1.8rem;
+    font-size: 1.3rem;
     font-weight: 900;
     font-style: italic;
     transform: rotate(42deg);
@@ -588,8 +588,8 @@ body {
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 260px;
-    height: 260px;
+    width: 340px;
+    height: 340px;
     transform: translate(-50%, -50%);
     margin: 0;
     pointer-events: none;

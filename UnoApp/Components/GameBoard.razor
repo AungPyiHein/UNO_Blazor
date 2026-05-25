@@ -413,10 +413,10 @@
         double rotation = card.RotationAngle;
         
         // X offset between -10px and 10px
-        double offsetX = (hash % 17) / 16.0 * 20.0 - 10.0;
+        double offsetX = (Math.Abs(hash % 17)) / 16.0 * 20.0 - 10.0;
         
         // Y offset between -10px and 10px
-        double offsetY = ((hash >> 4) % 17) / 16.0 * 20.0 - 10.0;
+        double offsetY = (Math.Abs((hash >> 4) % 17)) / 16.0 * 20.0 - 10.0;
 
         var culture = System.Globalization.CultureInfo.InvariantCulture;
         string style = $"position: absolute; left: calc(50% + {offsetX.ToString("0.0", culture)}px); top: calc(50% + {offsetY.ToString("0.0", culture)}px); transform: translate(-50%, -50%) rotate({rotation.ToString("0.0", culture)}deg);";
