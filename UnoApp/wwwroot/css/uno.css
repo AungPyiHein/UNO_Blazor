@@ -4,12 +4,12 @@
 
 :root {
     --bg-color: #1a2a5e;
-    --card-width: 70px;
-    --card-height: 105px;
+    --card-width: 64px;
+    --card-height: 96px;
     --human-card-width: 50px;
     --human-card-height: 75px;
-    --cpu-card-width: 65px;
-    --cpu-card-height: 95px;
+    --cpu-card-width: 48px;
+    --cpu-card-height: 72px;
     --red: #eb2f06;
     --blue: #1e3799;
     --green: #009432;
@@ -118,7 +118,7 @@ body {
 }
 
 .slot-opponent .hand .hand-card-wrapper {
-    margin-left: -35px;
+    margin-left: -28px;
     margin-top: 0;
     transform: translateY(var(--card-ty, 0px)) rotate(var(--card-rot, 0deg)) !important;
     transform-origin: bottom center;

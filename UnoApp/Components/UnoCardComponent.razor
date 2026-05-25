@@ -3,7 +3,7 @@
 @if (!IsBack && Card != null)
 {
     <div @onclick="OnClick" style="cursor: pointer; display: inline-block;">
-        <UnoCardView Color="Card.Color" Value="Card.Value" SizeClass="w-24 h-36" Style="@Style" />
+        <UnoCardView Color="Card.Color" Value="Card.Value" SizeClass="@SizeClass" Style="@Style" />
     </div>
 }
 else if (IsBack)
@@ -21,5 +21,6 @@ else if (IsBack)
     [Parameter] public UnoCard? Card { get; set; }
     [Parameter] public bool IsBack { get; set; }
     [Parameter] public string Style { get; set; } = "";
+    [Parameter] public string SizeClass { get; set; } = "w-20 h-30";
     [Parameter] public EventCallback OnClick { get; set; }
 }

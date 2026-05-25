@@ -151,13 +151,13 @@
                     if (isTop)
                     {
                         <div @key="displayCard.Id" class="discard-active-card" style="@messyStyle @GetDiscardAnimStyle(Game.LastPlayerIndex, displayCard)">
-                            <UnoCardComponent Card="@displayCard" />
+                            <UnoCardComponent Card="@displayCard" SizeClass="w-16 h-24" />
                         </div>
                     }
                     else
                     {
                         <div @key="card.Id" class="discard-history-card" style="@messyStyle">
-                            <UnoCardComponent Card="@card" />
+                            <UnoCardComponent Card="@card" SizeClass="w-16 h-24" />
                         </div>
                     }
                 }
@@ -187,7 +187,7 @@
         <!-- HUMAN (BOTTOM) -->
         @{
             int humanCountCurrent = Game.Players[0].Hand.Count;
-            int overlap = humanCountCurrent > 20 ? -35 : (humanCountCurrent > 12 ? -30 : -25);
+            int overlap = humanCountCurrent > 20 ? -55 : (humanCountCurrent > 12 ? -45 : -35);
         }
         <div class="player-slot slot-human" style="--overlap: @(overlap)px;">
             <div class="human-profile-wrapper" style="position:relative">
