@@ -32,6 +32,7 @@ namespace UnoEngine
         public UnoCard? TopCard => DiscardPile.LastOrDefault();
         public List<UnoCard> DiscardHistory => DiscardPile.TakeLast(8).ToList();
         public UnoCard? PendingCard { get; private set; }
+        public Player? PendingColorSelector { get; private set; }
         public Player? PlayerAtRisk { get; private set; }
         public List<string> GameLog { get; private set; } = new();
         public Player? Winner { get; private set; }
@@ -242,11 +243,8 @@ namespace UnoEngine
                 // We only reach here if Stacking is ON and CPU has a stackable card (guaranteed by StartTurnAsync)
                 var stackable = cpu.Hand.First(c => c.Value == TopCard?.Value);
                 LogAction($"{cpu.Name} STACKED a {stackable}!");
-                // Phase A: Drop the multi-color wild art on the pile before declaring color
-                if (stackable.Color == CardColor.Wild && OnBoardAnimation != null)
-                    await OnBoardAnimation.Invoke($"wild-drop-{Players.IndexOf(cpu)}");
-                // Always pass a declared color — WildDraw4 is Wild color and would trigger color picker without it
-                await PlayCardAsync(cpu, stackable, CardColor.Red);
+                // Always pass null for declared color so the new Wild logic kicks in
+                await PlayCardAsync(cpu, stackable, null);
                 return;
             }
 
@@ -288,10 +286,7 @@ namespace UnoEngine
                 if (nextPlayer.Hand.Count <= 3) // Threat detected
                 {
                     LogAction($"{cpu.Name} played a {powerCard.Value} against {nextPlayer.Name}!");
-                    // Phase A: Drop multi-color wild art before declaring color
-                    if (powerCard.Color == CardColor.Wild && OnBoardAnimation != null)
-                        await OnBoardAnimation.Invoke($"wild-drop-{Players.IndexOf(cpu)}");
-                    await PlayCardAsync(cpu, powerCard, CardColor.Red); 
+                    await PlayCardAsync(cpu, powerCard, null); 
                     return;
                 }
             }
@@ -301,10 +296,7 @@ namespace UnoEngine
             if (match != null)
             {
                 LogAction($"{cpu.Name} played {match}.");
-                // Phase A: Drop multi-color wild art before declaring color
-                if (match.Color == CardColor.Wild && OnBoardAnimation != null)
-                    await OnBoardAnimation.Invoke($"wild-drop-{Players.IndexOf(cpu)}");
-                await PlayCardAsync(cpu, match, CardColor.Red);
+                await PlayCardAsync(cpu, match, null);
                 return;
             }
 
@@ -323,10 +315,7 @@ namespace UnoEngine
             if (CanPlayCard(drawn) && !(drawn.Value == CardValue.Seven && Settings.SevenSwap))
             {
                 LogAction($"{cpu.Name} played the drawn {drawn}.");
-                // Phase A: Drop multi-color wild art before declaring color
-                if (drawn.Color == CardColor.Wild && OnBoardAnimation != null)
-                    await OnBoardAnimation.Invoke($"wild-drop-{Players.IndexOf(cpu)}");
-                await PlayCardAsync(cpu, drawn, CardColor.Red);
+                await PlayCardAsync(cpu, drawn, null);
             }
             else
             {
@@ -407,8 +396,21 @@ namespace UnoEngine
             // Handle Wild requiring color selection (Vortex is Color Nullified and skips selection)
             if (card.Color == CardColor.Wild && card.Value != CardValue.Vortex && declaredColor == null)
             {
-                PendingCard = card;
+                if (player.Hand.Contains(card)) player.Hand.Remove(card);
+                else if (card == PendingCard) PendingCard = null;
+
+                card.RotationAngle = (float)(_random.NextDouble() * 30.0 - 15.0);
+                DiscardPile.Add(card);
+
+                PendingColorSelector = player;
+                LastPlayerIndex = Players.IndexOf(player);
                 Status = GameStatus.WaitingForColorSelection;
+                OnStateChanged?.Invoke();
+
+                if (!player.IsHuman)
+                {
+                    SafeFireAndForget(() => HandleCpuColorSelectionAsync(player));
+                }
                 return;
             }
 
@@ -469,6 +471,11 @@ namespace UnoEngine
 
             await HandleSpecialActions(player, playedCard, targetPlayer);
 
+            await EndPlayCardSequence(player);
+        }
+
+        private async Task EndPlayCardSequence(Player player)
+        {
             if (player.Hand.Count == 1)
             {
                 if (IsUnoCalled)
@@ -507,6 +514,68 @@ namespace UnoEngine
                     await StartTurnAsync();
                 });
             }
+        }
+
+        public async Task SetWildColorAsync(CardColor color)
+        {
+            await _actionLock.WaitAsync();
+            try
+            {
+                if (Status != GameStatus.WaitingForColorSelection || PendingColorSelector != Players[0]) return;
+                await InternalFinalizeWildColor(color, Players[0]);
+            }
+            finally
+            {
+                _actionLock.Release();
+            }
+            OnStateChanged?.Invoke();
+        }
+
+        private async Task HandleCpuColorSelectionAsync(Player cpu)
+        {
+            await Task.Delay(1500); // UI delay for pizza interaction visual
+            await _actionLock.WaitAsync();
+            try
+            {
+                if (Status == GameStatus.WaitingForColorSelection && PendingColorSelector == cpu)
+                {
+                    var bestColor = CardColor.Red;
+                    var colorCounts = cpu.Hand.Where(c => c.Color != CardColor.Wild)
+                                              .GroupBy(c => c.Color)
+                                              .OrderByDescending(g => g.Count());
+                    if (colorCounts.Any()) bestColor = colorCounts.First().Key;
+                    else bestColor = (CardColor)_random.Next(0, 4);
+
+                    if (OnBoardAnimation != null)
+                    {
+                        await OnBoardAnimation.Invoke($"cpu-color-pick-{bestColor}");
+                    }
+                    await Task.Delay(800); // Brief pause so human sees the chosen slice flash
+                    await InternalFinalizeWildColor(bestColor, cpu);
+                }
+            }
+            finally
+            {
+                _actionLock.Release();
+            }
+            OnStateChanged?.Invoke();
+        }
+
+        private async Task InternalFinalizeWildColor(CardColor color, Player player)
+        {
+            if (TopCard != null)
+            {
+                var newCard = TopCard with { Color = color };
+                DiscardPile[^1] = newCard;
+                LastValidColor = color;
+            }
+            
+            PendingColorSelector = null;
+            Status = GameStatus.Playing;
+            LogAction($"{player.Name} chose {color}!");
+            
+            await HandleSpecialActions(player, TopCard!, null);
+            await EndPlayCardSequence(player);
         }
 
         private bool IsJumpInPossible()
