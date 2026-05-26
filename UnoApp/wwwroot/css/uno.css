@@ -1728,95 +1728,92 @@ body {
 }
 
 /* ============================================================
-   DRAWN CARD OVERLAY
+   DRAWN CARD BUBBLE
    ============================================================ */
-.drawn-card-overlay {
-    position: fixed;
-    bottom: 20%;
+.drawn-card-highlight {
+    animation: highlight-pulse 1.5s infinite alternate ease-in-out;
+    filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.8));
+}
+
+@keyframes highlight-pulse {
+    from { transform: translateY(calc(var(--card-ty) - 15px)) rotate(var(--card-rot)) scale(1.05); }
+    to { transform: translateY(calc(var(--card-ty) - 25px)) rotate(var(--card-rot)) scale(1.15); }
+}
+
+.drawn-card-bubble {
+    position: absolute;
+    top: -50px; /* Above the card */
     left: 50%;
     transform: translateX(-50%);
-    z-index: 2100;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    pointer-events: none; /* Let them click around if they want */
-}
-
-.drawn-card-container {
     display: flex;
     flex-direction: row;
-    align-items: center;
-    gap: 20px;
-    background: rgba(10, 15, 30, 0.95);
-    border: 2px solid rgba(255, 255, 255, 0.2);
+    gap: 8px;
+    background: rgba(20, 25, 40, 0.95);
+    padding: 8px 12px;
     border-radius: 20px;
-    padding: 15px 30px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8), inset 0 0 20px rgba(255, 255, 255, 0.1);
-    animation: pop-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    pointer-events: auto; /* Re-enable pointer events */
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.6);
+    z-index: 1010;
+    pointer-events: auto;
+    animation: bubble-pop-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-.drawn-card-title {
-    color: white;
-    font-size: 1.2rem;
-    font-weight: 900;
-    margin: 0;
-    text-shadow: 0 2px 10px rgba(0,0,0,0.5);
-    letter-spacing: 1px;
-    white-space: nowrap;
+.drawn-card-bubble::after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 8px 8px 0;
+    border-style: solid;
+    border-color: rgba(20, 25, 40, 0.95) transparent transparent transparent;
+    display: block;
+    width: 0;
 }
 
-.drawn-card-presentation {
-    margin-bottom: 0;
-    transform: scale(1);
-    transition: transform 0.3s ease;
+@keyframes bubble-pop-in {
+    0% { transform: translate(-50%, 10px) scale(0.5); opacity: 0; }
+    100% { transform: translate(-50%, 0) scale(1); opacity: 1; }
 }
 
-.drawn-card-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.drawn-card-btn {
-    padding: 15px 40px;
-    font-size: 1.5rem;
-    font-weight: 900;
+.bubble-btn {
+    padding: 6px 14px;
+    font-size: 0.85rem;
+    font-weight: 800;
     border: none;
-    border-radius: 10px;
+    border-radius: 12px;
     cursor: pointer;
     color: white;
     transition: all 0.2s ease;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
 }
 
-.play-btn {
-    background: linear-gradient(135deg, #00b894, #00b894);
-    box-shadow: 0 6px 0 #009432;
+.bubble-play {
+    background: linear-gradient(135deg, #00b894, #009432);
+    box-shadow: 0 4px 0 #006221;
 }
 
-.play-btn:hover {
-    transform: translateY(2px);
-    box-shadow: 0 4px 0 #009432;
+.bubble-play:hover {
+    transform: translateY(1px);
+    box-shadow: 0 3px 0 #006221;
 }
 
-.play-btn:active {
-    transform: translateY(6px);
-    box-shadow: 0 0 0 #009432;
+.bubble-play:active {
+    transform: translateY(4px);
+    box-shadow: 0 0 0 #006221;
 }
 
-.keep-btn {
-    background: linear-gradient(135deg, #d63031, #d63031);
-    box-shadow: 0 6px 0 #b71c1c;
+.bubble-keep {
+    background: linear-gradient(135deg, #d63031, #b71c1c);
+    box-shadow: 0 4px 0 #8c1010;
 }
 
-.keep-btn:hover {
-    transform: translateY(2px);
-    box-shadow: 0 4px 0 #b71c1c;
+.bubble-keep:hover {
+    transform: translateY(1px);
+    box-shadow: 0 3px 0 #8c1010;
 }
 
-.keep-btn:active {
-    transform: translateY(6px);
-    box-shadow: 0 0 0 #b71c1c;
+.bubble-keep:active {
+    transform: translateY(4px);
+    box-shadow: 0 0 0 #8c1010;
 }
 

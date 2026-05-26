@@ -239,10 +239,20 @@
                     double rotateAngle = offset * anglePerCard;
                     double translateY = Math.Pow(offset, 2) * tyFactor;
 
-                    <div @key="@(card != null ? card.Id.ToString() : $"ghost-{i}")" class="hand-card-wrapper @(_isSwallowingCards ? "vortex-ingest" : "") @(_isSpittingCards ? "vortex-eject" : "")" style="--card-rot: @(rotateAngle.ToString(System.Globalization.CultureInfo.InvariantCulture))deg; --card-ty: @(translateY.ToString(System.Globalization.CultureInfo.InvariantCulture))px; z-index: @i;">
+                    <div @key="@(card != null ? card.Id.ToString() : $"ghost-{i}")" class="hand-card-wrapper @(_isSwallowingCards ? "vortex-ingest" : "") @(_isSpittingCards ? "vortex-eject" : "") @(card != null && card == _drawnPlayableCard ? "drawn-card-highlight" : "")" style="--card-rot: @(rotateAngle.ToString(System.Globalization.CultureInfo.InvariantCulture))deg; --card-ty: @(translateY.ToString(System.Globalization.CultureInfo.InvariantCulture))px; z-index: @(card != null && card == _drawnPlayableCard ? 1000 : i);">
                         @if (card != null && !_isSwallowingCards)
                         {
                             <UnoCardComponent Card="@card" OnClick="() => OnCardClicked(card)" />
+                            @if (card == _drawnPlayableCard)
+                            {
+                                <div class="drawn-card-bubble">
+                                    <button class="bubble-btn bubble-play" @onclick="PlayDrawnCard" @onclick:stopPropagation>PLAY</button>
+                                    @if (!Game.Settings.ForcedPlay)
+                                    {
+                                        <button class="bubble-btn bubble-keep" @onclick="KeepDrawnCard" @onclick:stopPropagation>KEEP</button>
+                                    }
+                                </div>
+                            }
                         }
                         else
                         {
@@ -359,24 +369,6 @@
         </div>
     }
 
-    @if (_drawnPlayableCard != null)
-    {
-        <div class="drawn-card-overlay">
-            <div class="drawn-card-container">
-                <h2 class="drawn-card-title">PLAYABLE CARD DRAWN!</h2>
-                <div class="drawn-card-presentation">
-                    <UnoCardComponent Card="@_drawnPlayableCard" />
-                </div>
-                <div class="drawn-card-actions">
-                    <button class="drawn-card-btn play-btn" @onclick="PlayDrawnCard">PLAY</button>
-                    @if (!Game.Settings.ForcedPlay)
-                    {
-                        <button class="drawn-card-btn keep-btn" @onclick="KeepDrawnCard">KEEP</button>
-                    }
-                </div>
-            </div>
-        </div>
-    }
 }
 
 @code {

@@ -196,13 +196,13 @@
                                         <span class="rule-icon">🔄</span>
                                         <div class="rule-text">
                                             <span class="rule-title">Draw Until Playable</span>
-                                            <span class="rule-desc">Must draw continuous cards until a playable card is pulled.</span>
+                                            <span class="rule-desc">Must draw continuous cards until a playable card is pulled. (Auto-enables Forced Play)</span>
                                         </div>
                                     </div>
                                     <div class="rule-control">
                                         <label class="switch">
                                             <input type="checkbox" checked="@_editingSettings.DrawUntilPlayable" 
-                                                   @onchange="(e) => ToggleRule(val => _editingSettings.DrawUntilPlayable = val, e)" />
+                                                   @onchange="ToggleDrawUntilPlayable" />
                                             <span class="slider"></span>
                                         </label>
                                     </div>
@@ -219,7 +219,7 @@
                                             <span class="rule-icon">🔒</span>
                                             <div class="rule-text">
                                                 <span class="rule-title">Forced Play</span>
-                                                <span class="rule-desc">Players MUST play a card if they have a match in hand (disables reneging/drawing).</span>
+                                                <span class="rule-desc">Players MUST play a card if they have a match in hand (disables reneging/drawing). Auto-enabled by Draw Until Playable.</span>
                                             </div>
                                         </div>
                                         <div class="rule-control">
@@ -481,7 +481,7 @@
 
                                     <div class="house-rule-desc">
                                         <h4>⚖️ Reneging (Intentionally Drawing)</h4>
-                                        <p>You can choose to draw a card even if you hold a valid match. If the drawn card is playable, you can play it immediately, but you cannot play any other card from your hand on that turn.</p>
+                                        <p>You can choose to draw a card even if you hold a valid match. If the drawn card is playable, you can play it immediately, but you cannot play any other card from your hand on that turn. <em>Note: Disabled if "Forced Play" is active.</em></p>
                                     </div>
 
                                     <div class="house-rule-desc">
@@ -523,7 +523,7 @@
 
                                     <div class="house-rule-desc">
                                         <h4>🔄 Draw Until Playable</h4>
-                                        <p>No simple draw-and-pass. If you don't have a match, you must continuously click the draw deck and draw cards until a legal, playable card is pulled.</p>
+                                        <p>No simple draw-and-pass. If you don't have a match, you must continuously click the draw deck and draw cards until a legal, playable card is pulled. <em>Note: Enabling this rule automatically forces "Forced Play" to be enabled as well.</em></p>
                                     </div>
 
                                     <div class="house-rule-desc">
@@ -1032,11 +1032,14 @@
             new RuleItem
             {
                 Title = "Draw Until Playable",
-                Description = "Must draw continuous cards until a playable card is pulled.",
+                Description = "Must draw continuous cards until a playable card is pulled. (Auto-enables Forced Play)",
                 Icon = "🔄",
                 Type = RuleType.Toggle,
                 GetBoolValue = s => s.DrawUntilPlayable,
-                SetBoolValue = (s, v) => s.DrawUntilPlayable = v
+                SetBoolValue = (s, v) => { 
+                    s.DrawUntilPlayable = v; 
+                    if (v) s.ForcedPlay = true; 
+                }
             },
             new RuleItem
             {
@@ -1045,7 +1048,10 @@
                 Icon = "🔒",
                 Type = RuleType.Toggle,
                 GetBoolValue = s => s.ForcedPlay,
-                SetBoolValue = (s, v) => s.ForcedPlay = v
+                SetBoolValue = (s, v) => {
+                    s.ForcedPlay = v;
+                    if (!v && s.DrawUntilPlayable) s.DrawUntilPlayable = false;
+                }
             },
             new RuleItem
             {
@@ -1251,6 +1257,20 @@
         }
     }
 
+    private void ToggleDrawUntilPlayable(ChangeEventArgs e)
+    {
+        if (_editingPreset?.IsReadonly == true) return;
+
+        if (e.Value is bool val)
+        {
+            _editingSettings.DrawUntilPlayable = val;
+            if (val)
+            {
+                _editingSettings.ForcedPlay = true;
+            }
+        }
+    }
+
     private void ToggleForcedPlay(ChangeEventArgs e)
     {
         if (_editingPreset?.IsReadonly == true) return;
@@ -1258,6 +1278,10 @@
         if (e.Value is bool val)
         {
             _editingSettings.ForcedPlay = val;
+            if (!val && _editingSettings.DrawUntilPlayable)
+            {
+                _editingSettings.DrawUntilPlayable = false;
+            }
         }
     }
 
