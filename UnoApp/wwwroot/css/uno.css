@@ -1740,6 +1740,25 @@ body {
     to { transform: translateY(calc(var(--card-ty) - 25px)) rotate(var(--card-rot)) scale(1.15); }
 }
 
+/* ============================================================
+   JUMP-IN HIGHLIGHT
+   ============================================================ */
+.jump-in-highlight {
+    animation: jump-in-pulse 0.6s infinite alternate ease-in-out;
+    filter: drop-shadow(0 0 15px rgba(255, 215, 0, 0.9));
+}
+
+@keyframes jump-in-pulse {
+    from { 
+        transform: translateY(calc(var(--card-ty) - 15px)) rotate(var(--card-rot)) scale(1.05); 
+        filter: drop-shadow(0 0 15px rgba(255, 215, 0, 0.6));
+    }
+    to { 
+        transform: translateY(calc(var(--card-ty) - 25px)) rotate(var(--card-rot)) scale(1.15); 
+        filter: drop-shadow(0 0 30px rgba(255, 215, 0, 1));
+    }
+}
+
 .drawn-card-bubble {
     position: absolute;
     top: -50px; /* Above the card */

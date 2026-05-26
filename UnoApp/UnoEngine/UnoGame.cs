@@ -355,18 +355,23 @@ namespace UnoEngine
             OnStateChanged?.Invoke();
         }
 
-        public async Task<bool> JumpInAsync(Player player, UnoCard card)
+        public bool IsEligibleForJumpIn(UnoCard card)
         {
-            if (!Settings.JumpInRule) return false;
-            if (TopCard == null) return false;
+            if (!Settings.JumpInRule || TopCard == null) return false;
+            if (Status != GameStatus.Playing && Status != GameStatus.WaitingForJumpIn) return false;
 
-            // Prevent jump-in with special-action cards that trigger UI pickers.
-            // Cascading "pick swap target" inside a jump-in window is very confusing UX.
+            // Block special cards that require UI interaction or complex board sweeps
+            if (card.Color == CardColor.Wild) return false;
+            if (card.Value == CardValue.Vortex) return false;
             if (card.Value == CardValue.Seven && Settings.SevenSwap) return false;
             if (card.Value == CardValue.Zero && Settings.ZeroRotate) return false;
 
-            // Strict Validation: Exact Color AND Exact Value
-            if (card.Color != TopCard.Color || card.Value != TopCard.Value) return false;
+            return card.Color == TopCard.Color && card.Value == TopCard.Value;
+        }
+
+        public async Task<bool> JumpInAsync(Player player, UnoCard card)
+        {
+            if (!IsEligibleForJumpIn(card)) return false;
 
             await _actionLock.WaitAsync();
             try

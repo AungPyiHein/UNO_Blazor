@@ -239,7 +239,8 @@
                     double rotateAngle = offset * anglePerCard;
                     double translateY = Math.Pow(offset, 2) * tyFactor;
 
-                    <div @key="@(card != null ? card.Id.ToString() : $"ghost-{i}")" class="hand-card-wrapper @(_isSwallowingCards ? "vortex-ingest" : "") @(_isSpittingCards ? "vortex-eject" : "") @(card != null && card == _drawnPlayableCard ? "drawn-card-highlight" : "")" style="--card-rot: @(rotateAngle.ToString(System.Globalization.CultureInfo.InvariantCulture))deg; --card-ty: @(translateY.ToString(System.Globalization.CultureInfo.InvariantCulture))px; z-index: @(card != null && card == _drawnPlayableCard ? 1000 : i);">
+                    bool isJumpIn = card != null && Game.CurrentPlayerIndex != 0 && Game.IsEligibleForJumpIn(card);
+                    <div @key="@(card != null ? card.Id.ToString() : $"ghost-{i}")" class="hand-card-wrapper @(_isSwallowingCards ? "vortex-ingest" : "") @(_isSpittingCards ? "vortex-eject" : "") @(card != null && card == _drawnPlayableCard ? "drawn-card-highlight" : "") @(isJumpIn ? "jump-in-highlight" : "")" style="--card-rot: @(rotateAngle.ToString(System.Globalization.CultureInfo.InvariantCulture))deg; --card-ty: @(translateY.ToString(System.Globalization.CultureInfo.InvariantCulture))px; z-index: @(card != null && card == _drawnPlayableCard ? 1000 : (isJumpIn ? 500 : i));">
                         @if (card != null && !_isSwallowingCards)
                         {
                             <UnoCardComponent Card="@card" OnClick="() => OnCardClicked(card)" />
