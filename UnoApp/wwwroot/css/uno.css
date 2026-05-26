@@ -1309,17 +1309,17 @@ body {
 /* Premium Circular UNO! Side Badge */
 .uno-circular-badge {
     position: absolute;
-    left: -28px;
+    left: -36px;
     top: 50%;
     transform: translateY(-50%) scale(1);
-    width: 34px;
-    height: 34px;
+    width: 48px;
+    height: 48px;
     border-radius: 50%;
     background: linear-gradient(135deg, #ff7e00 0%, #ff003c 100%); /* bold orange-to-red gradient background */
     border: 3px solid #ffffff; /* clean white outline border */
     color: #ffffff; /* high-contrast white text */
     font-family: 'Outfit', 'Segoe UI', Arial, sans-serif;
-    font-size: 0.68rem;
+    font-size: 0.95rem;
     font-weight: 900;
     text-align: center;
     letter-spacing: 0.5px;

@@ -30,7 +30,7 @@ namespace UnoEngine
         public int PendingDrawCount { get; private set; } = 0;
         public GameStatus Status { get; private set; } = GameStatus.Playing;
         public UnoCard? TopCard => DiscardPile.LastOrDefault();
-        public List<UnoCard> DiscardHistory => DiscardPile.TakeLast(4).ToList();
+        public List<UnoCard> DiscardHistory => DiscardPile.TakeLast(8).ToList();
         public UnoCard? PendingCard { get; private set; }
         public Player? PlayerAtRisk { get; private set; }
         public List<string> GameLog { get; private set; } = new();
