@@ -260,14 +260,15 @@ body {
 
 /* Draw Animation (Human Hand) */
 .slot-human .hand-card-wrapper {
-    animation: draw-card 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    animation: draw-human-from-deck 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-@keyframes draw-card {
+@keyframes draw-human-from-deck {
     0% { 
-        transform: translate(-15vw, -30vh) scale(0.2); 
+        transform: translate(var(--draw-origin-x, -14vw), var(--draw-origin-y, -48vh)) rotate(-30deg) scale(0.3); 
         opacity: 0; 
     }
+    15% { opacity: 1; }
     100% { 
         transform: translateY(var(--card-ty)) rotate(var(--card-rot)) scale(1); 
         opacity: 1; 
@@ -276,11 +277,18 @@ body {
 
 /* Opponent Hand Card Styling & Entry */
 .slot-opponent .hand-card-wrapper {
-    animation: draw-cpu 0.4s ease-out;
+    animation: draw-cpu-from-deck 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
-@keyframes draw-cpu {
-    0% { transform: scale(0.2); opacity: 0; }
-    100% { transform: scale(0.75); opacity: 1; }
+@keyframes draw-cpu-from-deck {
+    0% { 
+        transform: translate(var(--draw-origin-x, -14vw), var(--draw-origin-y, 25vh)) rotate(-30deg) scale(0.3); 
+        opacity: 0; 
+    }
+    15% { opacity: 1; }
+    100% { 
+        transform: translateY(var(--card-ty, 0px)) rotate(var(--card-rot, 0deg)) scale(1); 
+        opacity: 1; 
+    }
 }
 
 .card-content {
@@ -1718,3 +1726,97 @@ body {
     z-index: 30;
     white-space: nowrap;
 }
+
+/* ============================================================
+   DRAWN CARD OVERLAY
+   ============================================================ */
+.drawn-card-overlay {
+    position: fixed;
+    bottom: 20%;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none; /* Let them click around if they want */
+}
+
+.drawn-card-container {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 20px;
+    background: rgba(10, 15, 30, 0.95);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    padding: 15px 30px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8), inset 0 0 20px rgba(255, 255, 255, 0.1);
+    animation: pop-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    pointer-events: auto; /* Re-enable pointer events */
+}
+
+.drawn-card-title {
+    color: white;
+    font-size: 1.2rem;
+    font-weight: 900;
+    margin: 0;
+    text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+    letter-spacing: 1px;
+    white-space: nowrap;
+}
+
+.drawn-card-presentation {
+    margin-bottom: 0;
+    transform: scale(1);
+    transition: transform 0.3s ease;
+}
+
+.drawn-card-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.drawn-card-btn {
+    padding: 15px 40px;
+    font-size: 1.5rem;
+    font-weight: 900;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    color: white;
+    transition: all 0.2s ease;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.play-btn {
+    background: linear-gradient(135deg, #00b894, #00b894);
+    box-shadow: 0 6px 0 #009432;
+}
+
+.play-btn:hover {
+    transform: translateY(2px);
+    box-shadow: 0 4px 0 #009432;
+}
+
+.play-btn:active {
+    transform: translateY(6px);
+    box-shadow: 0 0 0 #009432;
+}
+
+.keep-btn {
+    background: linear-gradient(135deg, #d63031, #d63031);
+    box-shadow: 0 6px 0 #b71c1c;
+}
+
+.keep-btn:hover {
+    transform: translateY(2px);
+    box-shadow: 0 4px 0 #b71c1c;
+}
+
+.keep-btn:active {
+    transform: translateY(6px);
+    box-shadow: 0 0 0 #b71c1c;
+}
+

@@ -189,7 +189,7 @@
             int humanCountCurrent = Game.Players[0].Hand.Count;
             int overlap = humanCountCurrent > 20 ? -55 : (humanCountCurrent > 12 ? -45 : -35);
         }
-        <div class="player-slot slot-human" style="--overlap: @(overlap)px;">
+        <div class="player-slot slot-human" style="--overlap: @(overlap)px; --draw-origin-x: -14vw; --draw-origin-y: -48vh;">
             <div class="human-profile-wrapper" style="position:relative">
                 <PlayerProfile Player="@Game.Players[0]" IsActive="@(Game.CurrentPlayerIndex == 0)" IsUnoDeclared="@(Game.Players[0].Hand.Count == 1 && Game.PlayerAtRisk != Game.Players[0])" />
                 @if (_skippedPlayerIndex == 0)
@@ -358,6 +358,25 @@
             </div>
         </div>
     }
+
+    @if (_drawnPlayableCard != null)
+    {
+        <div class="drawn-card-overlay">
+            <div class="drawn-card-container">
+                <h2 class="drawn-card-title">PLAYABLE CARD DRAWN!</h2>
+                <div class="drawn-card-presentation">
+                    <UnoCardComponent Card="@_drawnPlayableCard" />
+                </div>
+                <div class="drawn-card-actions">
+                    <button class="drawn-card-btn play-btn" @onclick="PlayDrawnCard">PLAY</button>
+                    @if (!Game.Settings.ForcedPlay)
+                    {
+                        <button class="drawn-card-btn keep-btn" @onclick="KeepDrawnCard">KEEP</button>
+                    }
+                </div>
+            </div>
+        </div>
+    }
 }
 
 @code {
@@ -406,7 +425,10 @@
         }
 
         var culture = System.Globalization.CultureInfo.InvariantCulture;
-        return $"position: absolute; left: {x.ToString("0.0", culture)}%; top: {y.ToString("0.0", culture)}%; transform: translate(-50%, -50%) scale({scale.ToString("0.0", culture)});";
+        double dx = 36.0 - x;
+        double dy = 40.0 - y;
+        
+        return $"position: absolute; left: {x.ToString("0.0", culture)}%; top: {y.ToString("0.0", culture)}%; transform: translate(-50%, -50%) scale({scale.ToString("0.0", culture)}); --draw-origin-x: {dx.ToString("0.0", culture)}vw; --draw-origin-y: {dy.ToString("0.0", culture)}vh;";
     }
 
     private (double x, double y) GetPlayerArrowPosition(int playerIndex)
@@ -575,6 +597,42 @@
     private bool _sevenOverlayActive = false;
     private int _sevenActorIndex = -1;
     private int _sevenCpuTargetIndex = -1;
+
+    private UnoCard? _drawnPlayableCard = null;
+
+    private async Task PlayDrawnCard()
+    {
+        if (_drawnPlayableCard == null || _isProcessingAction || Game == null) return;
+        _isProcessingAction = true;
+        try
+        {
+            var cardToPlay = _drawnPlayableCard;
+            _drawnPlayableCard = null; // hide overlay
+            await Task.Delay(100);
+            await Game.PlayCardAsync(Game.Players[0], cardToPlay);
+        }
+        finally
+        {
+            _isProcessingAction = false;
+        }
+    }
+
+    private async Task KeepDrawnCard()
+    {
+        if (_drawnPlayableCard == null || _isProcessingAction || Game == null) return;
+        _isProcessingAction = true;
+        try
+        {
+            _drawnPlayableCard = null; // hide overlay
+            await Task.Delay(100);
+            Game.LogAction($"{Game.Players[0].Name} drew and kept the card.");
+            await Game.PassTurnAfterDraw();
+        }
+        finally
+        {
+            _isProcessingAction = false;
+        }
+    }
 
     private bool IsSwapPartner(int playerIndex) =>
         _swapP1 == playerIndex || _swapP2 == playerIndex;
@@ -830,10 +888,11 @@
                     await Task.Delay(600);
                     await Game.PassTurnAfterDraw();
                 }
-                // If playable, card is already in hand — human clicks it themselves
+                // If playable, ask player to play or keep
                 else
                 {
                     Game.LogAction($"{Game.Players[0].Name} drew a playable card.");
+                    _drawnPlayableCard = drawn;
                 }
             }
         }

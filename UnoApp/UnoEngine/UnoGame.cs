@@ -80,15 +80,10 @@ namespace UnoEngine
                 DrawPile.Push(card);
             }
 
-            // Deal configured starting cards to each player
+            // Clear hands for animated dealing later
             foreach (var player in Players)
             {
                 player.Hand.Clear();
-                int handSize = Settings.StartingHandSize > 0 ? Settings.StartingHandSize : 7;
-                for (int i = 0; i < handSize; i++)
-                {
-                    player.Hand.Add(DrawPile.Pop());
-                }
             }
 
             // Initial discard
@@ -106,6 +101,21 @@ namespace UnoEngine
             // Randomly pick the starting player
             CurrentPlayerIndex = _random.Next(0, Players.Count);
             LogAction($"{Players[CurrentPlayerIndex].Name} goes first!");
+        }
+
+        public async Task DealStartingCardsAsync()
+        {
+            int handSize = Settings.StartingHandSize > 0 ? Settings.StartingHandSize : 7;
+            for (int i = 0; i < handSize; i++)
+            {
+                foreach (var player in Players)
+                {
+                    player.Hand.Add(DrawOne());
+                    OnStateChanged?.Invoke();
+                    await Task.Delay(100); // 100ms per card deal speed
+                }
+            }
+            await Task.Delay(500); // pause before starting the turn
         }
 
         private List<UnoCard> CreateDeck()

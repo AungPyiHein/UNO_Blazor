@@ -1306,6 +1306,7 @@
         _game.OnStateChanged += () => InvokeAsync(StateHasChanged);
         
         _isGameStarted = true;
+        await _game.DealStartingCardsAsync();
         await _game.StartTurnAsync();
     }
 
