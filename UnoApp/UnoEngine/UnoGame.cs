@@ -102,6 +102,10 @@ namespace UnoEngine
             firstCard.RotationAngle = (float)(_random.NextDouble() * 30.0 - 15.0);
             DiscardPile.Add(firstCard);
             LastValidColor = firstCard.Color;
+
+            // Randomly pick the starting player
+            CurrentPlayerIndex = _random.Next(0, Players.Count);
+            LogAction($"{Players[CurrentPlayerIndex].Name} goes first!");
         }
 
         private List<UnoCard> CreateDeck()
@@ -816,6 +820,12 @@ namespace UnoEngine
                 case CardValue.Seven:
                     if (Settings.SevenSwap && targetPlayer != null)
                     {
+                        if (!currentPlayer.IsHuman && OnBoardAnimation != null)
+                        {
+                            int actorIdx = Players.IndexOf(currentPlayer);
+                            int targetIdx = Players.IndexOf(targetPlayer);
+                            await OnBoardAnimation.Invoke($"seven-preview-{actorIdx}-{targetIdx}");
+                        }
                         await PerformSevenSwap(currentPlayer, targetPlayer);
                     }
                     break;

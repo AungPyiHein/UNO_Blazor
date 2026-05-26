@@ -1,5 +1,5 @@
 /* ============================================================
-   UNO ARENA — Professional Game Board Reset
+   UNO ARENA â€” Professional Game Board Reset
    ============================================================ */
 
 :root {
@@ -653,57 +653,189 @@ body {
     to { transform: translate(-50%, -50%) scale(1); opacity: 1; }
 }
 
-/* Pizza Wheel Color Picker */
-.pizza-wheel-container {
+/* ============================================================
+   3D COLOR PICKER (Ubisoft UNO Style)
+   ============================================================ */
+.color-picker-overlay {
     position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(ellipse at center, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.75) 100%);
+    animation: picker-fade-in 0.3s ease-out;
+}
+
+@keyframes picker-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.color-picker-diamond {
+    position: relative;
+    width: 260px;
+    height: 260px;
+    animation: picker-pop-in 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes picker-pop-in {
+    0% { transform: scale(0.3) rotate(-30deg); opacity: 0; }
+    100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+.color-picker-center-logo {
+    position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    z-index: 100;
-    width: 320px;
-    height: 320px;
-    animation: pop-in 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    filter: drop-shadow(0 20px 50px rgba(0,0,0,0.9));
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #1a1a2e, #0a0a15);
+    border: 3px solid rgba(255,255,255,0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    font-weight: 900;
+    font-style: italic;
+    color: white;
+    text-shadow: 0 0 8px rgba(255,255,255,0.5);
+    z-index: 10;
+    box-shadow: 0 0 15px rgba(0,0,0,0.6), inset 0 1px 3px rgba(255,255,255,0.15);
+    pointer-events: none;
 }
-.pizza-wheel {
-    width: 100%;
-    height: 100%;
-    transform: rotate(45deg); /* To make lines diagonal */
-}
-.pizza-slice {
-    transform-origin: 100px 100px; /* SVG center is 100,100 */
-    transition: all 0.2s ease;
-    cursor: default;
-    opacity: 0.85;
-    stroke: rgba(255,255,255,0.2);
-    stroke-width: 2;
-}
-.pizza-slice.slice-red { fill: var(--red); }
-.pizza-slice.slice-blue { fill: var(--blue); }
-.pizza-slice.slice-green { fill: var(--green); }
-.pizza-slice.slice-yellow { fill: var(--yellow); }
 
-.pizza-wheel.interactive .pizza-slice {
+.color-btn {
+    position: absolute;
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    border: 4px solid rgba(255,255,255,0.3);
+    cursor: default;
+    outline: none;
+    overflow: hidden;
+    transition: box-shadow 0.3s ease, border-color 0.3s ease, transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transform: translateZ(0);
+}
+
+.color-btn .btn-shine {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 45%;
+    border-radius: 50% 50% 45% 45%;
+    background: linear-gradient(180deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.15) 50%, transparent 100%);
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.color-btn-red {
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    background: radial-gradient(circle at 40% 35%, #ff6b6b, #eb2f06 60%, #b71c1c);
+    box-shadow: 0 6px 20px rgba(235,47,6,0.5), 0 2px 6px rgba(0,0,0,0.4), inset 0 -4px 8px rgba(0,0,0,0.3), inset 0 2px 4px rgba(255,255,255,0.15);
+}
+
+.color-btn-yellow {
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    background: radial-gradient(circle at 40% 35%, #fff176, #f1c40f 60%, #f39c12);
+    box-shadow: 0 6px 20px rgba(241,196,15,0.5), 0 2px 6px rgba(0,0,0,0.4), inset 0 -4px 8px rgba(0,0,0,0.25), inset 0 2px 4px rgba(255,255,255,0.2);
+}
+
+.color-btn-green {
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    background: radial-gradient(circle at 40% 35%, #69f0ae, #009432 60%, #1b5e20);
+    box-shadow: 0 6px 20px rgba(0,148,50,0.5), 0 2px 6px rgba(0,0,0,0.4), inset 0 -4px 8px rgba(0,0,0,0.3), inset 0 2px 4px rgba(255,255,255,0.15);
+}
+
+.color-btn-blue {
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    background: radial-gradient(circle at 40% 35%, #64b5f6, #1e3799 60%, #0d47a1);
+    box-shadow: 0 6px 20px rgba(30,55,153,0.5), 0 2px 6px rgba(0,0,0,0.4), inset 0 -4px 8px rgba(0,0,0,0.3), inset 0 2px 4px rgba(255,255,255,0.15);
+}
+
+.color-picker-diamond.interactive .color-btn {
     cursor: pointer;
 }
-.pizza-wheel.interactive .pizza-slice:hover {
-    transform: scale(1.1);
-    opacity: 1;
-    filter: brightness(1.3);
-    stroke: white;
-    stroke-width: 4;
-}
-.pizza-slice.cpu-pick {
-    transform: scale(1.15);
-    opacity: 1;
-    stroke: white;
-    stroke-width: 5;
-    animation: cpu-pick-flash 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+
+.color-picker-diamond.interactive .color-btn-red:hover {
+    border-color: rgba(255,255,255,0.9);
+    transform: translateX(-50%) scale(1.1);
+    box-shadow: 0 0 35px rgba(235,47,6,0.9), 0 0 70px rgba(235,47,6,0.4), 0 4px 15px rgba(0,0,0,0.5), inset 0 -4px 8px rgba(0,0,0,0.3), inset 0 2px 4px rgba(255,255,255,0.2);
 }
 
-@keyframes cpu-pick-flash {
-    0%, 100% { transform: scale(1); filter: brightness(1); }
-    50% { transform: scale(1.15); filter: brightness(1.5) drop-shadow(0 0 15px white); }
+.color-picker-diamond.interactive .color-btn-yellow:hover {
+    border-color: rgba(255,255,255,0.9);
+    transform: translateY(-50%) scale(1.1);
+    box-shadow: 0 0 35px rgba(241,196,15,0.9), 0 0 70px rgba(241,196,15,0.4), 0 4px 15px rgba(0,0,0,0.5), inset 0 -4px 8px rgba(0,0,0,0.25), inset 0 2px 4px rgba(255,255,255,0.25);
+}
+
+.color-picker-diamond.interactive .color-btn-green:hover {
+    border-color: rgba(255,255,255,0.9);
+    transform: translateX(-50%) scale(1.1);
+    box-shadow: 0 0 35px rgba(0,148,50,0.9), 0 0 70px rgba(0,148,50,0.4), 0 4px 15px rgba(0,0,0,0.5), inset 0 -4px 8px rgba(0,0,0,0.3), inset 0 2px 4px rgba(255,255,255,0.2);
+}
+
+.color-picker-diamond.interactive .color-btn-blue:hover {
+    border-color: rgba(255,255,255,0.9);
+    transform: translateY(-50%) scale(1.1);
+    box-shadow: 0 0 35px rgba(30,55,153,0.9), 0 0 70px rgba(30,55,153,0.4), 0 4px 15px rgba(0,0,0,0.5), inset 0 -4px 8px rgba(0,0,0,0.3), inset 0 2px 4px rgba(255,255,255,0.2);
+}
+
+.color-picker-diamond.interactive .color-btn:hover .btn-shine {
+    opacity: 0.85;
+}
+
+.color-btn.cpu-pick {
+    border-color: white !important;
+}
+
+.color-btn-red.cpu-pick {
+    animation: cpu-glow-top 0.8s ease-in-out;
+    box-shadow: 0 0 40px rgba(235,47,6,1), 0 0 80px rgba(235,47,6,0.6), inset 0 -4px 8px rgba(0,0,0,0.3) !important;
+}
+.color-btn-yellow.cpu-pick {
+    animation: cpu-glow-left 0.8s ease-in-out;
+    box-shadow: 0 0 40px rgba(241,196,15,1), 0 0 80px rgba(241,196,15,0.6), inset 0 -4px 8px rgba(0,0,0,0.25) !important;
+}
+.color-btn-green.cpu-pick {
+    animation: cpu-glow-bottom 0.8s ease-in-out;
+    box-shadow: 0 0 40px rgba(0,148,50,1), 0 0 80px rgba(0,148,50,0.6), inset 0 -4px 8px rgba(0,0,0,0.3) !important;
+}
+.color-btn-blue.cpu-pick {
+    animation: cpu-glow-right 0.8s ease-in-out;
+    box-shadow: 0 0 40px rgba(30,55,153,1), 0 0 80px rgba(30,55,153,0.6), inset 0 -4px 8px rgba(0,0,0,0.3) !important;
+}
+
+@keyframes cpu-glow-top {
+    0%   { transform: translateX(-50%) scale(1); }
+    40%  { transform: translateX(-50%) scale(1.15); }
+    100% { transform: translateX(-50%) scale(1); }
+}
+@keyframes cpu-glow-bottom {
+    0%   { transform: translateX(-50%) scale(1); }
+    40%  { transform: translateX(-50%) scale(1.15); }
+    100% { transform: translateX(-50%) scale(1); }
+}
+@keyframes cpu-glow-left {
+    0%   { transform: translateY(-50%) scale(1); }
+    40%  { transform: translateY(-50%) scale(1.15); }
+    100% { transform: translateY(-50%) scale(1); }
+}
+@keyframes cpu-glow-right {
+    0%   { transform: translateY(-50%) scale(1); }
+    40%  { transform: translateY(-50%) scale(1.15); }
+    100% { transform: translateY(-50%) scale(1); }
 }
 
 /* Swap Options */
@@ -1125,7 +1257,7 @@ body {
 }
 
 @keyframes vortex-cinematic-sequence {
-  /* Phase 1: Erupting / Appearing — NO box-shadow anywhere (it was rendering on the square div boundary) */
+  /* Phase 1: Erupting / Appearing â€” NO box-shadow anywhere (it was rendering on the square div boundary) */
   0%   { transform: translate(-50%, -50%) scale(0) rotate(0deg);    opacity: 0; filter: brightness(2); }
   20%  { transform: translate(-50%, -50%) scale(1.1) rotate(240deg);  opacity: 1; filter: brightness(1.2); }
 
@@ -1140,7 +1272,7 @@ body {
 }
 
 /* ============================================================
-   UBISOFT TACTILE ACTION BUTTONS — Console HUD System
+   UBISOFT TACTILE ACTION BUTTONS â€” Console HUD System
    ============================================================ */
 
 /* Master class: depth, gradients, aggressive click physics */
@@ -1169,7 +1301,7 @@ body {
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4), inset 0 4px 8px rgba(0, 0, 0, 0.4);
 }
 
-/* The iconic UNO button — Vibrant Red/Orange gradient with heavy red glow */
+/* The iconic UNO button â€” Vibrant Red/Orange gradient with heavy red glow */
 .btn-uno-call {
     background: linear-gradient(135deg, #ff416c, #ff4b2b);
     box-shadow: 0 8px 25px rgba(255, 75, 43, 0.5), inset 0 3px 0 rgba(255, 255, 255, 0.4);
@@ -1184,7 +1316,7 @@ body {
     to   { box-shadow: 0 14px 40px rgba(255, 75, 43, 0.85), inset 0 3px 0 rgba(255, 255, 255, 0.5); transform: scale(1.04); }
 }
 
-/* The Catch button — Warning Gold gradient */
+/* The Catch button â€” Warning Gold gradient */
 .btn-catch {
     background: linear-gradient(135deg, #fceabb, #f8b500);
     color: #111;
@@ -1210,7 +1342,7 @@ body {
 }
 
 /* ============================================================
-   HUD ACTION CONTAINER — Fixed bottom-right, console-style
+   HUD ACTION CONTAINER â€” Fixed bottom-right, console-style
    ============================================================ */
 .hud-action-container {
     position: fixed;
@@ -1471,4 +1603,118 @@ body {
     60% { transform: skew(0deg); }
     80% { transform: skew(3deg); }
     90% { transform: skew(-3deg); }
+}
+/* ============================================================
+   UBISOFT-STYLE 7-SWAP OVERLAY
+   ============================================================ */
+.seven-swap-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 900;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    pointer-events: auto;
+}
+
+.seven-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+}
+
+
+
+.seven-center-card {
+    position: absolute;
+    z-index: 10;
+    animation: sevenPopIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+.giant-seven {
+    font-size: 15rem;
+    font-weight: 900;
+    color: #fff;
+    text-shadow: 0 10px 30px rgba(0,0,0,0.8), 0 0 40px rgba(255,215,0,0.6);
+    background: linear-gradient(135deg, #ff416c, #ff4b2b);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 15px 15px rgba(0,0,0,0.5));
+}
+
+@keyframes sevenPopIn {
+    0% { transform: scale(0) rotate(-30deg); opacity: 0; }
+    60% { transform: scale(1.1) rotate(5deg); opacity: 1; }
+    100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+.seven-target-arrow {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    z-index: 25;
+    transition: all 0.2s ease;
+}
+
+.seven-target-arrow svg {
+    width: 60px;
+    height: 60px;
+    color: #ffda79;
+    filter: drop-shadow(0 4px 10px rgba(0,0,0,0.5));
+    animation: arrow-bounce-only 1s infinite alternate cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.seven-target-arrow.clickable {
+    cursor: pointer;
+}
+.seven-target-arrow.clickable:hover {
+    transform: translate(-50%, -55%) scale(1.1);
+}
+.seven-target-arrow.clickable:hover svg {
+    color: #ffb142;
+    filter: drop-shadow(0 10px 25px rgba(255, 177, 66, 0.8));
+}
+
+.seven-target-arrow.cpu-target svg {
+    color: #ff5252;
+    filter: drop-shadow(0 0 25px rgba(255, 82, 82, 0.9));
+    animation: arrow-bounce-target-only 0.8s infinite alternate cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.seven-target-arrow.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+@keyframes arrow-bounce-only {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(15px); }
+}
+
+@keyframes arrow-bounce-target-only {
+    0% { transform: scale(1.1) translateY(0); filter: drop-shadow(0 0 15px rgba(255, 82, 82, 0.5)); }
+    100% { transform: scale(1.3) translateY(10px); filter: drop-shadow(0 0 35px rgba(255, 82, 82, 1)); }
+}
+
+.seven-instruction-bar {
+    position: absolute;
+    bottom: 50px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(90deg, transparent, rgba(0,0,0,0.8), transparent);
+    color: white;
+    font-size: 2rem;
+    font-weight: 900;
+    padding: 15px 60px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    text-shadow: 0 2px 10px rgba(0,0,0,1);
+    z-index: 30;
+    white-space: nowrap;
 }

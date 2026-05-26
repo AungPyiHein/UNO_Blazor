@@ -258,40 +258,72 @@
 
     @if (Game.Status == GameStatus.WaitingForColorSelection)
     {
-        <div class="pizza-wheel-container">
-            <svg viewBox="0 0 200 200" class="pizza-wheel @(Game.PendingColorSelector == Game.Players[0] ? "interactive" : "")">
-                <!-- Slices -->
-                <path d="M100,100 L100,0 A100,100 0 0,1 200,100 Z" class="pizza-slice slice-red @(_highlightedColor == CardColor.Red ? "cpu-pick" : "")" @onclick="() => FinalizeColor(CardColor.Red)" />
-                <path d="M100,100 L200,100 A100,100 0 0,1 100,200 Z" class="pizza-slice slice-blue @(_highlightedColor == CardColor.Blue ? "cpu-pick" : "")" @onclick="() => FinalizeColor(CardColor.Blue)" />
-                <path d="M100,100 L100,200 A100,100 0 0,1 0,100 Z" class="pizza-slice slice-green @(_highlightedColor == CardColor.Green ? "cpu-pick" : "")" @onclick="() => FinalizeColor(CardColor.Green)" />
-                <path d="M100,100 L0,100 A100,100 0 0,1 100,0 Z" class="pizza-slice slice-yellow @(_highlightedColor == CardColor.Yellow ? "cpu-pick" : "")" @onclick="() => FinalizeColor(CardColor.Yellow)" />
-                
-                <!-- Center Hole -->
-                <circle cx="100" cy="100" r="35" fill="#1a2a5e" stroke="rgba(255,255,255,0.2)" stroke-width="6"/>
-                <text x="100" y="105" fill="white" font-size="20" font-weight="900" font-family="'Segoe UI', Tahoma, sans-serif" text-anchor="middle" alignment-baseline="middle" style="pointer-events: none; text-shadow: 0 2px 4px rgba(0,0,0,0.8);">WILD</text>
-            </svg>
+        <div class="color-picker-overlay">
+            <div class="color-picker-diamond @(Game.PendingColorSelector == Game.Players[0] ? "interactive" : "")">
+                <button class="color-btn color-btn-red @(_highlightedColor == CardColor.Red ? "cpu-pick" : "")" @onclick="() => FinalizeColor(CardColor.Red)">
+                    <span class="btn-shine"></span>
+                </button>
+                <button class="color-btn color-btn-yellow @(_highlightedColor == CardColor.Yellow ? "cpu-pick" : "")" @onclick="() => FinalizeColor(CardColor.Yellow)">
+                    <span class="btn-shine"></span>
+                </button>
+                <button class="color-btn color-btn-green @(_highlightedColor == CardColor.Green ? "cpu-pick" : "")" @onclick="() => FinalizeColor(CardColor.Green)">
+                    <span class="btn-shine"></span>
+                </button>
+                <button class="color-btn color-btn-blue @(_highlightedColor == CardColor.Blue ? "cpu-pick" : "")" @onclick="() => FinalizeColor(CardColor.Blue)">
+                    <span class="btn-shine"></span>
+                </button>
+            </div>
         </div>
     }
 
-    @if (Game.Status == GameStatus.WaitingForSwapTarget && Game.CurrentPlayerIndex == 0)
+    @if ((Game.Status == GameStatus.WaitingForSwapTarget && Game.CurrentPlayerIndex == 0) || _sevenOverlayActive)
     {
-        <div class="modal-overlay glass-modal">
-            <div class="glass-panel swap-picker-panel">
-                <h3>Select Player to Swap Hands</h3>
-                <div class="swap-options">
-                    @foreach (var p in Game.Players.Where(p => p != Game.Players[0]))
-                    {
-                        <button class="swap-btn" @onclick="() => FinalizeSwap(p)">
-                            <div class="swap-avatar">
-                                <svg viewBox="0 0 24 24" fill="currentColor">
-                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
-                                </svg>
-                            </div>
-                            <span class="swap-name">@p.Name</span>
-                            <span class="swap-count">@p.Hand.Count Cards</span>
-                        </button>
-                    }
-                </div>
+        var isHumanChoosing = (Game.Status == GameStatus.WaitingForSwapTarget && Game.CurrentPlayerIndex == 0);
+        var actorName = isHumanChoosing ? Game.Players[0].Name : Game.Players[_sevenActorIndex].Name;
+        
+        <div class="seven-swap-overlay">
+            <div class="seven-backdrop"></div>
+            
+            <div class="seven-center-card">
+                <div class="giant-seven">7</div>
+            </div>
+
+            @for (int i = 0; i < Game.Players.Count; i++)
+            {
+                int actorIdx = isHumanChoosing ? 0 : _sevenActorIndex;
+                if (i == actorIdx) continue;
+
+                    var p = Game.Players[i];
+                    var pos = GetPlayerArrowPosition(i);
+                    var culture = System.Globalization.CultureInfo.InvariantCulture;
+                    bool isTarget = (!isHumanChoosing && i == _sevenCpuTargetIndex);
+                    
+                    string arrowClass = "seven-target-arrow";
+                    if (isHumanChoosing) arrowClass += " clickable";
+                    else if (isTarget) arrowClass += " cpu-target";
+                    else arrowClass += " hidden";
+
+                    var xStr = pos.x.ToString("0.0", culture);
+                    // Center the popup container at the original player's position
+                    var yStr = pos.y.ToString("0.0", culture);
+
+                    <div class="@arrowClass" style="left: @xStr%; top: @yStr%;" @onclick="() => { if (isHumanChoosing) FinalizeSwap(p); }">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                        <PlayerProfile Player="@p" IsActive="false" IsUnoDeclared="@(p.Hand.Count == 1 && Game.PlayerAtRisk != p)" />
+                    </div>
+                }
+
+            <div class="seven-instruction-bar">
+                @if (isHumanChoosing)
+                {
+                    <span>Choose who to swap hands with!</span>
+                }
+                else
+                {
+                    <span>@actorName is swapping with @Game.Players[_sevenCpuTargetIndex].Name!</span>
+                }
             </div>
         </div>
     }
@@ -375,6 +407,49 @@
 
         var culture = System.Globalization.CultureInfo.InvariantCulture;
         return $"position: absolute; left: {x.ToString("0.0", culture)}%; top: {y.ToString("0.0", culture)}%; transform: translate(-50%, -50%) scale({scale.ToString("0.0", culture)});";
+    }
+
+    private (double x, double y) GetPlayerArrowPosition(int playerIndex)
+    {
+        if (playerIndex == 0) return (50.0, 88.0); // Human position
+
+        int totalOpponents = Game?.Players.Count - 1 ?? 1;
+        int j = playerIndex - 1; 
+        
+        double x = 50;
+        double y = 15;
+
+        if (totalOpponents == 1)
+        {
+            x = 50; y = 15;
+        }
+        else if (totalOpponents == 2)
+        {
+            if (j == 0) { x = 10; y = 45; }
+            else { x = 90; y = 45; }
+        }
+        else if (totalOpponents == 3)
+        {
+            if (j == 0) { x = 10; y = 45; }
+            else if (j == 1) { x = 50; y = 15; }
+            else { x = 90; y = 45; }
+        }
+        else if (totalOpponents == 4)
+        {
+            if (j == 0) { x = 10; y = 45; }
+            else if (j == 1) { x = 35; y = 15; }
+            else if (j == 2) { x = 65; y = 15; }
+            else { x = 90; y = 45; }
+        }
+        else if (totalOpponents == 5)
+        {
+            if (j == 0) { x = 10; y = 45; }
+            else if (j == 1) { x = 25; y = 15; }
+            else if (j == 2) { x = 50; y = 15; }
+            else if (j == 3) { x = 75; y = 15; }
+            else { x = 90; y = 45; }
+        }
+        return (x, y);
     }
 
     private string GetOpponentPositionClass(int j, int totalOpponents)
@@ -497,6 +572,10 @@
     private int[]? _vortexHandSnapshot = null;
     private CardColor? _highlightedColor = null;
 
+    private bool _sevenOverlayActive = false;
+    private int _sevenActorIndex = -1;
+    private int _sevenCpuTargetIndex = -1;
+
     private bool IsSwapPartner(int playerIndex) =>
         _swapP1 == playerIndex || _swapP2 == playerIndex;
 
@@ -573,6 +652,23 @@
                 await InvokeAsync(StateHasChanged);
                 await Task.Delay(900);
                 _swapP1 = -1; _swapP2 = -1;
+                await InvokeAsync(StateHasChanged);
+            }
+            return;
+        }
+
+        // Seven Preview animation
+        if (animType.StartsWith("seven-preview-"))
+        {
+            var parts = animType.Split('-');
+            if (parts.Length == 4 && int.TryParse(parts[2], out int actor) && int.TryParse(parts[3], out int target))
+            {
+                _sevenActorIndex = actor;
+                _sevenCpuTargetIndex = target;
+                _sevenOverlayActive = true;
+                await InvokeAsync(StateHasChanged);
+                await Task.Delay(2500); // Overlay visible time
+                _sevenOverlayActive = false;
                 await InvokeAsync(StateHasChanged);
             }
             return;
