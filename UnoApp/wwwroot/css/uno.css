@@ -929,13 +929,65 @@ body {
    ADVANCED ANIMATIONS (FOLD & FLY, VORTEX)
    ==================================================== */
 
-/* Folding logic */
-.game-container[class*="rotate-"] .hand-card-wrapper,
-.game-container[class*="swap-"] .hand-card-wrapper,
-.game-container.vortex-shuffle .hand-card-wrapper {
-    margin-left: -90px !important; /* Stack them tightly */
+/* Folding logic for SWAP and VORTEX only */
+.game-container[class*="swap-"] .player-slot .hand .hand-card-wrapper,
+.game-container.vortex-shuffle .player-slot .hand .hand-card-wrapper,
+.game-container[class*="swap-"] .slot-human .hand .hand-card-wrapper,
+.game-container.vortex-shuffle .slot-human .hand .hand-card-wrapper {
+    margin-left: -70px !important;
     margin-top: 0 !important;
-    transition: margin 0.3s ease-in-out;
+    transform: translateY(0) rotate(0) !important;
+    transition: margin 0.4s ease-in-out, transform 0.4s ease-in-out !important;
+}
+
+/* ====================================================
+   ZERO ROTATE ANIMATION (4-step: backs+fold → fly → fan-out → reveal)
+   ==================================================== */
+
+/* Step 1+2: Fold cards into tight stacks (human + all opponents) */
+.game-container.zero-fold .slot-human .hand .hand-card-wrapper {
+    margin-left: -50px !important;
+    margin-top: 0 !important;
+    transform: translateY(0px) rotate(0deg) !important;
+    transition: margin 0.55s ease-in-out, transform 0.55s ease-in-out !important;
+}
+.game-container.zero-fold .player-slot .hand .hand-card-wrapper {
+    margin-left: -48px !important;
+    margin-top: 0 !important;
+    transform: translateY(0px) rotate(0deg) !important;
+    transition: margin 0.55s ease-in-out, transform 0.55s ease-in-out !important;
+}
+
+/* Stop cards from flying from deck when new hand is drawn during zero rotate */
+.game-container[class*="zero-"] .hand-card-wrapper {
+    animation: none !important;
+}
+
+/* Step 1+2 (human): first card has no left margin — keep it zero */
+.game-container.zero-fold .slot-human .hand .hand-card-wrapper:first-child {
+    margin-left: 0 !important;
+}
+.game-container.zero-fold .player-slot .hand .hand-card-wrapper:first-child {
+    margin-left: 0 !important;
+}
+
+/* Step 3: Fan out — when zero-fold is removed but rotate-* stays,
+   wrappers transition back to their arc positions.
+   Use a generous transition so it spreads slowly and smoothly. */
+.game-container[class*="rotate-"] .slot-human .hand .hand-card-wrapper,
+.game-container[class*="rotate-"] .player-slot .hand .hand-card-wrapper {
+    transition: margin 0.6s ease-out, transform 0.65s cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
+}
+
+/* Final reveal: new hands fade in with glow after data swap */
+.game-container.zero-reveal .player-slot .hand,
+.game-container.zero-reveal .slot-human .hand {
+    animation: zero-hand-reveal 0.55s ease-out both;
+}
+
+@keyframes zero-hand-reveal {
+    0%   { opacity: 0; filter: brightness(1.8); }
+    100% { opacity: 1; filter: brightness(1); }
 }
 
 /* Base properties for flying hands */
@@ -945,83 +997,143 @@ body {
     z-index: 1000;
 }
 
-/* ROTATE CLOCKWISE (0->1, 1->2, 2->3, 3->0) */
-/* 0 (Human) flies left to 1 */
-.game-container.rotate-cw .slot-human .hand { animation: fly-human-to-left 0.8s forwards; }
-/* 1 flies top to 2 */
-.game-container.rotate-cw .slot-cpu-1 .hand { animation: fly-left-to-top 0.8s forwards; }
-/* 2 flies right to 3 */
-.game-container.rotate-cw .slot-cpu-2 .hand { animation: fly-top-to-right 0.8s forwards; }
-/* 3 flies bottom to 0 */
-.game-container.rotate-cw .slot-cpu-3 .hand { animation: fly-right-to-human 0.8s forwards; }
+/* ROTATE CLOCKWISE (0->1, 1->2, 2->3, 3->0) — slowed to 1s */
+.game-container.rotate-cw .slot-human .hand { animation: fly-human-to-left 1s ease-in-out forwards; }
+.game-container.rotate-cw .slot-cpu-left .hand { animation: fly-left-to-top 1s ease-in-out forwards; }
+.game-container.rotate-cw .slot-cpu-top .hand { animation: fly-top-to-right 1s ease-in-out forwards; }
+.game-container.rotate-cw .slot-cpu-right .hand { animation: fly-right-to-human 1s ease-in-out forwards; }
 
-/* ROTATE COUNTER-CLOCKWISE */
-.game-container.rotate-ccw .slot-human .hand { animation: fly-human-to-right 0.8s forwards; }
-.game-container.rotate-ccw .slot-cpu-1 .hand { animation: fly-left-to-human 0.8s forwards; }
-.game-container.rotate-ccw .slot-cpu-2 .hand { animation: fly-top-to-left 0.8s forwards; }
-.game-container.rotate-ccw .slot-cpu-3 .hand { animation: fly-right-to-top 0.8s forwards; }
+/* ROTATE COUNTER-CLOCKWISE — slowed to 1s */
+.game-container.rotate-ccw .slot-human .hand { animation: fly-human-to-right 1s ease-in-out forwards; }
+.game-container.rotate-ccw .slot-cpu-left .hand { animation: fly-left-to-human 1s ease-in-out forwards; }
+.game-container.rotate-ccw .slot-cpu-top .hand { animation: fly-top-to-left 1s ease-in-out forwards; }
+.game-container.rotate-ccw .slot-cpu-right .hand { animation: fly-right-to-top 1s ease-in-out forwards; }
 
 /* SWAP LOGIC (7-Swap) */
 /* For 7 swap, only the involved hands move. E.g., swap-0-2 */
 .game-container.swap-0-1 .slot-human .hand { animation: fly-human-to-left 0.8s forwards; }
-.game-container.swap-0-1 .slot-cpu-1 .hand { animation: fly-left-to-human 0.8s forwards; }
+.game-container.swap-0-1 .slot-cpu-left .hand { animation: fly-left-to-human 0.8s forwards; }
 
 .game-container.swap-0-2 .slot-human .hand { animation: fly-human-to-top 0.8s forwards; }
-.game-container.swap-0-2 .slot-cpu-2 .hand { animation: fly-top-to-human 0.8s forwards; }
+.game-container.swap-0-2 .slot-cpu-top .hand { animation: fly-top-to-human 0.8s forwards; }
 
 .game-container.swap-0-3 .slot-human .hand { animation: fly-human-to-right 0.8s forwards; }
-.game-container.swap-0-3 .slot-cpu-3 .hand { animation: fly-right-to-human 0.8s forwards; }
+.game-container.swap-0-3 .slot-cpu-right .hand { animation: fly-right-to-human 0.8s forwards; }
 
-.game-container.swap-1-2 .slot-cpu-1 .hand { animation: fly-left-to-top 0.8s forwards; }
-.game-container.swap-1-2 .slot-cpu-2 .hand { animation: fly-top-to-left 0.8s forwards; }
+.game-container.swap-1-2 .slot-cpu-left .hand { animation: fly-left-to-top 0.8s forwards; }
+.game-container.swap-1-2 .slot-cpu-top .hand { animation: fly-top-to-left 0.8s forwards; }
 
-.game-container.swap-1-3 .slot-cpu-1 .hand { animation: fly-left-to-right 0.8s forwards; }
-.game-container.swap-1-3 .slot-cpu-3 .hand { animation: fly-right-to-left 0.8s forwards; }
+.game-container.swap-1-3 .slot-cpu-left .hand { animation: fly-left-to-right 0.8s forwards; }
+.game-container.swap-1-3 .slot-cpu-right .hand { animation: fly-right-to-left 0.8s forwards; }
 
-.game-container.swap-2-3 .slot-cpu-2 .hand { animation: fly-top-to-right 0.8s forwards; }
-.game-container.swap-2-3 .slot-cpu-3 .hand { animation: fly-right-to-top 0.8s forwards; }
+.game-container.swap-2-3 .slot-cpu-top .hand { animation: fly-top-to-right 0.8s forwards; }
+.game-container.swap-2-3 .slot-cpu-right .hand { animation: fly-right-to-top 0.8s forwards; }
 
 /* REVERSE SWAPS (The engine might pass swap-2-0 instead of swap-0-2 depending on who played the 7) */
 .game-container.swap-1-0 .slot-human .hand { animation: fly-human-to-left 0.8s forwards; }
-.game-container.swap-1-0 .slot-cpu-1 .hand { animation: fly-left-to-human 0.8s forwards; }
+.game-container.swap-1-0 .slot-cpu-left .hand { animation: fly-left-to-human 0.8s forwards; }
 .game-container.swap-2-0 .slot-human .hand { animation: fly-human-to-top 0.8s forwards; }
-.game-container.swap-2-0 .slot-cpu-2 .hand { animation: fly-top-to-human 0.8s forwards; }
+.game-container.swap-2-0 .slot-cpu-top .hand { animation: fly-top-to-human 0.8s forwards; }
 .game-container.swap-3-0 .slot-human .hand { animation: fly-human-to-right 0.8s forwards; }
-.game-container.swap-3-0 .slot-cpu-3 .hand { animation: fly-right-to-human 0.8s forwards; }
-.game-container.swap-2-1 .slot-cpu-1 .hand { animation: fly-left-to-top 0.8s forwards; }
-.game-container.swap-2-1 .slot-cpu-2 .hand { animation: fly-top-to-left 0.8s forwards; }
-.game-container.swap-3-1 .slot-cpu-1 .hand { animation: fly-left-to-right 0.8s forwards; }
-.game-container.swap-3-1 .slot-cpu-3 .hand { animation: fly-right-to-left 0.8s forwards; }
-.game-container.swap-3-2 .slot-cpu-2 .hand { animation: fly-top-to-right 0.8s forwards; }
-.game-container.swap-3-2 .slot-cpu-3 .hand { animation: fly-right-to-top 0.8s forwards; }
+.game-container.swap-3-0 .slot-cpu-right .hand { animation: fly-right-to-human 0.8s forwards; }
+.game-container.swap-2-1 .slot-cpu-left .hand { animation: fly-left-to-top 0.8s forwards; }
+.game-container.swap-2-1 .slot-cpu-top .hand { animation: fly-top-to-left 0.8s forwards; }
+.game-container.swap-3-1 .slot-cpu-left .hand { animation: fly-left-to-right 0.8s forwards; }
+.game-container.swap-3-1 .slot-cpu-right .hand { animation: fly-right-to-left 0.8s forwards; }
+.game-container.swap-3-2 .slot-cpu-top .hand { animation: fly-top-to-right 0.8s forwards; }
+.game-container.swap-3-2 .slot-cpu-right .hand { animation: fly-right-to-top 0.8s forwards; }
 
 /* VORTEX SHUFFLE LOGIC */
 .game-container.vortex-shuffle .slot-human .hand { animation: fly-human-to-center 0.8s forwards; }
-.game-container.vortex-shuffle .slot-cpu-1 .hand { animation: fly-left-to-center 0.8s forwards; }
-.game-container.vortex-shuffle .slot-cpu-2 .hand { animation: fly-top-to-center 0.8s forwards; }
-.game-container.vortex-shuffle .slot-cpu-3 .hand { animation: fly-right-to-center 0.8s forwards; }
+.game-container.vortex-shuffle .slot-cpu-left .hand { animation: fly-left-to-center 0.8s forwards; }
+.game-container.vortex-shuffle .slot-cpu-top .hand { animation: fly-top-to-center 0.8s forwards; }
+.game-container.vortex-shuffle .slot-cpu-right .hand { animation: fly-right-to-center 0.8s forwards; }
 
-/* KEYFRAMES */
+/* KEYFRAMES (Fly animations fade out right at the destination) */
 
-@keyframes fly-human-to-left { 100% { transform: translate(-30vw, -20vh) rotate(-90deg) scale(0.6); opacity: 0; } }
-@keyframes fly-human-to-top { 100% { transform: translateY(-40vh) rotate(180deg) scale(0.6); opacity: 0; } }
-@keyframes fly-human-to-right { 100% { transform: translate(30vw, -20vh) rotate(90deg) scale(0.6); opacity: 0; } }
-@keyframes fly-human-to-center { 100% { transform: translateY(-20vh) rotate(720deg) scale(0); opacity: 0; } }
+@keyframes fly-human-to-left { 
+    0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+    80% { opacity: 1; }
+    100% { transform: translate(-40vw, -45vh) rotate(-90deg); opacity: 0; } 
+}
+@keyframes fly-human-to-top { 
+    0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+    80% { opacity: 1; }
+    100% { transform: translate(0, -75vh) rotate(0deg); opacity: 0; } 
+}
+@keyframes fly-human-to-right { 
+    0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+    80% { opacity: 1; }
+    100% { transform: translate(40vw, -45vh) rotate(90deg); opacity: 0; } 
+}
+@keyframes fly-human-to-center { 
+    0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+    80% { opacity: 1; }
+    100% { transform: translate(0, -40vh) rotate(720deg) scale(0); opacity: 0; } 
+}
 
-@keyframes fly-left-to-top { 100% { transform: translate(20vw, -30vh) rotate(90deg) scale(0.6); opacity: 0; } }
-@keyframes fly-left-to-right { 100% { transform: translateX(60vw) rotate(180deg) scale(0.6); opacity: 0; } }
-@keyframes fly-left-to-human { 100% { transform: translate(20vw, 30vh) rotate(-90deg) scale(0.6); opacity: 0; } }
-@keyframes fly-left-to-center { 100% { transform: translateX(30vw) rotate(720deg) scale(0); opacity: 0; } }
+@keyframes fly-left-to-top { 
+    0% { transform: translate(0, 0) rotate(-90deg); opacity: 1; }
+    80% { opacity: 1; }
+    100% { transform: translate(40vw, -30vh) rotate(0deg); opacity: 0; } 
+}
+@keyframes fly-left-to-right { 
+    0% { transform: translate(0, 0) rotate(-90deg); opacity: 1; }
+    80% { opacity: 1; }
+    100% { transform: translate(80vw, 0) rotate(90deg); opacity: 0; } 
+}
+@keyframes fly-left-to-human { 
+    0% { transform: translate(0, 0) rotate(-90deg); opacity: 1; }
+    80% { opacity: 1; }
+    100% { transform: translate(40vw, 45vh) rotate(0deg); opacity: 0; } 
+}
+@keyframes fly-left-to-center { 
+    0% { transform: translate(0, 0) rotate(-90deg); opacity: 1; }
+    80% { opacity: 1; }
+    100% { transform: translate(40vw, 5vh) rotate(720deg) scale(0); opacity: 0; } 
+}
 
-@keyframes fly-top-to-right { 100% { transform: translate(30vw, 20vh) rotate(-90deg) scale(0.6); opacity: 0; } }
-@keyframes fly-top-to-human { 100% { transform: translateY(40vh) rotate(180deg) scale(0.6); opacity: 0; } }
-@keyframes fly-top-to-left { 100% { transform: translate(-30vw, 20vh) rotate(90deg) scale(0.6); opacity: 0; } }
-@keyframes fly-top-to-center { 100% { transform: translateY(20vh) rotate(720deg) scale(0); opacity: 0; } }
+@keyframes fly-top-to-right { 
+    0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+    80% { opacity: 1; }
+    100% { transform: translate(40vw, 30vh) rotate(90deg); opacity: 0; } 
+}
+@keyframes fly-top-to-human { 
+    0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+    80% { opacity: 1; }
+    100% { transform: translate(0, 75vh) rotate(0deg); opacity: 0; } 
+}
+@keyframes fly-top-to-left { 
+    0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+    80% { opacity: 1; }
+    100% { transform: translate(-40vw, 30vh) rotate(-90deg); opacity: 0; } 
+}
+@keyframes fly-top-to-center { 
+    0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+    80% { opacity: 1; }
+    100% { transform: translate(0, 35vh) rotate(720deg) scale(0); opacity: 0; } 
+}
 
-@keyframes fly-right-to-human { 100% { transform: translate(-20vw, 30vh) rotate(90deg) scale(0.6); opacity: 0; } }
-@keyframes fly-right-to-left { 100% { transform: translateX(-60vw) rotate(180deg) scale(0.6); opacity: 0; } }
-@keyframes fly-right-to-top { 100% { transform: translate(-20vw, -30vh) rotate(-90deg) scale(0.6); opacity: 0; } }
-@keyframes fly-right-to-center { 100% { transform: translateX(-30vw) rotate(720deg) scale(0); opacity: 0; } }
+@keyframes fly-right-to-human { 
+    0% { transform: translate(0, 0) rotate(90deg); opacity: 1; }
+    80% { opacity: 1; }
+    100% { transform: translate(-40vw, 45vh) rotate(0deg); opacity: 0; } 
+}
+@keyframes fly-right-to-left { 
+    0% { transform: translate(0, 0) rotate(90deg); opacity: 1; }
+    80% { opacity: 1; }
+    100% { transform: translate(-80vw, 0) rotate(-90deg); opacity: 0; } 
+}
+@keyframes fly-right-to-top { 
+    0% { transform: translate(0, 0) rotate(90deg); opacity: 1; }
+    80% { opacity: 1; }
+    100% { transform: translate(-40vw, -30vh) rotate(0deg); opacity: 0; } 
+}
+@keyframes fly-right-to-center { 
+    0% { transform: translate(0, 0) rotate(90deg); opacity: 1; }
+    80% { opacity: 1; }
+    100% { transform: translate(-40vw, 5vh) rotate(720deg) scale(0); opacity: 0; } 
+}
 
 /* Wild Shuffle Icon override */
 .shuffle-icon {
@@ -1168,6 +1280,35 @@ body {
     25%  { transform: translate(-50%, -50%) scale(1.4); opacity: 1; }
     60%  { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
     100% { transform: translate(-50%, -50%) scale(1.2); opacity: 0; }
+}
+
+/* ====================================================
+   ZERO ROTATE ANIMATION OVERLAY
+   ==================================================== */
+.zero-animation-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10000;
+    pointer-events: none;
+    animation: zero-pop 1.0s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+.giant-zero {
+    font-size: 20rem;
+    font-weight: 900;
+    font-family: 'Arial Black', Impact, sans-serif;
+    color: #fff;
+    text-shadow: 0 0 40px #ff0000, 0 0 80px #ff0000, 0 0 120px #ff0000;
+    line-height: 1;
+}
+
+@keyframes zero-pop {
+    0%   { transform: scale(0); opacity: 0; }
+    20%  { transform: scale(1.2); opacity: 1; }
+    70%  { transform: scale(1); opacity: 1; filter: blur(0); }
+    100% { transform: scale(2); opacity: 0; filter: blur(10px); }
 }
 
 /* ====================================================

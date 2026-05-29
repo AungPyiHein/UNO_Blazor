@@ -241,7 +241,7 @@
 
                     bool isJumpIn = card != null && Game.CurrentPlayerIndex != 0 && Game.IsEligibleForJumpIn(card);
                     <div @key="@(card != null ? card.Id.ToString() : $"ghost-{i}")" class="hand-card-wrapper @(_isSwallowingCards ? "vortex-ingest" : "") @(_isSpittingCards ? "vortex-eject" : "") @(card != null && card == _drawnPlayableCard ? "drawn-card-highlight" : "") @(isJumpIn ? "jump-in-highlight" : "")" style="--card-rot: @(rotateAngle.ToString(System.Globalization.CultureInfo.InvariantCulture))deg; --card-ty: @(translateY.ToString(System.Globalization.CultureInfo.InvariantCulture))px; z-index: @(card != null && card == _drawnPlayableCard ? 1000 : (isJumpIn ? 500 : i));">
-                        @if (card != null && !_isSwallowingCards)
+                        @if (card != null && !_isSwallowingCards && !_zeroRotateActive)
                         {
                             <UnoCardComponent Card="@card" OnClick="() => OnCardClicked(card)" />
                             @if (card == _drawnPlayableCard)
@@ -580,6 +580,7 @@
     private int _swapP2 = -1;
     private string _rotateAnim = ""; // "rotate-cw" or "rotate-ccw" — applied to ALL hands
     private bool _showVortexAnimation = false;
+    private bool _zeroRotateActive = false;
     private bool _isAnimating = false;
     private bool _isSwallowingCards = false;
     private bool _isSpittingCards = false;
@@ -693,18 +694,47 @@
             return;
         }
 
-        // Swap animation — only pulse the two involved hands
-        if (animType.StartsWith("swap-"))
+        // Swap and Rotate animations
+        if (animType.StartsWith("swap-") || animType == "rotate-cw" || animType == "rotate-ccw")
         {
-            var parts = animType.Split('-');
-            if (parts.Length == 3 && int.TryParse(parts[1], out int p1) && int.TryParse(parts[2], out int p2))
+            _isAnimating = true;
+            await InvokeAsync(StateHasChanged);
+            
+            // Snapshot the hands so Blazor doesn't move elements while CSS animates them
+            if (Game != null)
             {
-                _swapP1 = p1; _swapP2 = p2;
-                await InvokeAsync(StateHasChanged);
-                await Task.Delay(900);
-                _swapP1 = -1; _swapP2 = -1;
-                await InvokeAsync(StateHasChanged);
+                _vortexHandSnapshot = Game.Players.Select(p => p.Hand.Count).ToArray();
             }
+
+            // ── STEP 1: FLIP TO BACKS + FOLD ──
+            _zeroRotateActive = true;
+            _animClass = "zero-fold";
+            await InvokeAsync(StateHasChanged);
+            await Task.Delay(600);
+
+            // ── STEP 2: FLY ──
+            _animClass = "zero-fold " + animType;
+            await InvokeAsync(StateHasChanged);
+            
+            // Wait for fly animation to reach destination and fade out
+            await Task.Delay(1000);
+
+            // ── STEP 3: REVEAL ──
+            _vortexHandSnapshot = null;
+            _zeroRotateActive = false;
+            _animClass = "zero-reveal";
+            await InvokeAsync(StateHasChanged);
+
+            _ = Task.Delay(600).ContinueWith(_ =>
+            {
+                InvokeAsync(() =>
+                {
+                    _animClass = "";
+                    _isAnimating = false;
+                    StateHasChanged();
+                });
+            });
+
             return;
         }
 
@@ -722,17 +752,6 @@
                 _sevenOverlayActive = false;
                 await InvokeAsync(StateHasChanged);
             }
-            return;
-        }
-
-        // Rotate animation — pulse all hands
-        if (animType == "rotate-cw" || animType == "rotate-ccw")
-        {
-            _rotateAnim = "rotate-anim";
-            await InvokeAsync(StateHasChanged);
-            await Task.Delay(900);
-            _rotateAnim = "";
-            await InvokeAsync(StateHasChanged);
             return;
         }
 
