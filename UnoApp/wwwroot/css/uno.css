@@ -1366,7 +1366,7 @@ body {
     box-shadow: none !important;
     border: none !important;
     border-radius: 0 !important;
-    animation: vortex-cinematic-sequence 2.5s cubic-bezier(0.25, 1, 0.2, 1) forwards;
+    animation: vortex-cinematic-sequence 3.4s cubic-bezier(0.25, 1, 0.2, 1) forwards;
 }
 
 .vortex-swirl-graphic {
@@ -1383,41 +1383,71 @@ body {
     mask-image: radial-gradient(circle, rgba(0,0,0,1) 30%, rgba(0,0,0,0) 65%);
 }
 
-/* position: fixed breaks cards free of all parent containers so they can
-   fly across the full viewport into the center vortex */
+/* Each card spins+shrinks individually into the vortex, staggered via --vortex-delay */
 .vortex-ingest {
-    position: fixed !important;
-    top: 50% !important;
-    left: 50% !important;
-    transform: translate(-50%, -50%) scale(0.05) rotate(720deg) !important;
-    opacity: 0 !important;
-    filter: brightness(2) blur(2px) !important;
-    transition: all 0.8s cubic-bezier(0.5, 0, 0.75, 0) !important;
-    z-index: 9999 !important;
+    animation: vortex-card-ingest 0.5s ease-in forwards !important;
+    animation-delay: var(--vortex-delay, 0s) !important;
+    animation-fill-mode: both !important;
 }
 
-.vortex-eject {
-    animation: vortex-eject-bounce 1.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+@keyframes vortex-card-ingest {
+    0%   {
+        transform: translateY(var(--card-ty, 0px)) rotate(var(--card-rot, 0deg)) scale(1);
+        opacity: 1;
+        filter: brightness(1);
+    }
+    70%  {
+        opacity: 0.6;
+        filter: brightness(2.5) blur(1px);
+    }
+    100% {
+        transform: translateY(var(--card-ty, 0px)) rotate(calc(var(--card-rot, 0deg) + 540deg)) scale(0.01);
+        opacity: 0;
+        filter: brightness(3) blur(3px);
+    }
 }
-@keyframes vortex-eject-bounce {
-    0% { transform: scale(0.05); opacity: 0; filter: brightness(2) blur(4px); }
-    60% { transform: scale(1.08); opacity: 1; filter: brightness(1.1) blur(0); }
-    100% { transform: scale(1) rotate(0deg); opacity: 1; filter: brightness(1) blur(0); }
+
+/* Each card bursts out of vortex individually, staggered via --vortex-delay */
+.vortex-eject {
+    animation: vortex-card-eject 0.55s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards !important;
+    animation-delay: var(--vortex-delay, 0s) !important;
+    animation-fill-mode: both !important;
+}
+
+@keyframes vortex-card-eject {
+    0%   {
+        transform: translateY(var(--card-ty, 0px)) rotate(var(--card-rot, 0deg)) scale(0.01);
+        opacity: 0;
+        filter: brightness(4) blur(4px);
+    }
+    55%  {
+        transform: translateY(var(--card-ty, 0px)) rotate(var(--card-rot, 0deg)) scale(1.14);
+        opacity: 1;
+        filter: brightness(1.6) blur(0);
+    }
+    100% {
+        transform: translateY(var(--card-ty, 0px)) rotate(var(--card-rot, 0deg)) scale(1);
+        opacity: 1;
+        filter: brightness(1) blur(0);
+    }
 }
 
 @keyframes vortex-cinematic-sequence {
-  /* Phase 1: Erupting / Appearing â€” NO box-shadow anywhere (it was rendering on the square div boundary) */
-  0%   { transform: translate(-50%, -50%) scale(0) rotate(0deg);    opacity: 0; filter: brightness(2); }
-  20%  { transform: translate(-50%, -50%) scale(1.1) rotate(240deg);  opacity: 1; filter: brightness(1.2); }
+  /* Phase 1: Erupting / Appearing */
+  0%   { transform: translate(-50%, -50%) scale(0) rotate(0deg);      opacity: 0; filter: brightness(2); }
+  12%  { transform: translate(-50%, -50%) scale(1.1) rotate(180deg);   opacity: 1; filter: brightness(1.2); }
 
-  /* Phase 2: Deep Suction / Swallowing Cards */
-  50%  { transform: translate(-50%, -50%) scale(0.95) rotate(480deg); opacity: 1; }
+  /* Phase 2: Deep Suction - cards fly in one by one */
+  42%  { transform: translate(-50%, -50%) scale(0.95) rotate(600deg);  opacity: 1; filter: brightness(1); }
 
   /* Phase 3: Peak Kinetic Vortex Churning */
-  85%  { transform: translate(-50%, -50%) scale(1.05) rotate(1440deg); opacity: 1; filter: brightness(1.5); }
+  55%  { transform: translate(-50%, -50%) scale(1.08) rotate(900deg);  opacity: 1; filter: brightness(1.8); }
 
-  /* Phase 4: Exploding Out / Spitting & Collapsing */
-  100% { transform: translate(-50%, -50%) scale(0) rotate(1800deg);  opacity: 0; filter: brightness(0.5); }
+  /* Phase 4: Ejection - spitting cards back out */
+  88%  { transform: translate(-50%, -50%) scale(1.02) rotate(1800deg); opacity: 1; filter: brightness(1.3); }
+
+  /* Phase 5: Collapse */
+  100% { transform: translate(-50%, -50%) scale(0) rotate(2160deg);    opacity: 0; filter: brightness(0.5); }
 }
 
 /* ============================================================
