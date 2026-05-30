@@ -33,6 +33,7 @@ namespace UnoEngine.Models
         public List<UnoCard> Hand { get; set; } = new();
         public bool IsHuman { get; set; }
         public int Score { get; set; } = 0;
+        public int TotalScore { get; set; } = 0;
         public string CurrentStatus { get; set; } = string.Empty;
 
         public override string ToString() => $"{Name} ({Hand.Count} cards)";

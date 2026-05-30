@@ -584,7 +584,7 @@
     }
     else
     {
-        <GameBoard Game="_game" OnStartGame="ResetGame" />
+        <GameBoard Game="_game" OnStartGame="ResetGame" OnNextRound="HandleNextRound" />
     }
 </div>
 
@@ -1370,5 +1370,28 @@
     {
         _isGameStarted = false;
         _game = null;
+    }
+
+    private async Task HandleNextRound()
+    {
+        if (_game == null) return;
+
+        var prevPlayers = _game.Players.Select(p => new UnoEngine.Models.Player
+        {
+            Id = Guid.NewGuid(),
+            Name = p.Name,
+            IsHuman = p.IsHuman,
+            TotalScore = p.TotalScore
+        }).ToList();
+        var settings = _game.Settings;
+        int nextRound = _game.RoundNumber + 1;
+
+        _game = new UnoGame(prevPlayers, settings);
+        _game.RoundNumber = nextRound;
+        _game.OnStateChanged += () => InvokeAsync(StateHasChanged);
+
+        await _game.DealStartingCardsAsync();
+        await _game.StartTurnAsync();
+        StateHasChanged();
     }
 }

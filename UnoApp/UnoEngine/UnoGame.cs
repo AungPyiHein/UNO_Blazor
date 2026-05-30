@@ -12,6 +12,7 @@ namespace UnoEngine
         WaitingForSwapTarget,
         WaitingForJumpIn,
         WaitingForUnoCall,
+        WaitingForWd4Challenge,
         GameOver
     }
 
@@ -19,6 +20,12 @@ namespace UnoEngine
     {
         public event Action? OnStateChanged;
         public Func<string, Task>? OnBoardAnimation;
+        public Func<string, Task>? OnSoundEffect;
+
+        private bool _wd4HandSnapshotHadMatchingColor = false;
+        private Player? _wd4Player = null;
+        private int _wd4ChallengerIndex = 0;
+        public int Wd4ChallengerIndex => _wd4ChallengerIndex;
 
         public List<Player> Players { get; private set; } = new();
         public Stack<UnoCard> DrawPile { get; private set; } = new();
@@ -37,6 +44,7 @@ namespace UnoEngine
         public List<string> GameLog { get; private set; } = new();
         public Player? Winner { get; private set; }
         public int WinnerScore { get; private set; }
+        public int RoundNumber { get; set; } = 1;
         public bool IsUnoCalled { get; set; } = false;
         public bool IsClockwise => GameDirection == 1;
         public bool CanChallengeUno => Status == GameStatus.WaitingForUnoCall && PlayerAtRisk != null && PlayerAtRisk != Players[0];
@@ -111,6 +119,7 @@ namespace UnoEngine
                 foreach (var player in Players)
                 {
                     player.Hand.Add(DrawOne());
+                    if (OnSoundEffect != null) await OnSoundEffect("cardDraw");
                     OnStateChanged?.Invoke();
                     await Task.Delay(100); // 100ms per card deal speed
                 }
@@ -240,7 +249,13 @@ namespace UnoEngine
 
             if (!currentPlayer.IsHuman)
             {
-                await Task.Delay(1500); // Slower CPU thinking
+                int cpuThinkDelay = Settings.CpuDifficulty switch
+                {
+                    AiDifficulty.Easy => 2200,
+                    AiDifficulty.Hard => 900,
+                    _ => 1500
+                };
+                await Task.Delay(cpuThinkDelay);
                 // Check if it's still this CPU's turn after the delay (in case of human jump-in)
                 if (Status != GameStatus.GameOver && CurrentPlayerIndex == Players.IndexOf(currentPlayer))
                 {
@@ -251,6 +266,12 @@ namespace UnoEngine
 
         private async Task ExecuteCpuTurn(Player cpu)
         {
+            if (Settings.CpuDifficulty == AiDifficulty.Easy)
+            {
+                await ExecuteEasyCpuTurnAsync(cpu);
+                return;
+            }
+
             // 1. Check for Pending Draw (Stacking)
             if (PendingDrawCount > 0)
             {
@@ -380,6 +401,7 @@ namespace UnoEngine
                 if (TopCard == null || card.Color != TopCard.Color || card.Value != TopCard.Value) return false;
 
                 LogAction($"{player.Name} JUMPED IN with {card}!");
+                if (OnSoundEffect != null) await OnSoundEffect("jumpIn");
                 
                 // Update turn to this player
                 CurrentPlayerIndex = Players.IndexOf(player);
@@ -411,6 +433,15 @@ namespace UnoEngine
             
             // Only validate match if it's NOT a jump-in (JumpIn validation happens before calling this)
             // But for simplicity, we assume InternalPlayCard is always called with valid intent.
+
+            // Snapshot WD4 player's hand (minus this card) BEFORE it is removed — for challenge adjudication
+            if (card.Value == CardValue.WildDraw4 && Settings.EnableWildDraw4Challenge && !Settings.Stacking && declaredColor == null)
+            {
+                _wd4HandSnapshotHadMatchingColor = player.Hand
+                    .Where(c => !ReferenceEquals(c, card))
+                    .Any(c => c.Color == LastValidColor && c.Color != CardColor.Wild);
+                _wd4Player = player;
+            }
             
             // Handle Wild requiring color selection (Vortex is Color Nullified and skips selection)
             if (card.Color == CardColor.Wild && card.Value != CardValue.Vortex && declaredColor == null)
@@ -488,6 +519,23 @@ namespace UnoEngine
             DiscardPile.Add(playedCard);
             Status = GameStatus.Playing;
 
+            if (OnSoundEffect != null)
+            {
+                string snd = playedCard.Value switch
+                {
+                    CardValue.Skip => "skip",
+                    CardValue.Reverse => "reverse",
+                    CardValue.Draw2 => "draw2",
+                    CardValue.WildDraw4 => "draw4",
+                    CardValue.Wild => "wild",
+                    CardValue.Vortex => "vortex",
+                    CardValue.Seven when Settings.SevenSwap => "sevenSwap",
+                    CardValue.Zero when Settings.ZeroRotate => "zeroRotate",
+                    _ => "cardPlay"
+                };
+                await OnSoundEffect(snd);
+            }
+
             await HandleSpecialActions(player, playedCard, targetPlayer);
 
             await EndPlayCardSequence(player);
@@ -516,9 +564,13 @@ namespace UnoEngine
                 Winner = player;
                 player.CurrentStatus = "WINNER!";
                 WinnerScore = CalculateWinnerScore();
+                player.TotalScore += WinnerScore;
                 LogAction($"{player.Name} WINS with {WinnerScore} points!");
+                if (OnSoundEffect != null) await OnSoundEffect("win");
                 return;
             }
+
+            if (Status == GameStatus.WaitingForWd4Challenge) return;
 
             MoveToNextTurn();
             
@@ -594,6 +646,7 @@ namespace UnoEngine
             LogAction($"{player.Name} chose {color}!");
             
             await HandleSpecialActions(player, TopCard!, null);
+            if (Status == GameStatus.WaitingForWd4Challenge) return;
             await EndPlayCardSequence(player);
         }
 
@@ -707,12 +760,14 @@ namespace UnoEngine
                 {
                     LogAction($"{caller.Name} successfully called UNO!");
                     ActiveNotificationBanner = $"{caller.Name.ToUpper()} CALLED UNO!";
+                    if (OnSoundEffect != null) await OnSoundEffect("unoCall");
                 }
                 else
                 {
                     LogAction($"{caller.Name} CAUGHT {PlayerAtRisk.Name}! {PlayerAtRisk.Name} draws 2.");
                     LastUnoViolatorIndex = Players.IndexOf(PlayerAtRisk);
                     ActiveNotificationBanner = $"{caller.Name.ToUpper()} CAUGHT {PlayerAtRisk.Name.ToUpper()}!";
+                    if (OnSoundEffect != null) await OnSoundEffect("caught");
                     for (int i = 0; i < 2; i++) PlayerAtRisk.Hand.Add(DrawOne());
                 }
 
@@ -829,6 +884,18 @@ namespace UnoEngine
                     else await ApplyDrawAsync(2);
                     break;
                 case CardValue.WildDraw4:
+                    if (Settings.EnableWildDraw4Challenge && !Settings.Stacking && player.Hand.Count > 0)
+                    {
+                        _wd4ChallengerIndex = GetNextPlayerIndex();
+                        Status = GameStatus.WaitingForWd4Challenge;
+                        LogAction($"{Players[_wd4ChallengerIndex].Name} may challenge {player.Name}'s Wild Draw 4!");
+                        OnStateChanged?.Invoke();
+                        if (!Players[_wd4ChallengerIndex].IsHuman)
+                        {
+                            SafeFireAndForget(() => HandleCpuWd4ChallengeAsync());
+                        }
+                        return;
+                    }
                     if (Settings.Stacking) PendingDrawCount += 4;
                     else await ApplyDrawAsync(4);
                     break;
@@ -863,6 +930,7 @@ namespace UnoEngine
             for (int i = 0; i < count; i++)
             {
                 nextPlayer.Hand.Add(DrawOne());
+                if (OnSoundEffect != null) await OnSoundEffect("cardDraw");
                 OnStateChanged?.Invoke();
                 await Task.Delay(300);
             }
@@ -932,6 +1000,7 @@ namespace UnoEngine
                 {
                     drawn = DrawOne();
                     player.Hand.Add(drawn);
+                    if (OnSoundEffect != null) await OnSoundEffect("cardDraw");
                     OnStateChanged?.Invoke();
                     await Task.Delay(800); // Even slower visual card draw
                 } while (!CanPlayCard(drawn));
@@ -942,6 +1011,7 @@ namespace UnoEngine
             {
                 UnoCard drawn = DrawOne();
                 player.Hand.Add(drawn);
+                if (OnSoundEffect != null) await OnSoundEffect("cardDraw");
                 OnStateChanged?.Invoke();
                 return drawn;
             }
@@ -961,6 +1031,8 @@ namespace UnoEngine
 
         private void ReshuffleDiscardIntoDraw()
         {
+            if (OnSoundEffect != null) _ = OnSoundEffect("shuffle");
+            LogAction("Deck reshuffled from discard pile.");
             UnoCard currentTop = DiscardPile.Last();
             DiscardPile.RemoveAt(DiscardPile.Count - 1);
 
@@ -1076,6 +1148,108 @@ namespace UnoEngine
             }
 
             OnStateChanged?.Invoke();
+        }
+
+        public async Task ResolveChallengeAsync(bool doChallenge)
+        {
+            await _actionLock.WaitAsync();
+            try
+            {
+                if (Status != GameStatus.WaitingForWd4Challenge) return;
+
+                Player challenger = Players[_wd4ChallengerIndex];
+
+                if (doChallenge)
+                {
+                    if (OnSoundEffect != null) await OnSoundEffect("challenge");
+                    await Task.Delay(600);
+
+                    if (_wd4HandSnapshotHadMatchingColor)
+                    {
+                        ActiveNotificationBanner = $"BLUFF CAUGHT! {_wd4Player!.Name.ToUpper()} DRAWS 4!";
+                        LogAction($"{challenger.Name} challenged — {_wd4Player.Name} was bluffing! They draw 4.");
+                        for (int i = 0; i < 4; i++) { _wd4Player!.Hand.Add(DrawOne()); OnStateChanged?.Invoke(); await Task.Delay(250); }
+                        if (OnSoundEffect != null) await OnSoundEffect("challengeBluffCaught");
+                        Status = GameStatus.Playing;
+                        OnStateChanged?.Invoke();
+                        await Task.Delay(1000);
+                        SafeFireAndForget(() => StartTurnAsync());
+                    }
+                    else
+                    {
+                        ActiveNotificationBanner = $"WRONG CALL! {challenger.Name.ToUpper()} DRAWS 6!";
+                        LogAction($"{challenger.Name} challenged — bluff NOT confirmed. {challenger.Name} draws 6.");
+                        for (int i = 0; i < 6; i++) { challenger.Hand.Add(DrawOne()); OnStateChanged?.Invoke(); await Task.Delay(250); }
+                        if (OnSoundEffect != null) await OnSoundEffect("challengeFail");
+                        MoveToNextTurn();
+                        Status = GameStatus.Playing;
+                        OnStateChanged?.Invoke();
+                        await Task.Delay(1000);
+                        SafeFireAndForget(() => StartTurnAsync());
+                    }
+                }
+                else
+                {
+                    LogAction($"{challenger.Name} accepts the Wild Draw 4 and draws 4.");
+                    for (int i = 0; i < 4; i++) { challenger.Hand.Add(DrawOne()); if (OnSoundEffect != null) await OnSoundEffect("cardDraw"); OnStateChanged?.Invoke(); await Task.Delay(250); }
+                    MoveToNextTurn();
+                    Status = GameStatus.Playing;
+                    OnStateChanged?.Invoke();
+                    SafeFireAndForget(() => StartTurnAsync());
+                }
+
+                _wd4Player = null;
+            }
+            finally
+            {
+                _actionLock.Release();
+            }
+        }
+
+        private async Task HandleCpuWd4ChallengeAsync()
+        {
+            await Task.Delay(_random.Next(900, 2200));
+            if (Status != GameStatus.WaitingForWd4Challenge) return;
+
+            Player challenger = Players[_wd4ChallengerIndex];
+            bool shouldChallenge = challenger.Hand.Count >= 6 && _random.Next(0, 100) < 35;
+            await ResolveChallengeAsync(shouldChallenge);
+        }
+
+        private async Task ExecuteEasyCpuTurnAsync(Player cpu)
+        {
+            if (PendingDrawCount > 0)
+            {
+                cpu.CurrentStatus = $"Taking {PendingDrawCount} Penalty...";
+                OnStateChanged?.Invoke();
+                await Task.Delay(1000);
+                await HandlePendingDrawAsync();
+                return;
+            }
+
+            var playable = cpu.Hand.Where(c => CanPlayCard(c)).ToList();
+            if (playable.Count > 0)
+            {
+                var pick = playable[_random.Next(playable.Count)];
+                LogAction($"{cpu.Name} played {pick}.");
+                await PlayCardAsync(cpu, pick, null);
+            }
+            else
+            {
+                cpu.CurrentStatus = "Drawing...";
+                LogAction($"{cpu.Name} had no moves and is drawing...");
+                var drawn = await DrawCardAsync(cpu);
+                if (drawn != null && CanPlayCard(drawn))
+                {
+                    LogAction($"{cpu.Name} played the drawn {drawn}.");
+                    await PlayCardAsync(cpu, drawn, null);
+                }
+                else
+                {
+                    MoveToNextTurn();
+                    await StartTurnAsync();
+                }
+            }
         }
 
         private void MoveToNextTurn()

@@ -2023,3 +2023,251 @@ body {
     box-shadow: 0 0 0 #8c1010;
 }
 
+/* ── DRAW PILE COUNT BADGE ── */
+.draw-pile {
+    position: relative;
+}
+.draw-pile-badge {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    background: rgba(15, 23, 42, 0.92);
+    color: #f8fafc;
+    border: 2px solid rgba(255,255,255,0.2);
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    font-size: 0.7rem;
+    font-weight: 900;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 30;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+}
+
+/* ── WD4 CHALLENGE OVERLAY ── */
+.wd4-challenge-overlay {
+    z-index: 2100;
+}
+.wd4-challenge-panel {
+    max-width: 480px;
+    width: 90%;
+    padding: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    align-items: center;
+    text-align: center;
+    animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.wd4-title {
+    font-size: 1.6rem;
+    font-weight: 900;
+    color: #f97316;
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-shadow: 0 0 20px rgba(249, 115, 22, 0.5);
+}
+.wd4-desc {
+    font-size: 0.95rem;
+    color: #cbd5e1;
+    line-height: 1.6;
+    margin: 0;
+}
+.wd4-btn-row {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 4px;
+}
+.wd4-btn {
+    padding: 12px 24px;
+    font-size: 0.95rem;
+    font-weight: 900;
+    border: none;
+    border-radius: 14px;
+    cursor: pointer;
+    color: white;
+    transition: all 0.2s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.wd4-challenge-btn {
+    background: linear-gradient(135deg, #ef4444, #b91c1c);
+    box-shadow: 0 4px 0 #7f1d1d;
+}
+.wd4-challenge-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 0 #7f1d1d; }
+.wd4-challenge-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #7f1d1d; }
+.wd4-accept-btn {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    box-shadow: 0 4px 0 #1e3a8a;
+}
+.wd4-accept-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 0 #1e3a8a; }
+.wd4-accept-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #1e3a8a; }
+
+/* ── GAME LOG PANEL ── */
+.game-log-toggle {
+    position: fixed;
+    top: 14px;
+    right: 14px;
+    z-index: 500;
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 10px;
+    padding: 7px 12px;
+    font-size: 1.1rem;
+    cursor: pointer;
+    color: #cbd5e1;
+    backdrop-filter: blur(6px);
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    line-height: 1;
+    user-select: none;
+}
+.game-log-toggle:hover {
+    border-color: rgba(255,255,255,0.35);
+    color: white;
+    background: rgba(30, 41, 59, 0.95);
+}
+.game-log-panel {
+    position: fixed;
+    top: 55px;
+    right: 14px;
+    width: 320px;
+    max-height: 65vh;
+    background: rgba(10, 15, 30, 0.96);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    z-index: 499;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+    backdrop-filter: blur(10px);
+    animation: slideDown 0.2s ease-out;
+}
+@keyframes slideDown {
+    from { transform: translateY(-8px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+.game-log-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    flex-shrink: 0;
+}
+.log-close-btn {
+    background: none;
+    border: none;
+    color: #64748b;
+    font-size: 1rem;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0;
+    transition: color 0.2s;
+}
+.log-close-btn:hover { color: white; }
+.game-log-entries {
+    overflow-y: auto;
+    flex: 1;
+    padding: 8px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.log-entry {
+    font-size: 0.78rem;
+    color: #94a3b8;
+    padding: 4px 6px;
+    border-radius: 6px;
+    line-height: 1.4;
+    border-left: 2px solid rgba(255,255,255,0.08);
+    padding-left: 8px;
+}
+.log-entry:first-child {
+    color: #e2e8f0;
+    border-left-color: rgba(59,130,246,0.5);
+}
+
+/* ── GAME OVER PANEL UPDATES ── */
+.round-label {
+    font-size: 0.75rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #64748b;
+    margin-bottom: -6px;
+}
+.total-scores-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+    margin: 4px 0;
+}
+.total-scores-table th {
+    text-align: left;
+    padding: 6px 12px;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #64748b;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.total-scores-table td {
+    padding: 8px 12px;
+    color: #e2e8f0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.total-scores-table td:last-child {
+    text-align: right;
+    font-weight: 900;
+    color: #22c55e;
+}
+.score-winner-row td {
+    color: #fbbf24 !important;
+    font-weight: 800;
+}
+.score-winner-row td:last-child {
+    color: #fbbf24 !important;
+}
+.game-over-btns {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 4px;
+}
+.next-round-btn {
+    background: linear-gradient(135deg, #22c55e, #15803d);
+    box-shadow: 0 5px 0 #14532d, 0 8px 25px rgba(34,197,94,0.3);
+    color: white;
+    font-size: 1.1rem;
+    font-weight: 900;
+    padding: 14px 28px;
+    border: none;
+    border-radius: 16px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: all 0.15s ease;
+}
+.next-round-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 7px 0 #14532d, 0 12px 30px rgba(34,197,94,0.4);
+}
+.next-round-btn:active {
+    transform: translateY(3px);
+    box-shadow: 0 2px 0 #14532d, 0 4px 15px rgba(34,197,94,0.2);
+}
+

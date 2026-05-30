@@ -2,6 +2,7 @@
 @using UnoEngine.Models
 @using UnoApp.Components
 @implements IDisposable
+@inject UnoApp.Services.AudioService AudioService
 
 @if (Game != null)
 {
@@ -57,6 +58,7 @@
         <!-- DRAW PILE (direct child of game-container for absolute positioning) -->
         <div class="draw-pile" @onclick="HandleDraw">
             <UnoCardComponent IsBack="true" />
+            <div class="draw-pile-badge">@Game.DrawPile.Count</div>
         </div>
 
         <!-- CENTER AREA (THE HUB) -->
@@ -363,9 +365,56 @@
     {
         <div class="modal-overlay glass-modal">
             <div class="glass-panel game-over-panel">
+                <div class="round-label">ROUND @Game.RoundNumber COMPLETE</div>
                 <h1 class="winner-title">WINNER: @Game.Winner?.Name</h1>
-                <p class="winner-score">Score: @Game.WinnerScore</p>
-                <button class="new-game-btn" @onclick="() => OnStartGame.InvokeAsync()">NEW GAME</button>
+                <p class="winner-score">+@Game.WinnerScore pts this round</p>
+                <table class="total-scores-table">
+                    <thead><tr><th>Player</th><th>Total Score</th></tr></thead>
+                    <tbody>
+                        @foreach (var p in Game.Players.OrderByDescending(p => p.TotalScore))
+                        {
+                            <tr class="@(p == Game.Winner ? "score-winner-row" : "")">
+                                <td>@p.Name</td>
+                                <td>@p.TotalScore</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+                <div class="game-over-btns">
+                    <button class="next-round-btn" @onclick="() => OnNextRound.InvokeAsync()">NEXT ROUND</button>
+                    <button class="new-game-btn" @onclick="() => OnStartGame.InvokeAsync()">NEW GAME</button>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (Game.Status == GameStatus.WaitingForWd4Challenge && Game.Wd4ChallengerIndex == 0)
+    {
+        <div class="modal-overlay glass-modal wd4-challenge-overlay">
+            <div class="glass-panel wd4-challenge-panel">
+                <h2 class="wd4-title">WILD DRAW 4 CHALLENGE</h2>
+                <p class="wd4-desc">@Game.Players[Game.LastPlayerIndex].Name just played Wild Draw 4!<br/>Did they have a matching color card they could have played instead?</p>
+                <div class="wd4-btn-row">
+                    <button class="wd4-btn wd4-challenge-btn" @onclick='() => ResolveChallengeWrapper(true)'>CHALLENGE — They Bluffed!</button>
+                    <button class="wd4-btn wd4-accept-btn" @onclick='() => ResolveChallengeWrapper(false)'>ACCEPT — Draw 4</button>
+                </div>
+            </div>
+        </div>
+    }
+
+    <button class="game-log-toggle" @onclick='() => _showGameLog = !_showGameLog' title="Game Log">📋</button>
+    @if (_showGameLog)
+    {
+        <div class="game-log-panel">
+            <div class="game-log-header">
+                <span>GAME LOG — Round @Game.RoundNumber</span>
+                <button class="log-close-btn" @onclick='() => _showGameLog = false'>✕</button>
+            </div>
+            <div class="game-log-entries">
+                @foreach (var entry in Game.GameLog.AsEnumerable().Reverse().Take(60))
+                {
+                    <div class="log-entry">@entry</div>
+                }
             </div>
         </div>
     }
@@ -375,6 +424,7 @@
 @code {
     [Parameter] public UnoGame? Game { get; set; }
     [Parameter] public EventCallback OnStartGame { get; set; }
+    [Parameter] public EventCallback OnNextRound { get; set; }
 
     private List<Player> Opponents => Game?.Players.Skip(1).ToList() ?? new();
 
@@ -593,6 +643,7 @@
     private int _sevenCpuTargetIndex = -1;
 
     private UnoCard? _drawnPlayableCard = null;
+    private bool _showGameLog = false;
 
     private async Task PlayDrawnCard()
     {
@@ -651,6 +702,8 @@
 
             Game.OnStateChanged -= HandleStateChanged;
             Game.OnStateChanged += HandleStateChanged;
+
+            Game.OnSoundEffect = (s) => AudioService.PlayAsync(s);
         }
     }
 
@@ -870,20 +923,6 @@
             }
         }
         
-        // Check if AllowReneging is disabled and player has playable card
-        if (!Game.Settings.AllowReneging && Game.PendingDrawCount == 0)
-        {
-            var hasPlayableCard = Game.Players[0].Hand.Any(card => Game.CanPlayCard(card));
-            if (hasPlayableCard)
-            {
-                // Reneging is disabled and player has playable card, cannot draw
-                Game.ActiveNotificationBanner = "YOU MUST PLAY A CARD!";
-                Game.LogAction($"{Game.Players[0].Name} must play a card instead of drawing.");
-                ShowBanner("YOU MUST PLAY A CARD!");
-                return;
-            }
-        }
-        
         _isProcessingAction = true;
         try
         {
@@ -974,12 +1013,21 @@
         }
     }
 
+    private async Task ResolveChallengeWrapper(bool doChallenge)
+    {
+        if (Game == null || _isProcessingAction) return;
+        _isProcessingAction = true;
+        try { await Game.ResolveChallengeAsync(doChallenge); }
+        finally { _isProcessingAction = false; }
+    }
+
     public void Dispose()
     {
         if (Game != null)
         {
             Game.OnBoardAnimation -= HandleBoardAnimation;
             Game.OnStateChanged -= HandleStateChanged;
+            Game.OnSoundEffect = null;
         }
         _bannerCts?.Cancel();
         _bannerCts?.Dispose();

@@ -1,5 +1,12 @@
 namespace UnoEngine.Models
 {
+    public enum AiDifficulty
+    {
+        Easy,
+        Normal,
+        Hard
+    }
+
     public class GameSettings
     {
         /// <summary>
@@ -63,7 +70,7 @@ namespace UnoEngine.Models
         }
 
         /// <summary>
-        /// Next player can challenge if they suspect the user holds a matching color on Wild Draw 4.
+        /// Next player can challenge if they suspect the WD4 player holds a matching color.
         /// </summary>
         public bool EnableWildDraw4Challenge { get; set; } = true;
 
@@ -71,6 +78,11 @@ namespace UnoEngine.Models
         /// Penalty cards drawn if UNO call fails.
         /// </summary>
         public int UnoFailurePenaltyCards { get; set; } = 2;
+
+        /// <summary>
+        /// CPU opponent difficulty level.
+        /// </summary>
+        public AiDifficulty CpuDifficulty { get; set; } = AiDifficulty.Normal;
 
         public GameSettings Clone()
         {
@@ -86,9 +98,9 @@ namespace UnoEngine.Models
                 ShowJumpInGlow = this.ShowJumpInGlow,
                 EnableVortex = this.EnableVortex,
                 ForcedPlay = this.ForcedPlay,
-                AllowReneging = this.AllowReneging,
                 EnableWildDraw4Challenge = this.EnableWildDraw4Challenge,
-                UnoFailurePenaltyCards = this.UnoFailurePenaltyCards
+                UnoFailurePenaltyCards = this.UnoFailurePenaltyCards,
+                CpuDifficulty = this.CpuDifficulty
             };
         }
     }
