@@ -304,6 +304,27 @@
                                         </div>
                                     </div>
 
+                                    <!-- Jump-In UI Glow -->
+                                    @if (_editingSettings.JumpInRule)
+                                    {
+                                        <div class="rule-card @(_editingSettings.ShowJumpInGlow ? "active" : "")">
+                                            <div class="rule-meta">
+                                                <span class="rule-icon">✨</span>
+                                                <div class="rule-text">
+                                                    <span class="rule-title">Jump-In UI Glow</span>
+                                                    <span class="rule-desc">Adds a red glowing border to cards that can be jumped in.</span>
+                                                </div>
+                                            </div>
+                                            <div class="rule-control">
+                                                <label class="switch">
+                                                    <input type="checkbox" checked="@_editingSettings.ShowJumpInGlow" 
+                                                           @onchange="(e) => ToggleRule(val => _editingSettings.ShowJumpInGlow = val, e)" />
+                                                    <span class="slider"></span>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    }
+
                                     <!-- Vortex -->
                                     <div class="rule-card @(_editingSettings.EnableVortex ? "active" : "")">
                                         <div class="rule-meta">
@@ -1091,6 +1112,16 @@
             },
             new RuleItem
             {
+                Title = "Jump-In UI Glow",
+                Description = "Adds a red glowing border to cards that can be jumped in.",
+                Icon = "✨",
+                Type = RuleType.Toggle,
+                GetBoolValue = s => s.ShowJumpInGlow,
+                SetBoolValue = (s, v) => s.ShowJumpInGlow = v,
+                IsVisible = s => s.JumpInRule
+            },
+            new RuleItem
+            {
                 Title = "Vortex",
                 Description = "Vortex swallows all the card and redistribute everyone's hand.",
                 Icon = "🌀",
@@ -1161,6 +1192,7 @@
                 SevenSwap = true,
                 ZeroRotate = true,
                 JumpInRule = true,
+                ShowJumpInGlow = false, // Disabled in Chaos
                 JumpInTimerSeconds = 1.0, // 1 second QTE timer for ultimate speed/chaos
                 EnableVortex = true,
                 UnoFailurePenaltyCards = 5 // Max draw penalty

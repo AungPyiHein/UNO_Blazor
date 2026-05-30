@@ -1886,17 +1886,33 @@ body {
    ============================================================ */
 .jump-in-highlight {
     animation: jump-in-pulse 0.6s infinite alternate ease-in-out;
-    filter: drop-shadow(0 0 15px rgba(255, 215, 0, 0.9));
+}
+
+.jump-in-highlight .physical-uno-card {
+    animation: jump-in-glow 0.6s infinite alternate ease-in-out;
 }
 
 @keyframes jump-in-pulse {
     from { 
-        transform: translateY(calc(var(--card-ty) - 15px)) rotate(var(--card-rot)) scale(1.05); 
-        filter: drop-shadow(0 0 15px rgba(255, 215, 0, 0.6));
+        transform: translateY(calc(var(--card-ty) - 15px)) rotate(var(--card-rot)) scale(1.1); 
     }
     to { 
-        transform: translateY(calc(var(--card-ty) - 25px)) rotate(var(--card-rot)) scale(1.15); 
-        filter: drop-shadow(0 0 30px rgba(255, 215, 0, 1));
+        transform: translateY(calc(var(--card-ty) - 30px)) rotate(var(--card-rot)) scale(1.18); 
+    }
+}
+
+@keyframes jump-in-glow {
+    from {
+        box-shadow: 
+            0 0 10px 3px rgba(255, 50, 50, 0.6),
+            0 10px 20px rgba(0,0,0,0.4);
+        outline: 2px solid rgba(255, 50, 50, 0.7);
+    }
+    to {
+        box-shadow: 
+            0 0 28px 10px rgba(255, 50, 50, 1),
+            0 10px 20px rgba(0,0,0,0.4);
+        outline: 3px solid rgba(255, 80, 80, 1);
     }
 }
 

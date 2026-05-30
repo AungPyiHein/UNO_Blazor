@@ -38,6 +38,11 @@ namespace UnoEngine.Models
         public double JumpInTimerSeconds { get; set; } = 2.5;
 
         /// <summary>
+        /// Whether jump-in able cards should glow in the UI to assist the player.
+        /// </summary>
+        public bool ShowJumpInGlow { get; set; } = true;
+
+        /// <summary>
         /// If enabled, 4 Vortex cards are added to the deck.
         /// </summary>
         public bool EnableVortex { get; set; } = false;
@@ -78,6 +83,7 @@ namespace UnoEngine.Models
                 Stacking = this.Stacking,
                 JumpInRule = this.JumpInRule,
                 JumpInTimerSeconds = this.JumpInTimerSeconds,
+                ShowJumpInGlow = this.ShowJumpInGlow,
                 EnableVortex = this.EnableVortex,
                 ForcedPlay = this.ForcedPlay,
                 AllowReneging = this.AllowReneging,
