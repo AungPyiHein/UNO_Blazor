@@ -722,7 +722,13 @@ namespace UnoEngine
                 if (Status == GameStatus.WaitingForUnoCall && PlayerAtRisk == playerAtRisk)
                 {
                     LogAction($"Nobody called UNO! {playerAtRisk.Name} drew 2 penalty cards.");
-                    for (int i = 0; i < 2; i++) playerAtRisk.Hand.Add(DrawOne());
+                    for (int i = 0; i < 2; i++)
+                    {
+                        playerAtRisk.Hand.Add(DrawOne());
+                        if (OnSoundEffect != null) await OnSoundEffect("cardDraw");
+                        OnStateChanged?.Invoke();
+                        await Task.Delay(300);
+                    }
                     PlayerAtRisk = null;
                     Status = GameStatus.Playing;
                     
@@ -768,7 +774,13 @@ namespace UnoEngine
                     LastUnoViolatorIndex = Players.IndexOf(PlayerAtRisk);
                     ActiveNotificationBanner = $"{caller.Name.ToUpper()} CAUGHT {PlayerAtRisk.Name.ToUpper()}!";
                     if (OnSoundEffect != null) await OnSoundEffect("caught");
-                    for (int i = 0; i < 2; i++) PlayerAtRisk.Hand.Add(DrawOne());
+                    for (int i = 0; i < 2; i++)
+                    {
+                        PlayerAtRisk.Hand.Add(DrawOne());
+                        if (OnSoundEffect != null) await OnSoundEffect("cardDraw");
+                        OnStateChanged?.Invoke();
+                        await Task.Delay(300);
+                    }
                 }
 
                 PlayerAtRisk = null;
@@ -1044,7 +1056,7 @@ namespace UnoEngine
             DiscardPile.RemoveAt(DiscardPile.Count - 1);
 
             List<UnoCard> newDeck = DiscardPile.Select(c => 
-                (c.Value == CardValue.Wild || c.Value == CardValue.WildDraw4) 
+                (c.Value == CardValue.Wild || c.Value == CardValue.WildDraw4 || c.Value == CardValue.Vortex) 
                 ? c with { Color = CardColor.Wild } // Reset wild colors
                 : c
             ).ToList();
