@@ -397,186 +397,270 @@
             <div class="modal-backdrop" @onclick="() => _showRuleBookModal = false">
                 <div class="modal-card rulebook-modal" @onclick:stopPropagation>
                     <div class="modal-header">
-                        <h2>📖 UNO Rule Book</h2>
+                        <h2>📖 Rule Book</h2>
                         <button class="close-btn" @onclick="() => _showRuleBookModal = false">×</button>
                     </div>
 
                     <div class="rulebook-layout">
-                        <!-- Left Navigation Sidebar -->
                         <div class="rulebook-sidebar">
-                            <button class="sidebar-tab @(_activeTab == "general" ? "active" : "")" @onclick='() => _activeTab = "general"'>
-                                🎮 1. Setup & Objective
-                            </button>
-                            <button class="sidebar-tab @(_activeTab == "cards" ? "active" : "")" @onclick='() => _activeTab = "cards"'>
-                                🃏 2. Action Cards
-                            </button>
-                            <button class="sidebar-tab @(_activeTab == "house" ? "active" : "")" @onclick='() => _activeTab = "house"'>
-                                ⚖️ 3. Rules & Penalties
-                            </button>
-                            <button class="sidebar-tab @(_activeTab == "chaos" ? "active" : "")" @onclick='() => _activeTab = "chaos"'>
-                                💥 4. Chaos House Rules
-                            </button>
+                            <button class="sidebar-tab @(_activeTab == "general" ? "active" : "")" @onclick='() => _activeTab = "general"'>🎮 Basics</button>
+                            <button class="sidebar-tab @(_activeTab == "cards" ? "active" : "")" @onclick='() => _activeTab = "cards"'>🃏 Cards Guide</button>
+                            <button class="sidebar-tab @(_activeTab == "uno" ? "active" : "")" @onclick='() => _activeTab = "uno"'>📣 UNO &amp; Scoring</button>
+                            <button class="sidebar-tab @(_activeTab == "house" ? "active" : "")" @onclick='() => _activeTab = "house"'>⚙️ Standard Rules</button>
+                            <button class="sidebar-tab @(_activeTab == "chaos" ? "active" : "")" @onclick='() => _activeTab = "chaos"'>💥 House Rules</button>
                         </div>
 
-                        <!-- Right Content Pane -->
                         <div class="rulebook-content">
+
                             @if (_activeTab == "general")
                             {
                                 <div class="tab-pane">
-                                    <h3>1. Setup & Objective</h3>
-                                    
-                                    <h4>Starting Hand</h4>
-                                    <p>Each player is dealt <strong>7 cards</strong> (Configurable under dynamic rule options). The remaining deck forms the Draw Pile.</p>
-                                    
-                                    <h4>The Starting Card</h4>
-                                    <p>The top card of the Draw Pile is flipped over to create the Discard Pile.</p>
-                                    <ul>
-                                        <li><strong>Note:</strong> If a <strong>Wild Draw 4</strong> is flipped first, it is returned to the deck, and a new card is drawn.</li>
-                                        <li>If an Action Card or regular Wild is flipped, its effect applies immediately to the first player in order.</li>
-                                    </ul>
+                                    <h3>Basics</h3>
 
-                                    <h4>Objective</h4>
-                                    <p>Be the first player to discard all cards from your hand.</p>
+                                    <div class="rb-section">
+                                        <h4>🎯 Objective</h4>
+                                        <p>Be the first player to empty your hand. Shout <strong>UNO</strong> when you're down to one card — or get penalized for forgetting.</p>
+                                    </div>
+
+                                    <div class="rb-section">
+                                        <h4>🃏 Setup</h4>
+                                        <ul>
+                                            <li>Each player is dealt <strong>7 cards</strong> to start (configurable from 3–10 in rules).</li>
+                                            <li>The remaining cards form the <strong>Draw Pile</strong>.</li>
+                                            <li>One card is flipped to start the <strong>Discard Pile</strong>. If it's a Wild Draw 4, it's returned and a new card is drawn instead.</li>
+                                            <li>If an Action card is flipped as the starting card, its effect applies immediately to the first player.</li>
+                                        </ul>
+                                    </div>
+
+                                    <div class="rb-section">
+                                        <h4>🔄 Turn Flow</h4>
+                                        <ul>
+                                            <li><strong>Play a card</strong> — match the top discard by color, number, or symbol.</li>
+                                            <li><strong>Draw a card</strong> — if you have no legal play (or choose to renege). If the drawn card is playable, you may play it immediately.</li>
+                                            <li><strong>Pass</strong> — if the drawn card is not playable, your turn ends automatically.</li>
+                                        </ul>
+                                    </div>
+
+                                    <div class="rb-section">
+                                        <h4>♾️ Draw Pile</h4>
+                                        <p>The draw pile is <strong>infinite</strong>. When it runs out, the discard pile is reshuffled back in. If even the discard pile is empty, a fresh deck is injected automatically — the game never stops.</p>
+                                    </div>
+
+                                    <div class="rb-section">
+                                        <h4>🔁 Multi-Round Play</h4>
+                                        <p>When a round ends, the winner earns points from opponents' leftover cards. Scores accumulate across rounds. Hit <strong>Next Round</strong> on the game-over screen to replay with the same players while keeping total scores.</p>
+                                    </div>
                                 </div>
                             }
                             else if (_activeTab == "cards")
                             {
                                 <div class="tab-pane">
-                                    <h3>2. Match Logic & Action Cards</h3>
-                                    <p>On your turn, you must match the top card of the Discard Pile by <strong>Color, Number, or Symbol</strong>.</p>
+                                    <h3>Cards Guide</h3>
+                                    <p class="rb-intro">Match the top discard by <strong>color</strong>, <strong>number</strong>, or <strong>symbol</strong>. Wild cards can always be played.</p>
 
-                                    <div class="action-card-desc">
+                                    <div class="rb-card-row">
+                                        <UnoCardView Color="CardColor.Red" Value="CardValue.Zero" SizeClass="w-16 h-24" />
+                                        <div class="rb-card-info">
+                                            <strong>Number Cards (0–9)</strong>
+                                            <p>Standard cards. Match by color or number. Worth their face value in scoring.</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="rb-card-row">
                                         <UnoCardView Color="CardColor.Red" Value="CardValue.Skip" SizeClass="w-16 h-24" />
-                                        <div>
-                                            <strong>Skip Card</strong>
-                                            <p>The next player in sequence loses their turn, skipping immediately to the following player.</p>
+                                        <div class="rb-card-info">
+                                            <strong>Skip</strong>
+                                            <span class="rb-badge rb-badge-red">20 pts</span>
+                                            <p>The next player loses their turn entirely. In a 2-player game, you get another turn.</p>
                                         </div>
                                     </div>
 
-                                    <div class="action-card-desc">
+                                    <div class="rb-card-row">
                                         <UnoCardView Color="CardColor.Blue" Value="CardValue.Reverse" SizeClass="w-16 h-24" />
-                                        <div>
-                                            <strong>Reverse Card</strong>
-                                            <p>Swaps the direction of play (Clockwise &harr; Counter-Clockwise). In a 2-player game, it acts like a Skip.</p>
+                                        <div class="rb-card-info">
+                                            <strong>Reverse</strong>
+                                            <span class="rb-badge rb-badge-blue">20 pts</span>
+                                            <p>Flips the direction of play (clockwise ↔ counter-clockwise). Acts as a Skip in a 2-player game.</p>
                                         </div>
                                     </div>
 
-                                    <div class="action-card-desc">
+                                    <div class="rb-card-row">
                                         <UnoCardView Color="CardColor.Green" Value="CardValue.Draw2" SizeClass="w-16 h-24" />
-                                        <div>
+                                        <div class="rb-card-info">
                                             <strong>Draw Two (+2)</strong>
-                                            <p>The next player must draw 2 cards and completely forfeit their turn (unless Stacking is active!).</p>
+                                            <span class="rb-badge rb-badge-green">20 pts</span>
+                                            <p>The next player draws 2 cards and skips their turn. Can be stacked if the Stacking rule is enabled.</p>
                                         </div>
                                     </div>
 
-                                    <div class="action-card-desc">
+                                    <div class="rb-card-row">
                                         <UnoCardView Color="CardColor.Wild" Value="CardValue.Wild" SizeClass="w-16 h-24" />
-                                        <div>
-                                            <strong>Wild Card</strong>
-                                            <p>Can be played on any card. The player declares a new matching color.</p>
+                                        <div class="rb-card-info">
+                                            <strong>Wild</strong>
+                                            <span class="rb-badge rb-badge-wild">50 pts</span>
+                                            <p>Playable on any card. You choose the new active color for the next player to follow.</p>
                                         </div>
                                     </div>
 
-                                    <div class="action-card-desc">
+                                    <div class="rb-card-row">
                                         <UnoCardView Color="CardColor.Wild" Value="CardValue.WildDraw4" SizeClass="w-16 h-24" />
-                                        <div>
+                                        <div class="rb-card-info">
                                             <strong>Wild Draw Four (+4)</strong>
-                                            <p>Can only be legally played if you do not have any cards matching the active color on the discard pile. The next player draws 4 cards and skips their turn.</p>
+                                            <span class="rb-badge rb-badge-wild">50 pts</span>
+                                            <p><strong>Legal only</strong> when you have no cards matching the current active color. You choose the new color; the next player draws 4 and loses their turn. Can be challenged — see Standard Rules.</p>
                                         </div>
+                                    </div>
+
+                                    <div class="rb-card-row rb-vortex-row">
+                                        <UnoCardView Color="CardColor.Wild" Value="CardValue.Vortex" SizeClass="w-16 h-24" />
+                                        <div class="rb-card-info">
+                                            <strong>Vortex</strong>
+                                            <span class="rb-badge rb-badge-purple">House Rule</span>
+                                            <p>Collects every card from all players' hands, shuffles the pool, and redistributes evenly. Remainder cards go clockwise from the active player. The active color does <strong>not</strong> change. Enabled via the Vortex house rule.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                            else if (_activeTab == "uno")
+                            {
+                                <div class="tab-pane">
+                                    <h3>UNO &amp; Scoring</h3>
+
+                                    <div class="rb-section">
+                                        <h4>📣 Calling UNO</h4>
+                                        <p>When you play down to <strong>one card</strong>, you must call UNO before the card leaves your hand. Use the <strong>UNO button</strong> that appears — or tap it proactively before playing your second-to-last card.</p>
+                                        <div class="rb-info-box rb-info-warn">
+                                            <strong>Caught!</strong> If an opponent presses <em>Catch</em> before the next turn starts and you haven't called UNO, you draw penalty cards (configurable, default 2).
+                                        </div>
+                                    </div>
+
+                                    <div class="rb-section">
+                                        <h4>🏆 Round Scoring</h4>
+                                        <p>When a player empties their hand, they score points from every card remaining in opponents' hands:</p>
+                                        <table class="rb-score-table">
+                                            <thead>
+                                                <tr><th>Card Type</th><th>Points</th></tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr><td>Number cards (0–9)</td><td>Face value (0–9)</td></tr>
+                                                <tr><td>Skip / Reverse / Draw Two</td><td>20 pts each</td></tr>
+                                                <tr><td>Wild / Wild Draw Four</td><td>50 pts each</td></tr>
+                                                <tr><td>Vortex</td><td>50 pts</td></tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    <div class="rb-section">
+                                        <h4>🔁 Multi-Round Play</h4>
+                                        <p>After each round, scores accumulate in the <strong>Total Score</strong> column on the results screen. Press <strong>Next Round</strong> to continue with the same players and preserved scores, or <strong>New Game</strong> to start completely fresh.</p>
+                                        <div class="rb-info-box rb-info-tip">
+                                            <strong>Classic target:</strong> The first player to reach <strong>500 total points</strong> wins the overall match.
+                                        </div>
+                                    </div>
+
+                                    <div class="rb-section">
+                                        <h4>⚙️ Configurable Penalty</h4>
+                                        <p>The <strong>UNO Call Failure Penalty</strong> (cards drawn when caught) can be set from 1 to 5 in the Rules menu under Advanced options.</p>
                                     </div>
                                 </div>
                             }
                             else if (_activeTab == "house")
                             {
                                 <div class="tab-pane">
-                                    <h3>3. Advanced Mechanics & Penalties</h3>
+                                    <h3>Standard Rules</h3>
+                                    <p class="rb-intro">These rules are always available — toggle them in <strong>Manage Rules</strong> before starting.</p>
 
-                                    <div class="house-rule-desc">
-                                        <h4>⚔️ The +4 Challenge</h4>
-                                        <p>When someone plays a Wild Draw 4, the target player can challenge its legality if they suspect the user holds a matching color.</p>
+                                    <div class="rb-section">
+                                        <h4>⚔️ Wild Draw 4 Challenge</h4>
+                                        <p>After a Wild Draw 4 is played, the target player can <strong>challenge</strong> its legality before drawing.</p>
                                         <ul>
-                                            <li><strong>If Guilty:</strong> (The player did have a matching color in hand), the guilty player draws 4 cards.</li>
-                                            <li><strong>If Innocent:</strong> (The player had no matching color), the challenger draws <strong>6 cards total</strong> (4 penalty + 2 extra) and skips their turn.</li>
+                                            <li><strong>Bluff caught</strong> — the player who played it DID have a matching color card: they draw 4 instead, target draws 0.</li>
+                                            <li><strong>Challenge fails</strong> — the player was telling the truth: challenger draws <strong>6 cards</strong> (4 + 2 penalty) and loses their turn.</li>
+                                        </ul>
+                                        <div class="rb-info-box rb-info-tip">CPU players will automatically decide whether to challenge based on their hand size.</div>
+                                    </div>
+
+                                    <div class="rb-section">
+                                        <h4>🔒 Forced Play</h4>
+                                        <p>Players <strong>must</strong> play a card if they hold a legal match. Clicking the draw pile when you have a playable card is blocked with a warning. Reneging (drawing by choice) is disabled.</p>
+                                    </div>
+
+                                    <div class="rb-section">
+                                        <h4>⚖️ Reneging</h4>
+                                        <p>By default, you can <strong>voluntarily draw</strong> even if you have a playable card — maybe you want a better card. If the drawn card is playable, you may play it immediately. You cannot play any other card that turn.</p>
+                                        <p><em>Reneging is automatically disabled when Forced Play is active.</em></p>
+                                    </div>
+
+                                    <div class="rb-section">
+                                        <h4>🔥 Stacking (Progressive Draw)</h4>
+                                        <p>When the next player receives a +2 or +4, they can <strong>stack</strong> a matching card to pass the growing penalty downstream instead of drawing.</p>
+                                        <ul>
+                                            <li>Stack +2 on +2 → penalty grows to +4, +6, +8…</li>
+                                            <li>Stack +4 on +4 → penalty grows to +8, +12…</li>
+                                            <li>You cannot stack a +4 on top of a +2.</li>
                                         </ul>
                                     </div>
 
-                                    <div class="house-rule-desc">
-                                        <h4>⚖️ Reneging (Intentionally Drawing)</h4>
-                                        <p>You can choose to draw a card even if you hold a valid match. If the drawn card is playable, you can play it immediately, but you cannot play any other card from your hand on that turn. <em>Note: Disabled if "Forced Play" is active.</em></p>
-                                    </div>
-
-                                    <div class="house-rule-desc">
-                                        <h4>🔔 Calling UNO</h4>
-                                        <p>You must trigger the "UNO" call before your second-to-last card touches the discard pile. If an opponent catches you with 1 card before the next player starts their turn, you face a **2-card penalty** (Draw 2).</p>
-                                    </div>
-
-                                    <div class="house-rule-desc">
-                                        <h4>🏆 Scoring Calculation</h4>
-                                        <p>At round end, the winner gets points from opponents' remaining hands:</p>
-                                        <ul>
-                                            <li><strong>Number Cards:</strong> Face Value</li>
-                                            <li><strong>Action Cards (Skip/Reverse/+2):</strong> 20 Points</li>
-                                            <li><strong>Wild / Wild Draw 4:</strong> 50 Points</li>
-                                        </ul>
-                                        <p>The first player to reach <strong>500 points</strong> across multiple rounds wins the match.</p>
+                                    <div class="rb-section">
+                                        <h4>🔄 Draw Until Playable</h4>
+                                        <p>Instead of drawing one card and passing, you <strong>keep drawing</strong> until you pull a card you can legally play — then you must play it immediately.</p>
+                                        <div class="rb-info-box rb-info-warn">Enabling this automatically enables Forced Play as well.</div>
                                     </div>
                                 </div>
                             }
                             else if (_activeTab == "chaos")
                             {
                                 <div class="tab-pane">
-                                    <h3>💥 Chaos House Rules</h3>
+                                    <h3>House Rules</h3>
+                                    <p class="rb-intro">These optional rules add chaos and depth. Mix and match freely in <strong>Manage Rules</strong>.</p>
 
-                                    <div class="house-rule-desc text-orange">
-                                        <h4>🃏 Setup Overrides</h4>
-                                        <p>Starting Hand: Each player is dealt <strong>6 cards</strong> (Configurable).</p>
+                                    <div class="rb-section">
+                                        <h4>🃏 7-Swap</h4>
+                                        <p>Play a <strong>7</strong> and you must immediately swap your entire hand with any opponent of your choice. Choose wisely — or use it tactically to dump a large hand.</p>
+                                        <p><em>CPUs will automatically pick the opponent with the fewest cards.</em></p>
                                     </div>
 
-                                    <div class="house-rule-desc">
-                                        <h4>🔥 Stacking (Progressive Draw)</h4>
-                                        <p>You can chain draw cards to avoid a penalty and pass it downstream:</p>
+                                    <div class="rb-section">
+                                        <h4>🔃 Zero Rotate</h4>
+                                        <p>Play a <strong>0</strong> and <em>everyone's</em> hand rotates to the next player in the current direction of play simultaneously. No one is immune.</p>
+                                    </div>
+
+                                    <div class="rb-section">
+                                        <h4>⚡ Jump-In</h4>
+                                        <p>If you hold a card that is an <strong>exact duplicate</strong> of the current top card (same color AND same number/symbol), you can slam it down out of turn at any time. Play then continues from your position, skipping anyone who was next.</p>
+                                        <div class="rb-info-box rb-info-tip">Enable <em>Jump-In UI Glow</em> to highlight eligible cards in your hand with a red border so you never miss the window.</div>
+                                    </div>
+
+                                    <div class="rb-section rb-vortex-section">
+                                        <h4>🌀 Vortex</h4>
+                                        <p>A special wild card added to the deck. When played, it <strong>confiscates all cards from every player</strong>, pools them together, and redistributes the pile evenly.</p>
                                         <ul>
-                                            <li>Respond to a +2 with a +2 (increases penalty to +4).</li>
-                                            <li>Respond to a +4 with a +4 (increases penalty to +8).</li>
-                                            <li><em>Note:</em> You cannot stack a +4 on top of a +2 unless customized otherwise.</li>
+                                            <li><strong>Remainder cards</strong> are dealt one-by-one clockwise from the active player until the pool is exhausted (e.g. 15 cards ÷ 4 players = three players get 4 cards, one gets 3).</li>
+                                            <li><strong>Color Nullification</strong> — unlike a regular Wild, the Vortex does not let you pick a color. The active color stays exactly as it was before the Vortex was played.</li>
                                         </ul>
                                     </div>
 
-                                    <div class="house-rule-desc">
-                                        <h4>🔄 Draw Until Playable</h4>
-                                        <p>No simple draw-and-pass. If you don't have a match, you must continuously click the draw deck and draw cards until a legal, playable card is pulled. <em>Note: Enabling this rule automatically forces "Forced Play" to be enabled as well.</em></p>
+                                    <div class="rb-section">
+                                        <h4>⚙️ Starting Hand Size</h4>
+                                        <p>The number of cards each player is dealt at the start of a round. Configurable from <strong>3 to 10 cards</strong> in the Rules menu. Default is 7.</p>
                                     </div>
 
-                                    <div class="house-rule-desc">
-                                        <h4>🃏 7-Swap</h4>
-                                        <p>Playing any card with the number <strong>7</strong> forces you to select an opponent and instantly swap your entire hand with theirs.</p>
-                                    </div>
-
-                                    <div class="house-rule-desc">
-                                        <h4>🔃 Zero Rotate</h4>
-                                        <p>Playing any card with the number <strong>0</strong> forces every player to pass their entire hand to the next person following the active direction of play.</p>
-                                    </div>
-
-                                    <div class="house-rule-desc">
-                                        <h4>⚡ Jump-In</h4>
-                                        <p>If you hold an exact duplicate match (identical color AND identical number/symbol) to the top discard card, you can slam it down instantly, even if it's completely out of turn! Play immediately resumes from your seat, skipping whoever was supposed to go next.</p>
-                                    </div>
-
-                                    <div class="house-rule-desc text-purple" style="border-left: 4px solid #a855f7; padding-left: 12px; margin-top: 15px;">
-                                        <h4>🌀 VORTEX (Chaos Special Card)</h4>
-                                        <p>When the Vortex card is played, the void opens. It instantly confiscates every card from all players' hands, pooling them together into a chaotic vortex before redistributing them evenly back to the table.</p>
-                                        <ul style="margin-top: 8px; padding-left: 20px; list-style-type: disc;">
-                                            <li><strong>Mathematical Balance Rule:</strong> If the total pooled cards cannot be divided perfectly by the number of active players, the remainder cards are dealt one-by-one to players starting clockwise from the active player until the pool is empty (e.g., 15 total cards split across 4 players means three players receive 4 cards, and one player receives 3 cards).</li>
-                                            <li><strong>Color Nullification:</strong> Unlike standard wild cards, the Vortex card does not allow the player to choose a matching color. The active game color remains exactly what it was before the Vortex was cast.</li>
+                                    <div class="rb-section">
+                                        <h4>🤖 CPU Difficulty</h4>
+                                        <p>Controls how CPU opponents behave on their turn:</p>
+                                        <ul>
+                                            <li><strong>Easy</strong> — picks a random playable card with no strategy.</li>
+                                            <li><strong>Normal / Hard</strong> — plays strategically (prioritizes action cards, saves wilds, targets the player closest to winning).</li>
                                         </ul>
                                     </div>
                                 </div>
                             }
+
                         </div>
                     </div>
 
                     <div class="modal-footer">
-                        <button class="confirm-rules-btn" @onclick="() => _showRuleBookModal = false">Understood</button>
+                        <button class="confirm-rules-btn" @onclick="() => _showRuleBookModal = false">Got it</button>
                     </div>
                 </div>
             </div>
@@ -962,6 +1046,124 @@
  
     .action-card-desc { display: flex; gap: 20px; align-items: flex-start; margin-bottom: 24px; }
     .action-card-desc p { margin: 0; font-size: 0.85rem; line-height: 1.4; color: #94a3b8; }
+
+    /* ── RULEBOOK REDESIGN ── */
+    .rb-intro {
+        font-size: 0.9rem;
+        color: #64748b;
+        margin: -4px 0 18px 0;
+        line-height: 1.5;
+    }
+    .rb-section {
+        margin-bottom: 22px;
+        padding-bottom: 22px;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .rb-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+    .rb-section h4 { margin: 0 0 8px 0; }
+    .rb-section p { margin: 0 0 8px 0; }
+    .rb-section p:last-child { margin-bottom: 0; }
+    .rb-section ul { margin: 6px 0 0 0; }
+
+    .rb-card-row {
+        display: flex;
+        gap: 16px;
+        align-items: flex-start;
+        margin-bottom: 20px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .rb-card-row:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+    .rb-card-info {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        flex: 1;
+    }
+    .rb-card-info strong {
+        font-size: 1rem;
+        font-weight: 800;
+        color: #f1f5f9;
+    }
+    .rb-card-info p {
+        margin: 0;
+        font-size: 0.85rem;
+        color: #94a3b8;
+        line-height: 1.5;
+    }
+
+    .rb-badge {
+        display: inline-block;
+        font-size: 0.7rem;
+        font-weight: 800;
+        padding: 2px 8px;
+        border-radius: 20px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        width: fit-content;
+    }
+    .rb-badge-red    { background: rgba(239,68,68,0.15);  color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
+    .rb-badge-blue   { background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3); }
+    .rb-badge-green  { background: rgba(34,197,94,0.15);  color: #4ade80; border: 1px solid rgba(34,197,94,0.3); }
+    .rb-badge-wild   { background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.3); }
+    .rb-badge-purple { background: rgba(168,85,247,0.15); color: #c084fc; border: 1px solid rgba(168,85,247,0.3); }
+
+    .rb-info-box {
+        margin-top: 10px;
+        padding: 10px 14px;
+        border-radius: 10px;
+        font-size: 0.83rem;
+        line-height: 1.5;
+    }
+    .rb-info-tip {
+        background: rgba(59,130,246,0.08);
+        border: 1px solid rgba(59,130,246,0.2);
+        color: #93c5fd;
+    }
+    .rb-info-warn {
+        background: rgba(245,158,11,0.08);
+        border: 1px solid rgba(245,158,11,0.2);
+        color: #fcd34d;
+    }
+    .rb-info-tip strong, .rb-info-warn strong { color: inherit; }
+
+    .rb-score-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.87rem;
+        margin-top: 10px;
+    }
+    .rb-score-table thead tr {
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .rb-score-table th {
+        padding: 7px 10px;
+        text-align: left;
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #475569;
+        font-weight: 700;
+    }
+    .rb-score-table td {
+        padding: 8px 10px;
+        color: #cbd5e1;
+        border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .rb-score-table td:last-child {
+        text-align: right;
+        font-weight: 800;
+        color: #22c55e;
+        font-variant-numeric: tabular-nums;
+    }
+    .rb-score-table tr:last-child td { border-bottom: none; }
+
+    .rb-vortex-row .rb-card-info p,
+    .rb-vortex-section p,
+    .rb-vortex-section ul {
+        color: #c084fc !important;
+    }
+    .rb-vortex-section h4 { color: #a855f7 !important; }
 
     .house-rule-desc {
         background: rgba(255, 255, 255, 0.02);
