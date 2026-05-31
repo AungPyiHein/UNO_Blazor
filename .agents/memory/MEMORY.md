@@ -1,3 +1,0 @@
-- [UNO engine sound pattern](uno-sound-pattern.md) — OnSoundEffect is a Func<string,Task>? field (not event) assigned by GameBoard; never subscribe/unsubscribe like events.
-- [WD4 challenge flow](wd4-challenge-flow.md) — hand snapshot taken in InternalPlayCard BEFORE card is removed; HandleSpecialActions sets WaitingForWd4Challenge and returns; EndPlayCardSequence early-exits if WD4 pending; ResolveChallengeAsync handles both outcomes.
-- [HandleSpecialActions parameter name](uno-params.md) — parameter is currentPlayer (not player); mismatching causes CS0103 build errors.

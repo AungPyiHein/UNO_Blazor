@@ -1,8 +1,0 @@
-uploads = []
-generated = []
-
-[[outputs]]
-id = "S3y5umzTh-PtXZwMoGNAr"
-uri = "file://UnoApp_Download.zip"
-type = "unspecified"
-title = "UnoApp — Full Project Source"
