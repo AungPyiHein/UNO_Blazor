@@ -364,6 +364,7 @@ namespace UnoEngine
 
         public async Task PlayCardAsync(Player player, UnoCard card, CardColor? declaredColor = null, Player? targetPlayer = null)
         {
+            if (Status == GameStatus.WaitingForJumpIn) return;
             if ((Status == GameStatus.Playing || Status == GameStatus.WaitingForJumpIn) && !CanPlayCard(card)) return;
 
             await _actionLock.WaitAsync();
@@ -979,6 +980,10 @@ namespace UnoEngine
         /// </summary>
         public async Task<(UnoCard card, bool isPlayable)> DrawOneForHumanAsync(Player player)
         {
+            if (Status == GameStatus.WaitingForJumpIn)
+            {
+                return (null, false);
+            }
             var drawn = DrawOne();
             player.Hand.Add(drawn);
             OnStateChanged?.Invoke();
@@ -996,6 +1001,10 @@ namespace UnoEngine
 
         public async Task<UnoCard?> DrawCardAsync(Player player)
         {
+            if (Status == GameStatus.WaitingForJumpIn)
+            {
+                return null;
+            }
             // Strict Rule Constraint: Under forced-play / no-reneging, block drawing if player holds a playable card
             if ((Settings.ForcedPlay || !Settings.AllowReneging) && PendingDrawCount == 0)
             {

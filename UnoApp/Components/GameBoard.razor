@@ -924,7 +924,7 @@
 
     private async Task HandleDraw()
     {
-        if (Game == null || Game.CurrentPlayerIndex != 0 || _isProcessingAction || _isAnimating) return;
+        if (Game == null || Game.CurrentPlayerIndex != 0 || _isProcessingAction || _isAnimating || Game.Status == GameStatus.WaitingForJumpIn) return;
         
         // Check if ForcedPlay is enabled and player has playable card
         if (Game.Settings.ForcedPlay && Game.PendingDrawCount == 0)
