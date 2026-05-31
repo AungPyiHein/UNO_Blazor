@@ -138,6 +138,14 @@
                                                         <span class="passive-badge disabled" style="background: rgba(255, 255, 255, 0.05); color: #94a3b8; border: 1px solid rgba(255, 255, 255, 0.1); padding: 6px 14px; border-radius: 20px; font-size: 0.8rem; font-weight: 800; text-transform: uppercase;">Disabled</span>
                                                     }
                                                 }
+                                                else if (rule.Type == RuleType.Select)
+                                                {
+                                                    var value = rule.GetSelectValue(_editingSettings);
+                                                    var label = rule.SelectOptions.FirstOrDefault(o => Equals(o.Value, value)).Label;
+                                                    <span class="readonly-value-badge" style="color: @(isChaos ? "#f59e0b" : "#4ade80"); background: @(isChaos ? "rgba(245, 158, 11, 0.1)" : "rgba(34, 197, 94, 0.1)"); border: 1px solid @(isChaos ? "rgba(245, 158, 11, 0.2)" : "rgba(34, 197, 94, 0.2)"); padding: 6px 14px; border-radius: 8px; font-weight: 800; font-size: 0.9rem;">
+                                                        @label
+                                                    </span>
+                                                }
                                                 else
                                                 {
                                                     var value = rule.GetNumberValue(_editingSettings);
@@ -173,40 +181,44 @@
                             <!-- Core Rules Grid -->
                             <div class="rules-grid">
                                 <!-- Stacking -->
-                                <div class="rule-card @(_editingSettings.Stacking ? "active" : "")">
-                                    <div class="rule-meta">
-                                        <span class="rule-icon">🔥</span>
-                                        <div class="rule-text">
-                                            <span class="rule-title">Stacking (+2 / +4)</span>
-                                            <span class="rule-desc">Stack draw penalty cards to pass the accumulated total downstream.</span>
-                                        </div>
-                                    </div>
-                                    <div class="rule-control">
-                                        <label class="switch">
-                                            <input type="checkbox" checked="@_editingSettings.Stacking" 
-                                                   @onchange="(e) => ToggleRule(val => _editingSettings.Stacking = val, e)" />
-                                            <span class="slider"></span>
-                                        </label>
-                                    </div>
-                                </div>
+            <div class="rule-card @(_editingSettings.Stacking ? "active" : "")">
+                <div class="rule-meta">
+                    <span class="rule-icon">🔥</span>
+                    <div class="rule-text">
+                        <span class="rule-title">Stacking (+2 / +4)</span>
+                        <span class="rule-desc">Stack draw penalty cards to pass the accumulated total downstream.</span>
+                    </div>
+                </div>
+                <div class="rule-control">
+                    <label class="switch">
+                        <input type="checkbox" checked="@_editingSettings.Stacking" 
+                               @onchange="(e) => ToggleRule(val => _editingSettings.Stacking = val, e)" />
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
 
                                 <!-- Draw Until Playable -->
-                                <div class="rule-card @(_editingSettings.DrawUntilPlayable ? "active" : "")">
-                                    <div class="rule-meta">
-                                        <span class="rule-icon">🔄</span>
-                                        <div class="rule-text">
-                                            <span class="rule-title">Draw Until Playable</span>
-                                            <span class="rule-desc">Must draw continuous cards until a playable card is pulled. (Auto-enables Forced Play)</span>
-                                        </div>
-                                    </div>
-                                    <div class="rule-control">
-                                        <label class="switch">
-                                            <input type="checkbox" checked="@_editingSettings.DrawUntilPlayable" 
-                                                   @onchange="ToggleDrawUntilPlayable" />
-                                            <span class="slider"></span>
-                                        </label>
-                                    </div>
-                                </div>
+            <div class="rule-card @(_editingSettings.DrawUntilPlayable ? "active" : "")">
+                <div class="rule-meta">
+                    <span class="rule-icon stacked-cards">
+                        <span class="card-1">🃏</span>
+                        <span class="card-2">🎴</span>
+                        <span class="card-3">🃏</span>
+                    </span>
+                    <div class="rule-text">
+                        <span class="rule-title">Draw Until Playable</span>
+                        <span class="rule-desc">Must draw continuous cards until a playable card is pulled. (Auto-enables Forced Play)</span>
+                    </div>
+                </div>
+                <div class="rule-control">
+                    <label class="switch">
+                        <input type="checkbox" checked="@_editingSettings.DrawUntilPlayable" 
+                               @onchange="ToggleDrawUntilPlayable" />
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
                             </div>
 
                             <!-- Conditional Advanced Options Section -->
@@ -271,7 +283,7 @@
                                     <!-- Zero Rotate -->
                                     <div class="rule-card @(_editingSettings.ZeroRotate ? "active" : "")">
                                         <div class="rule-meta">
-                                            <span class="rule-icon">🔃</span>
+                                            <span class="rule-icon">🔄</span>
                                             <div class="rule-text">
                                                 <span class="rule-title">Zero Rotate</span>
                                                 <span class="rule-desc">Rotates everyone's hands along direction of play on a 0.</span>
@@ -340,6 +352,25 @@
                                                        @onchange="(e) => ToggleRule(val => _editingSettings.EnableVortex = val, e)" />
                                                 <span class="slider"></span>
                                             </label>
+                                        </div>
+                                    </div>
+
+                                    <!-- AI Difficulty -->
+                                    <div class="rule-card">
+                                        <div class="rule-meta">
+                                            <span class="rule-icon">🤖</span>
+                                            <div class="rule-text">
+                                                <span class="rule-title">AI Difficulty</span>
+                                                <span class="rule-desc">How smart the computer opponents are.</span>
+                                            </div>
+                                        </div>
+                                        <div class="rule-control">
+                                            <select class="rule-select" value="@_editingSettings.CpuDifficulty" 
+                                                    @onchange="(e) => _editingSettings.CpuDifficulty = Enum.Parse<AiDifficulty>(e.Value?.ToString() ?? AiDifficulty.Normal.ToString())">
+                                                <option value="@AiDifficulty.Easy">Easy</option>
+                                                <option value="@AiDifficulty.Normal">Normal</option>
+                                                <option value="@AiDifficulty.Hard">Hard</option>
+                                            </select>
                                         </div>
                                     </div>
                                 </div>
@@ -1006,155 +1037,196 @@
 
     /* Rulebook Specific CSS Layout */
     .rulebook-modal {
-        overflow: hidden !important; /* Eliminate redundant outer vertical scrollbar entirely */
-        max-height: 80vh !important;
+        overflow: hidden !important;
+        max-height: 95vh !important;
+        max-width: 1100px !important;
+        width: 95% !important;
     }
     .rulebook-layout {
         display: flex;
-        gap: 20px;
-        height: 52vh; /* Lock height so content pane scrolls properly */
+        gap: 24px;
+        height: 80vh;
         overflow: hidden;
     }
     .rulebook-sidebar {
-        flex: 1; display: flex; flex-direction: column; gap: 10px;
-        border-right: 1px solid rgba(255, 255, 255, 0.08); padding-right: 15px;
+        flex: 0 0 180px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        border-right: 1px solid rgba(255, 255, 255, 0.12);
+        padding-right: 20px;
         overflow-y: auto;
     }
     .sidebar-tab {
-        background: transparent; border: none; text-align: left; padding: 12px 16px;
-        border-radius: 8px; color: #94a3b8; font-weight: 700; cursor: pointer;
+        background: transparent;
+        border: none;
+        text-align: left;
+        padding: 14px 18px;
+        border-radius: 10px;
+        color: #cbd5e1;
+        font-weight: 700;
+        font-size: 0.95rem;
+        cursor: pointer;
         transition: all 0.2s;
     }
-    .sidebar-tab:hover { background: rgba(255, 255, 255, 0.03); color: white; }
-    .sidebar-tab.active { background: rgba(255, 255, 255, 0.08); color: white; border-left: 3px solid #3b82f6; }
-    
+    .sidebar-tab:hover {
+        background: rgba(255, 255, 255, 0.06);
+        color: #ffffff;
+    }
+    .sidebar-tab.active {
+        background: rgba(59, 130, 246, 0.15);
+        color: #60a5fa;
+        border-left: 3px solid #3b82f6;
+    }
+
     .rulebook-content { 
-        flex: 2.5; 
-        overflow-y: auto; 
-        padding-left: 5px; 
-        padding-right: 8px; 
+        flex: 1;
+        overflow-y: auto;
+        padding: 0 10px 10px 5px;
     }
 
 
-
-    .tab-pane h3 { font-size: 1.4rem; font-weight: 900; margin-top: 0; color: #f8fafc; }
-    .tab-pane h4 { font-size: 1.1rem; font-weight: 800; color: #3b82f6; margin-bottom: 8px; }
-    .tab-pane p { font-size: 0.95rem; color: #94a3b8; line-height: 1.6; }
-    .tab-pane ul { padding-left: 20px; color: #94a3b8; line-height: 1.6; }
-    .tab-pane li { margin-bottom: 6px; }
+    .tab-pane h3 {
+        font-size: 1.8rem;
+        font-weight: 900;
+        margin-top: 0;
+        margin-bottom: 20px;
+        color: #ffffff;
+    }
+    .tab-pane h4 {
+        font-size: 1.3rem;
+        font-weight: 800;
+        color: #3b82f6;
+        margin-bottom: 10px;
+    }
+    .tab-pane p {
+        font-size: 1.05rem;
+        color: #cbd5e1;
+        line-height: 1.8;
+    }
+    .tab-pane ul {
+        padding-left: 24px;
+        color: #cbd5e1;
+        line-height: 1.8;
+    }
+    .tab-pane li {
+        margin-bottom: 10px;
+        font-size: 1rem;
+    }
     .text-orange h4 { color: #f59e0b !important; }
  
     .action-card-desc { display: flex; gap: 20px; align-items: flex-start; margin-bottom: 24px; }
     .action-card-desc p { margin: 0; font-size: 0.85rem; line-height: 1.4; color: #94a3b8; }
 
-    /* ── RULEBOOK REDESIGN ── */
+    /* ── RULEBOOK REDESIGN (More Readable) ── */
     .rb-intro {
-        font-size: 0.9rem;
-        color: #64748b;
-        margin: -4px 0 18px 0;
-        line-height: 1.5;
+        font-size: 1rem;
+        color: #cbd5e1;
+        margin: 0 0 24px 0;
+        line-height: 1.7;
     }
     .rb-section {
-        margin-bottom: 22px;
-        padding-bottom: 22px;
-        border-bottom: 1px solid rgba(255,255,255,0.05);
+        margin-bottom: 30px;
+        padding-bottom: 30px;
+        border-bottom: 1px solid rgba(255,255,255,0.08);
     }
     .rb-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
-    .rb-section h4 { margin: 0 0 8px 0; }
-    .rb-section p { margin: 0 0 8px 0; }
+    .rb-section h4 { margin: 0 0 12px 0; }
+    .rb-section p { margin: 0 0 12px 0; }
     .rb-section p:last-child { margin-bottom: 0; }
-    .rb-section ul { margin: 6px 0 0 0; }
+    .rb-section ul { margin: 10px 0 0 0; }
 
     .rb-card-row {
         display: flex;
-        gap: 16px;
+        gap: 20px;
         align-items: flex-start;
-        margin-bottom: 20px;
-        padding-bottom: 20px;
-        border-bottom: 1px solid rgba(255,255,255,0.05);
+        margin-bottom: 24px;
+        padding-bottom: 24px;
+        border-bottom: 1px solid rgba(255,255,255,0.08);
     }
     .rb-card-row:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
     .rb-card-info {
         display: flex;
         flex-direction: column;
-        gap: 5px;
+        gap: 8px;
         flex: 1;
     }
     .rb-card-info strong {
-        font-size: 1rem;
+        font-size: 1.2rem;
         font-weight: 800;
-        color: #f1f5f9;
+        color: #ffffff;
     }
     .rb-card-info p {
         margin: 0;
-        font-size: 0.85rem;
-        color: #94a3b8;
-        line-height: 1.5;
+        font-size: 1rem;
+        color: #cbd5e1;
+        line-height: 1.7;
     }
 
     .rb-badge {
         display: inline-block;
-        font-size: 0.7rem;
+        font-size: 0.8rem;
         font-weight: 800;
-        padding: 2px 8px;
+        padding: 4px 12px;
         border-radius: 20px;
         text-transform: uppercase;
         letter-spacing: 0.5px;
         width: fit-content;
     }
-    .rb-badge-red    { background: rgba(239,68,68,0.15);  color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
-    .rb-badge-blue   { background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3); }
-    .rb-badge-green  { background: rgba(34,197,94,0.15);  color: #4ade80; border: 1px solid rgba(34,197,94,0.3); }
-    .rb-badge-wild   { background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.3); }
-    .rb-badge-purple { background: rgba(168,85,247,0.15); color: #c084fc; border: 1px solid rgba(168,85,247,0.3); }
+    .rb-badge-red    { background: rgba(239,68,68,0.2);  color: #fca5a5; border: 1px solid rgba(239,68,68,0.4); }
+    .rb-badge-blue   { background: rgba(59,130,246,0.2); color: #93c5fd; border: 1px solid rgba(59,130,246,0.4); }
+    .rb-badge-green  { background: rgba(34,197,94,0.2);  color: #86efac; border: 1px solid rgba(34,197,94,0.4); }
+    .rb-badge-wild   { background: rgba(245,158,11,0.2); color: #fcd34d; border: 1px solid rgba(245,158,11,0.4); }
+    .rb-badge-purple { background: rgba(168,85,247,0.2); color: #c4b5fd; border: 1px solid rgba(168,85,247,0.4); }
 
     .rb-info-box {
-        margin-top: 10px;
-        padding: 10px 14px;
-        border-radius: 10px;
-        font-size: 0.83rem;
-        line-height: 1.5;
+        margin-top: 14px;
+        padding: 14px 18px;
+        border-radius: 12px;
+        font-size: 0.95rem;
+        line-height: 1.7;
     }
     .rb-info-tip {
-        background: rgba(59,130,246,0.08);
-        border: 1px solid rgba(59,130,246,0.2);
-        color: #93c5fd;
+        background: rgba(59,130,246,0.12);
+        border: 1px solid rgba(59,130,246,0.3);
+        color: #bfdbfe;
     }
     .rb-info-warn {
-        background: rgba(245,158,11,0.08);
-        border: 1px solid rgba(245,158,11,0.2);
-        color: #fcd34d;
+        background: rgba(245,158,11,0.12);
+        border: 1px solid rgba(245,158,11,0.3);
+        color: #fde68a;
     }
     .rb-info-tip strong, .rb-info-warn strong { color: inherit; }
 
     .rb-score-table {
         width: 100%;
         border-collapse: collapse;
-        font-size: 0.87rem;
-        margin-top: 10px;
+        font-size: 1rem;
+        margin-top: 16px;
     }
     .rb-score-table thead tr {
-        border-bottom: 1px solid rgba(255,255,255,0.1);
+        border-bottom: 2px solid rgba(255,255,255,0.15);
     }
     .rb-score-table th {
-        padding: 7px 10px;
+        padding: 12px 14px;
         text-align: left;
-        font-size: 0.72rem;
+        font-size: 0.85rem;
         text-transform: uppercase;
         letter-spacing: 1px;
-        color: #475569;
-        font-weight: 700;
+        color: #94a3b8;
+        font-weight: 800;
     }
     .rb-score-table td {
-        padding: 8px 10px;
-        color: #cbd5e1;
-        border-bottom: 1px solid rgba(255,255,255,0.04);
+        padding: 12px 14px;
+        color: #e2e8f0;
+        border-bottom: 1px solid rgba(255,255,255,0.08);
     }
     .rb-score-table td:last-child {
         text-align: right;
         font-weight: 800;
-        color: #22c55e;
+        color: #4ade80;
         font-variant-numeric: tabular-nums;
+        font-size: 1.05rem;
     }
     .rb-score-table tr:last-child td { border-bottom: none; }
 
@@ -1174,6 +1246,66 @@
     }
     .house-rule-desc h4 { color: #f59e0b; margin: 0 0 6px 0; }
     .house-rule-desc p { margin: 0; font-size: 0.85rem; }
+
+    /* Stacked cards for Draw Until Playable */
+    .rule-icon.stacked-cards {
+        position: relative;
+        display: inline-flex;
+        width: 70px;
+        height: 40px;
+        align-items: center;
+        margin-right: 10px;
+        flex-shrink: 0;
+    }
+    
+    /* Premium Rule Select Dropdown */
+    .rule-select {
+        background: rgba(30, 41, 59, 0.8);
+        border: 1px solid rgba(59, 130, 246, 0.3);
+        color: #e2e8f0;
+        border-radius: 12px;
+        padding: 10px 16px;
+        font-weight: 800;
+        font-size: 0.95rem;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        outline: none;
+        min-width: 120px;
+    }
+    .rule-select:hover {
+        background: rgba(30, 41, 59, 1);
+        border-color: rgba(59, 130, 246, 0.6);
+        box-shadow: 0 0 20px rgba(59, 130, 246, 0.15);
+    }
+    .rule-select:focus {
+        background: rgba(30, 41, 59, 1);
+        border-color: #3b82f6;
+        box-shadow: 0 0 25px rgba(59, 130, 246, 0.25);
+    }
+    .rule-select option {
+        background: #1e293b;
+        color: #e2e8f0;
+        font-weight: 700;
+        padding: 8px;
+    }
+    .rule-icon.stacked-cards span {
+        position: absolute;
+        font-size: 1.8rem;
+        line-height: 1;
+        transition: transform 0.2s ease;
+    }
+    .rule-icon.stacked-cards .card-1 {
+        left: 0;
+        z-index: 1;
+    }
+    .rule-icon.stacked-cards .card-2 {
+        left: 10px;
+        z-index: 2;
+    }
+    .rule-icon.stacked-cards .card-3 {
+        left: 20px;
+        z-index: 3;
+    }
 
     /* Animations */
     @@keyframes fadeIn {
@@ -1206,7 +1338,8 @@
     private enum RuleType
     {
         Toggle,
-        Slider
+        Slider,
+        Select
     }
 
     private class RuleItem
@@ -1219,6 +1352,9 @@
         public Action<GameSettings, bool> SetBoolValue { get; set; } = (_, _) => { };
         public Func<GameSettings, double> GetNumberValue { get; set; } = _ => 0;
         public Action<GameSettings, double> SetNumberValue { get; set; } = (_, _) => { };
+        public Func<GameSettings, object> GetSelectValue { get; set; } = _ => AiDifficulty.Normal;
+        public Action<GameSettings, object> SetSelectValue { get; set; } = (_, _) => { };
+        public List<(object Value, string Label)> SelectOptions { get; set; } = new();
         public double Min { get; set; }
         public double Max { get; set; }
         public double Step { get; set; } = 1.0;
@@ -1256,9 +1392,9 @@
             {
                 Title = "Draw Until Playable",
                 Description = "Must draw continuous cards until a playable card is pulled. (Auto-enables Forced Play)",
-                Icon = "🔄",
+                Icon = "🃏",
                 Type = RuleType.Toggle,
-                GetBoolValue = s => s.DrawUntilPlayable,
+                GetBoolValue = (s) => s.DrawUntilPlayable,
                 SetBoolValue = (s, v) => { 
                     s.DrawUntilPlayable = v; 
                     if (v) s.ForcedPlay = true; 
@@ -1298,7 +1434,7 @@
             {
                 Title = "Zero Rotate",
                 Description = "Rotates everyone's hands along direction of play on a 0.",
-                Icon = "🔃",
+                Icon = "🔄",
                 Type = RuleType.Toggle,
                 GetBoolValue = s => s.ZeroRotate,
                 SetBoolValue = (s, v) => s.ZeroRotate = v
@@ -1351,6 +1487,21 @@
                 GetNumberValue = s => s.JumpInTimerSeconds,
                 SetNumberValue = (s, v) => s.JumpInTimerSeconds = v,
                 IsVisible = s => s.JumpInRule
+            },
+            new RuleItem
+            {
+                Title = "AI Difficulty",
+                Description = "How smart the computer opponents are.",
+                Icon = "🤖",
+                Type = RuleType.Select,
+                SelectOptions = new()
+                {
+                    (AiDifficulty.Easy, "Easy"),
+                    (AiDifficulty.Normal, "Normal"),
+                    (AiDifficulty.Hard, "Hard")
+                },
+                GetSelectValue = s => s.CpuDifficulty,
+                SetSelectValue = (s, v) => s.CpuDifficulty = (AiDifficulty)v
             }
         };
     }
@@ -1376,7 +1527,8 @@
                 ZeroRotate = false,
                 JumpInRule = false,
                 EnableVortex = false,
-                UnoFailurePenaltyCards = 2
+                UnoFailurePenaltyCards = 2,
+                CpuDifficulty = AiDifficulty.Normal
             }
         };
 
@@ -1397,7 +1549,8 @@
                 ShowJumpInGlow = false, // Disabled in Chaos
                 JumpInTimerSeconds = 1.0, // 1 second QTE timer for ultimate speed/chaos
                 EnableVortex = true,
-                UnoFailurePenaltyCards = 5 // Max draw penalty
+                UnoFailurePenaltyCards = 5, // Max draw penalty
+                CpuDifficulty = AiDifficulty.Hard
             }
         };
 
@@ -1408,16 +1561,17 @@
             Settings = new GameSettings
             {
                 StartingHandSize = 7,
-                Stacking = true,
-                DrawUntilPlayable = true,
+                Stacking = false,
+                DrawUntilPlayable = false,
                 ForcedPlay = false,
                 EnableWildDraw4Challenge = false,
-                SevenSwap = true,
-                ZeroRotate = true,
-                JumpInRule = true,
+                SevenSwap = false,
+                ZeroRotate = false,
+                JumpInRule = false,
                 JumpInTimerSeconds = 2.5,
                 EnableVortex = false,
-                UnoFailurePenaltyCards = 2
+                UnoFailurePenaltyCards = 2,
+                CpuDifficulty = AiDifficulty.Normal
             }
         };
 

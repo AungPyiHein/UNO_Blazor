@@ -17,27 +17,27 @@ namespace UnoEngine.Models
         /// <summary>
         /// If a player draws, they keep drawing until they find a match.
         /// </summary>
-        public bool DrawUntilPlayable { get; set; } = true;
+        public bool DrawUntilPlayable { get; set; } = false;
 
         /// <summary>
         /// When a '7' is played, the actor MUST swap hands with a chosen target.
         /// </summary>
-        public bool SevenSwap { get; set; } = true;
+        public bool SevenSwap { get; set; } = false;
 
         /// <summary>
         /// When a '0' is played, everyone passes their entire hand to the next player in the current direction.
         /// </summary>
-        public bool ZeroRotate { get; set; } = true;
+        public bool ZeroRotate { get; set; } = false;
 
         /// <summary>
         /// Allow stacking Draw 2s and Draw 4s.
         /// </summary>
-        public bool Stacking { get; set; } = true;
+        public bool Stacking { get; set; } = false;
 
         /// <summary>
         /// Allow players to play out of turn if they have an exact match (Color and Value).
         /// </summary>
-        public bool JumpInRule { get; set; } = true;
+        public bool JumpInRule { get; set; } = false;
 
         /// <summary>
         /// The duration of the QTE window for jumping in.
@@ -47,7 +47,7 @@ namespace UnoEngine.Models
         /// <summary>
         /// Whether jump-in able cards should glow in the UI to assist the player.
         /// </summary>
-        public bool ShowJumpInGlow { get; set; } = true;
+        public bool ShowJumpInGlow { get; set; } = false;
 
         /// <summary>
         /// If enabled, 4 Vortex cards are added to the deck.
@@ -72,7 +72,7 @@ namespace UnoEngine.Models
         /// <summary>
         /// Next player can challenge if they suspect the WD4 player holds a matching color.
         /// </summary>
-        public bool EnableWildDraw4Challenge { get; set; } = true;
+        public bool EnableWildDraw4Challenge { get; set; } = false;
 
         /// <summary>
         /// Penalty cards drawn if UNO call fails.
