@@ -815,52 +815,47 @@
             return;
         }
 
-        // Vortex animation
+        // Vortex animation — 3 cinematic steps
         if (animType == "vortex-shuffle")
         {
-            // Step A: Fire Vortex Opening — show swirl, lock input
+            // ── STEP 1: Vortex materialises at center ──────────────────────────
             _showVortexAnimation = true;
             _isAnimating = true;
             await InvokeAsync(StateHasChanged);
-            await Task.Delay(350); // cinematic opening beat
+            await Task.Delay(450); // vortex swirl opening beat
 
-            // Step B: Snapshot current hand counts BEFORE touching data.
-            // Caps at 10 for human and 5 for CPUs to keep animation snappy.
+            // ── STEP 2: All hands fly INTO the vortex ─────────────────────────
+            // Snapshot counts so ghost cards stay visible during flight.
             if (Game != null)
             {
-                _vortexHandSnapshot = Game.Players.Select((p, idx) => 
+                _vortexHandSnapshot = Game.Players.Select((p, idx) =>
                     idx == 0 ? Math.Min(p.Hand.Count, 10) : Math.Min(p.Hand.Count, 5)
                 ).ToArray();
             }
-
-            // Step C: Trigger the suction class — each card flies in one by one
-            // via staggered animation-delay controlled by --vortex-delay CSS var.
-            _isSwallowingCards = true;
+            _animClass = "vortex-shuffle"; // triggers fly-*-to-center on all .hand containers
             await InvokeAsync(StateHasChanged);
+            await Task.Delay(1100); // hands travel to center and vanish (0.8s anim + buffer)
 
-            // Step D: Wait for ALL staggered ingest animations to complete.
-            // Max delay = (maxCards-1)*0.07s + 0.5s animation = ~1.13s for 10 cards.
-            await Task.Delay(1400);
-
-            // Step E: Peak churn — NOW mutate the underlying data.
-            // All cards are scale(0)/opacity(0) so the DOM wipe is seamless.
-            _vortexHandSnapshot = null; // release snapshot, let real data render
+            // ── STEP 3: Peak churn — data swap while all cards are inside vortex ─
+            _vortexHandSnapshot = null;
+            _animClass = "";
             if (Game != null)
             {
                 var activePlayer = Game.Players[Game.LastPlayerIndex];
                 Game.ResolveVortex(activePlayer);
             }
-            _isSwallowingCards = false;
             await InvokeAsync(StateHasChanged);
-            await Task.Delay(250); // brief peak churn hold
+            await Task.Delay(380); // vortex churns alone at peak brightness
 
-            // Step F: Ejection — new cards burst out one by one from vortex center
-            _isSpittingCards = true;
+            // ── STEP 4: Cards spit back out — hands fly from center to positions ─
+            _animClass = "vortex-eject"; // triggers fly-center-to-* on all .hand containers
+            _isSpittingCards = true;     // individual cards pop in with staggered delay
             await InvokeAsync(StateHasChanged);
+            await Task.Delay(1200); // 0.9s hand fly + ~0.7s max card stagger
 
-            // Step G: Await all staggered eject animations, then clean up
-            await Task.Delay(1400);
+            // ── STEP 5: Cleanup ───────────────────────────────────────────────
             _isSpittingCards = false;
+            _animClass = "";
             _showVortexAnimation = false;
             _isAnimating = false;
             await InvokeAsync(StateHasChanged);

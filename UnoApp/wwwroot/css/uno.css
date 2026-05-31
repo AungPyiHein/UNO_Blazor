@@ -932,8 +932,10 @@ body {
 /* Folding logic for SWAP and VORTEX only */
 .game-container[class*="swap-"] .player-slot .hand .hand-card-wrapper,
 .game-container.vortex-shuffle .player-slot .hand .hand-card-wrapper,
+.game-container.vortex-eject .player-slot .hand .hand-card-wrapper,
 .game-container[class*="swap-"] .slot-human .hand .hand-card-wrapper,
-.game-container.vortex-shuffle .slot-human .hand .hand-card-wrapper {
+.game-container.vortex-shuffle .slot-human .hand .hand-card-wrapper,
+.game-container.vortex-eject .slot-human .hand .hand-card-wrapper {
     margin-left: -70px !important;
     margin-top: 0 !important;
     transform: translateY(0) rotate(0) !important;
@@ -1043,11 +1045,18 @@ body {
 .game-container.swap-3-2 .slot-cpu-top .hand { animation: fly-top-to-right 0.8s forwards; }
 .game-container.swap-3-2 .slot-cpu-right .hand { animation: fly-right-to-top 0.8s forwards; }
 
-/* VORTEX SHUFFLE LOGIC */
-.game-container.vortex-shuffle .slot-human .hand { animation: fly-human-to-center 0.8s forwards; }
-.game-container.vortex-shuffle .slot-cpu-left .hand { animation: fly-left-to-center 0.8s forwards; }
-.game-container.vortex-shuffle .slot-cpu-top .hand { animation: fly-top-to-center 0.8s forwards; }
-.game-container.vortex-shuffle .slot-cpu-right .hand { animation: fly-right-to-center 0.8s forwards; }
+/* VORTEX SHUFFLE LOGIC — Step 2: hands fly INTO vortex */
+.game-container.vortex-shuffle .slot-human .hand { animation: fly-human-to-center 0.85s cubic-bezier(0.4, 0, 1, 1) forwards; }
+.game-container.vortex-shuffle .slot-cpu-left .hand { animation: fly-left-to-center 0.85s cubic-bezier(0.4, 0, 1, 1) forwards; }
+.game-container.vortex-shuffle .slot-cpu-top .hand { animation: fly-top-to-center 0.85s cubic-bezier(0.4, 0, 1, 1) forwards; }
+.game-container.vortex-shuffle .slot-cpu-right .hand { animation: fly-right-to-center 0.85s cubic-bezier(0.4, 0, 1, 1) forwards; }
+
+/* VORTEX EJECT LOGIC — Step 4: hands burst OUT from vortex to positions */
+.game-container.vortex-eject .slot-human .hand { animation: fly-center-to-human 0.9s cubic-bezier(0.0, 0.0, 0.2, 1) both; }
+.game-container.vortex-eject .slot-cpu-left .hand { animation: fly-center-to-left 0.9s cubic-bezier(0.0, 0.0, 0.2, 1) both; }
+.game-container.vortex-eject .slot-cpu-top .hand { animation: fly-center-to-top 0.9s cubic-bezier(0.0, 0.0, 0.2, 1) both; }
+.game-container.vortex-eject .slot-cpu-right .hand { animation: fly-center-to-right 0.9s cubic-bezier(0.0, 0.0, 0.2, 1) both; }
+.game-container.vortex-eject .hand { z-index: 1000; }
 
 /* KEYFRAMES (Fly animations fade out right at the destination) */
 
@@ -1133,6 +1142,28 @@ body {
     0% { transform: translate(0, 0) rotate(90deg); opacity: 1; }
     80% { opacity: 1; }
     100% { transform: translate(-40vw, 5vh) rotate(720deg) scale(0); opacity: 0; } 
+}
+
+/* ── VORTEX EJECT: reverse of fly-*-to-center, burst outward from vortex ── */
+@keyframes fly-center-to-human {
+    0%   { transform: translate(0, -40vh) rotate(-720deg) scale(0); opacity: 0; filter: brightness(3) blur(3px); }
+    25%  { opacity: 1; filter: brightness(1.8) blur(1px); }
+    100% { transform: translate(0, 0) rotate(0deg) scale(1); opacity: 1; filter: brightness(1) blur(0); }
+}
+@keyframes fly-center-to-left {
+    0%   { transform: translate(40vw, 5vh) rotate(-720deg) scale(0); opacity: 0; filter: brightness(3) blur(3px); }
+    25%  { opacity: 1; filter: brightness(1.8) blur(1px); }
+    100% { transform: translate(0, 0) rotate(-90deg) scale(1); opacity: 1; filter: brightness(1) blur(0); }
+}
+@keyframes fly-center-to-top {
+    0%   { transform: translate(0, 35vh) rotate(-720deg) scale(0); opacity: 0; filter: brightness(3) blur(3px); }
+    25%  { opacity: 1; filter: brightness(1.8) blur(1px); }
+    100% { transform: translate(0, 0) rotate(0deg) scale(1); opacity: 1; filter: brightness(1) blur(0); }
+}
+@keyframes fly-center-to-right {
+    0%   { transform: translate(-40vw, 5vh) rotate(-720deg) scale(0); opacity: 0; filter: brightness(3) blur(3px); }
+    25%  { opacity: 1; filter: brightness(1.8) blur(1px); }
+    100% { transform: translate(0, 0) rotate(90deg) scale(1); opacity: 1; filter: brightness(1) blur(0); }
 }
 
 /* Wild Shuffle Icon override */
@@ -1366,7 +1397,7 @@ body {
     box-shadow: none !important;
     border: none !important;
     border-radius: 0 !important;
-    animation: vortex-cinematic-sequence 3.4s cubic-bezier(0.25, 1, 0.2, 1) forwards;
+    animation: vortex-cinematic-sequence 3.2s ease-in-out forwards;
 }
 
 .vortex-swirl-graphic {
@@ -1433,21 +1464,24 @@ body {
 }
 
 @keyframes vortex-cinematic-sequence {
-  /* Phase 1: Erupting / Appearing */
-  0%   { transform: translate(-50%, -50%) scale(0) rotate(0deg);      opacity: 0; filter: brightness(2); }
-  12%  { transform: translate(-50%, -50%) scale(1.1) rotate(180deg);   opacity: 1; filter: brightness(1.2); }
+  /* Phase 1 (0-14%): Vortex erupts at center — 0 to 450ms */
+  0%   { transform: translate(-50%, -50%) scale(0)    rotate(0deg);    opacity: 0;   filter: brightness(3) blur(4px); }
+  14%  { transform: translate(-50%, -50%) scale(1.12) rotate(200deg);  opacity: 1;   filter: brightness(1.3) blur(0); }
 
-  /* Phase 2: Deep Suction - cards fly in one by one */
-  42%  { transform: translate(-50%, -50%) scale(0.95) rotate(600deg);  opacity: 1; filter: brightness(1); }
+  /* Phase 2 (14-48%): Deep suction — hands flying in — 450ms to 1550ms */
+  35%  { transform: translate(-50%, -50%) scale(1.0)  rotate(480deg);  opacity: 1;   filter: brightness(1.1); }
+  48%  { transform: translate(-50%, -50%) scale(0.9)  rotate(700deg);  opacity: 1;   filter: brightness(0.9); }
 
-  /* Phase 3: Peak Kinetic Vortex Churning */
-  55%  { transform: translate(-50%, -50%) scale(1.08) rotate(900deg);  opacity: 1; filter: brightness(1.8); }
+  /* Phase 3 (48-60%): Peak kinetic churn — all cards inside — 1550ms to 1930ms */
+  54%  { transform: translate(-50%, -50%) scale(1.18) rotate(860deg);  opacity: 1;   filter: brightness(2.5) blur(1px); }
+  60%  { transform: translate(-50%, -50%) scale(1.05) rotate(1000deg); opacity: 1;   filter: brightness(1.6) blur(0); }
 
-  /* Phase 4: Ejection - spitting cards back out */
-  88%  { transform: translate(-50%, -50%) scale(1.02) rotate(1800deg); opacity: 1; filter: brightness(1.3); }
+  /* Phase 4 (60-98%): Ejection — cards burst outward — 1930ms to 3130ms */
+  80%  { transform: translate(-50%, -50%) scale(1.1)  rotate(1600deg); opacity: 1;   filter: brightness(1.2); }
+  96%  { transform: translate(-50%, -50%) scale(0.85) rotate(1980deg); opacity: 0.6; filter: brightness(0.8); }
 
-  /* Phase 5: Collapse */
-  100% { transform: translate(-50%, -50%) scale(0) rotate(2160deg);    opacity: 0; filter: brightness(0.5); }
+  /* Phase 5 (98-100%): Collapse — 3130ms to 3200ms */
+  100% { transform: translate(-50%, -50%) scale(0)    rotate(2160deg); opacity: 0;   filter: brightness(0.3) blur(3px); }
 }
 
 /* ============================================================
