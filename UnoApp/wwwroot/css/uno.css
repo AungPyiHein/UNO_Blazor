@@ -2024,9 +2024,6 @@ body {
 }
 
 /* ── DRAW PILE COUNT BADGE ── */
-.draw-pile {
-    position: relative;
-}
 .draw-pile-badge {
     position: absolute;
     top: -10px;
