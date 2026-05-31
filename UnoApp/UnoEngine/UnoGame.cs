@@ -884,11 +884,11 @@ namespace UnoEngine
                     else await ApplyDrawAsync(2);
                     break;
                 case CardValue.WildDraw4:
-                    if (Settings.EnableWildDraw4Challenge && !Settings.Stacking && player.Hand.Count > 0)
+                    if (Settings.EnableWildDraw4Challenge && !Settings.Stacking && currentPlayer.Hand.Count >= 0)
                     {
                         _wd4ChallengerIndex = GetNextPlayerIndex();
                         Status = GameStatus.WaitingForWd4Challenge;
-                        LogAction($"{Players[_wd4ChallengerIndex].Name} may challenge {player.Name}'s Wild Draw 4!");
+                        LogAction($"{Players[_wd4ChallengerIndex].Name} may challenge {currentPlayer.Name}'s Wild Draw 4!");
                         OnStateChanged?.Invoke();
                         if (!Players[_wd4ChallengerIndex].IsHuman)
                         {
