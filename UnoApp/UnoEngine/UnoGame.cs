@@ -1024,7 +1024,14 @@ namespace UnoEngine
                 ReshuffleDiscardIntoDraw();
             }
 
-            if (DrawPile.Count == 0) throw new Exception("No cards left in game!");
+            if (DrawPile.Count == 0)
+            {
+                // Discard pile also empty — inject a fresh shuffled deck
+                LogAction("A fresh deck was added to the draw pile.");
+                var fresh = CreateDeck();
+                Shuffle(fresh);
+                DrawPile = new Stack<UnoCard>(fresh);
+            }
 
             return DrawPile.Pop();
         }
