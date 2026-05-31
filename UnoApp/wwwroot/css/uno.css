@@ -4,12 +4,12 @@
 
 :root {
     --bg-color: #1a2a5e;
-    --card-width: 64px;
-    --card-height: 96px;
-    --human-card-width: 50px;
-    --human-card-height: 75px;
-    --cpu-card-width: 48px;
-    --cpu-card-height: 72px;
+    --card-width: clamp(40px, 12vw, 64px);
+    --card-height: clamp(60px, 18vw, 96px);
+    --human-card-width: clamp(35px, 10vw, 50px);
+    --human-card-height: clamp(52px, 15vw, 75px);
+    --cpu-card-width: clamp(32px, 9vw, 48px);
+    --cpu-card-height: clamp(48px, 13.5vw, 72px);
     --red: #eb2f06;
     --blue: #1e3799;
     --green: #009432;
@@ -177,8 +177,8 @@ body {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 320px;
-    height: 220px;
+    width: min(320px, 80vw);
+    height: min(220px, 55vw);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -434,7 +434,7 @@ body {
     left: 36%;
     transform: translate(-50%, -50%) rotate(-30deg);
     transition: transform 0.2s ease;
-    z-index: 5;
+    z-index: 20;
 }
 
 .draw-pile .uno-card {
@@ -596,8 +596,8 @@ body {
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 340px;
-    height: 340px;
+    width: min(340px, 85vw);
+    height: min(340px, 85vw);
     transform: translate(-50%, -50%);
     margin: 0;
     pointer-events: none;
