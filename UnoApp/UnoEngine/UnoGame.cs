@@ -13,6 +13,7 @@ namespace UnoEngine
         WaitingForJumpIn,
         WaitingForUnoCall,
         WaitingForWd4Challenge,
+        RevealingWd4Bluff,
         GameOver
     }
 
@@ -22,8 +23,10 @@ namespace UnoEngine
         public Func<string, Task>? OnBoardAnimation;
         public Func<string, Task>? OnSoundEffect;
 
-        private bool _wd4HandSnapshotHadMatchingColor = false;
+        private List<UnoCard>? _wd4HandSnapshotMatchingCards = null;
+        public List<UnoCard>? Wd4BluffRevealCards => _wd4HandSnapshotMatchingCards;
         private Player? _wd4Player = null;
+        public Player? Wd4BluffPlayer => _wd4Player;
         private int _wd4ChallengerIndex = 0;
         public int Wd4ChallengerIndex => _wd4ChallengerIndex;
 
@@ -437,9 +440,10 @@ namespace UnoEngine
             // Snapshot WD4 player's hand (minus this card) BEFORE it is removed — for challenge adjudication
             if (card.Value == CardValue.WildDraw4 && Settings.EnableWildDraw4Challenge && !Settings.Stacking && declaredColor == null)
             {
-                _wd4HandSnapshotHadMatchingColor = player.Hand
+                _wd4HandSnapshotMatchingCards = player.Hand
                     .Where(c => !ReferenceEquals(c, card))
-                    .Any(c => c.Color == LastValidColor && c.Color != CardColor.Wild);
+                    .Where(c => c.Color == LastValidColor && c.Color != CardColor.Wild)
+                    .ToList();
                 _wd4Player = player;
             }
             
@@ -1183,28 +1187,37 @@ namespace UnoEngine
                     if (OnSoundEffect != null) await OnSoundEffect("challenge");
                     await Task.Delay(600);
 
-                    if (_wd4HandSnapshotHadMatchingColor)
+                    if (_wd4HandSnapshotMatchingCards != null && _wd4HandSnapshotMatchingCards.Count > 0 && _wd4Player != null)
                     {
-                        ActiveNotificationBanner = $"BLUFF CAUGHT! {_wd4Player!.Name.ToUpper()} DRAWS 4!";
-                        LogAction($"{challenger.Name} challenged — {_wd4Player.Name} was bluffing! They draw 4.");
-                        for (int i = 0; i < 4; i++) { _wd4Player!.Hand.Add(DrawOne()); OnStateChanged?.Invoke(); await Task.Delay(250); }
-                        if (OnSoundEffect != null) await OnSoundEffect("challengeBluffCaught");
-                        Status = GameStatus.Playing;
+                        // Bluff caught!
+                        Status = GameStatus.RevealingWd4Bluff;
                         OnStateChanged?.Invoke();
-                        await Task.Delay(1000);
-                        SafeFireAndForget(() => StartTurnAsync());
+                        
+                        // Wait for reveal animation
+                        await Task.Delay(2000);
+                        
+                        // Now proceed with penalty
+                        if (OnSoundEffect != null) await OnSoundEffect("challengeBluffCaught");
+                        ActiveNotificationBanner = $"BLUFF CAUGHT! {_wd4Player.Name.ToUpper()} DRAWS 4!";
+                        LogAction($"{challenger.Name} challenged — {_wd4Player.Name} was bluffing! They draw 4.");
+                        for (int i = 0; i < 4; i++) { _wd4Player.Hand.Add(DrawOne()); OnStateChanged?.Invoke(); await Task.Delay(250); }
                     }
                     else
                     {
+                        // Wrong call!
+                        Status = GameStatus.RevealingWd4Bluff;
+                        _wd4HandSnapshotMatchingCards = null;
+                        OnStateChanged?.Invoke();
+                        
+                        // Wait for reveal animation
+                        await Task.Delay(2000);
+                        
+                        // Now proceed with penalty
+                        if (OnSoundEffect != null) await OnSoundEffect("challengeFail");
                         ActiveNotificationBanner = $"WRONG CALL! {challenger.Name.ToUpper()} DRAWS 6!";
                         LogAction($"{challenger.Name} challenged — bluff NOT confirmed. {challenger.Name} draws 6.");
                         for (int i = 0; i < 6; i++) { challenger.Hand.Add(DrawOne()); OnStateChanged?.Invoke(); await Task.Delay(250); }
-                        if (OnSoundEffect != null) await OnSoundEffect("challengeFail");
                         MoveToNextTurn();
-                        Status = GameStatus.Playing;
-                        OnStateChanged?.Invoke();
-                        await Task.Delay(1000);
-                        SafeFireAndForget(() => StartTurnAsync());
                     }
                 }
                 else
@@ -1213,17 +1226,27 @@ namespace UnoEngine
                     for (int i = 0; i < 4; i++) { challenger.Hand.Add(DrawOne()); if (OnSoundEffect != null) await OnSoundEffect("cardDraw"); OnStateChanged?.Invoke(); await Task.Delay(250); }
                     MoveToNextTurn();
                     Status = GameStatus.Playing;
+                    _wd4Player = null;
+                    _wd4HandSnapshotMatchingCards = null;
                     OnStateChanged?.Invoke();
                     SafeFireAndForget(() => StartTurnAsync());
+                    return;
                 }
 
+                Status = GameStatus.Playing;
                 _wd4Player = null;
+                _wd4HandSnapshotMatchingCards = null;
+                OnStateChanged?.Invoke();
+                await Task.Delay(1000);
+                SafeFireAndForget(() => StartTurnAsync());
             }
             finally
             {
                 _actionLock.Release();
             }
         }
+
+
 
         private async Task HandleCpuWd4ChallengeAsync()
         {

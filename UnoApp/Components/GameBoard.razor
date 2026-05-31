@@ -56,10 +56,9 @@
         }
 
         <!-- DRAW PILE (direct child of game-container for absolute positioning) -->
-        <div class="draw-pile" @onclick="HandleDraw">
-            <UnoCardComponent IsBack="true" />
-            <div class="draw-pile-badge">@Game.DrawPile.Count</div>
-        </div>
+            <div class="draw-pile" @onclick="HandleDraw">
+                <UnoCardComponent IsBack="true" />
+            </div>
 
         <!-- CENTER AREA (THE HUB) -->
         <div class="center-area">
@@ -390,15 +389,38 @@
 
     @if (Game.Status == GameStatus.WaitingForWd4Challenge && Game.Wd4ChallengerIndex == 0)
     {
-        <div class="modal-overlay glass-modal wd4-challenge-overlay">
-            <div class="glass-panel wd4-challenge-panel">
-                <h2 class="wd4-title">WILD DRAW 4 CHALLENGE</h2>
-                <p class="wd4-desc">@Game.Players[Game.LastPlayerIndex].Name just played Wild Draw 4!<br/>Did they have a matching color card they could have played instead?</p>
-                <div class="wd4-btn-row">
-                    <button class="wd4-btn wd4-challenge-btn" @onclick='() => ResolveChallengeWrapper(true)'>CHALLENGE — They Bluffed!</button>
-                    <button class="wd4-btn wd4-accept-btn" @onclick='() => ResolveChallengeWrapper(false)'>ACCEPT — Draw 4</button>
-                </div>
+        <div class="wd4-challenge-container">
+            <div class="wd4-card-main">
+                <UnoCardComponent Card="Game.TopCard" SizeClass="w-32 h-48" />
             </div>
+            <div class="wd4-btn-row">
+                <button class="wd4-btn wd4-challenge-btn" @onclick='() => ResolveChallengeWrapper(true)'>CHALLENGE</button>
+                <button class="wd4-btn wd4-accept-btn" @onclick='() => ResolveChallengeWrapper(false)'>DRAW +4</button>
+            </div>
+        </div>
+    }
+
+    @if (Game.Status == GameStatus.RevealingWd4Bluff)
+    {
+        bool isSuccess = Game.Wd4BluffRevealCards != null && Game.Wd4BluffRevealCards.Count > 0 && Game.Wd4BluffPlayer != null;
+        <div class="bluff-reveal-above-hand">
+            <div class="result-section">
+                <span class="result-mark @(isSuccess ? "success" : "failure")">@(isSuccess ? "✓" : "✗")</span>
+                <span class="result-message">@(isSuccess ? "BLUFF CAUGHT!" : "WRONG CALL!")</span>
+            </div>
+            @if (isSuccess)
+            {
+                <div class="bluff-cards-floating-above-hand">
+                    @for (int i = 0; i < Game.Wd4BluffRevealCards!.Count; i++)
+                    {
+                        int index = i;
+                        var card = Game.Wd4BluffRevealCards[index];
+                        <div class="floating-card-small" style="--delay: @(index * 0.15)s;">
+                            <UnoCardComponent Card="card" SizeClass="w-20 h-30" />
+                        </div>
+                    }
+                </div>
+            }
         </div>
     }
 
