@@ -928,19 +928,9 @@ body {
 /* ====================================================
    ADVANCED ANIMATIONS (FOLD & FLY, VORTEX)
    ==================================================== */
-
-/* Folding logic for SWAP and VORTEX only */
-.game-container[class*="swap-"] .player-slot .hand .hand-card-wrapper,
-.game-container.vortex-shuffle .player-slot .hand .hand-card-wrapper,
-.game-container.vortex-eject .player-slot .hand .hand-card-wrapper,
-.game-container[class*="swap-"] .slot-human .hand .hand-card-wrapper,
-.game-container.vortex-shuffle .slot-human .hand .hand-card-wrapper,
-.game-container.vortex-eject .slot-human .hand .hand-card-wrapper {
-    margin-left: -70px !important;
-    margin-top: 0 !important;
-    transform: translateY(0) rotate(0) !important;
-    transition: margin 0.4s ease-in-out, transform 0.4s ease-in-out !important;
-}
+   /* (swap-* and vortex-shuffle/eject hand-container fold rules removed —
+      swap only pulses the .hand.swap-anim; vortex now animates individual
+      card wrappers via .vortex-ingest / .vortex-eject, not hand containers) */
 
 /* ====================================================
    ZERO ROTATE ANIMATION (4-step: backs+fold → fly → fan-out → reveal)
@@ -992,178 +982,109 @@ body {
     100% { opacity: 1; filter: brightness(1); }
 }
 
-/* Base properties for flying hands */
-.game-container[class*="rotate-"] .hand,
-.game-container[class*="swap-"] .hand,
-.game-container.vortex-shuffle .hand {
+/* Only rotate hands elevate z-index (vortex now animates individual cards, not containers) */
+.game-container[class*="rotate-"] .hand {
     z-index: 1000;
 }
 
-/* ROTATE CLOCKWISE (0->1, 1->2, 2->3, 3->0) — slowed to 1s */
-.game-container.rotate-cw .slot-human .hand { animation: fly-human-to-left 1s ease-in-out forwards; }
-.game-container.rotate-cw .slot-cpu-left .hand { animation: fly-left-to-top 1s ease-in-out forwards; }
-.game-container.rotate-cw .slot-cpu-top .hand { animation: fly-top-to-right 1s ease-in-out forwards; }
-.game-container.rotate-cw .slot-cpu-right .hand { animation: fly-right-to-human 1s ease-in-out forwards; }
+/* ── ROTATE CLOCKWISE: hands arc around table ellipse (CW) ── */
+.game-container.rotate-cw .slot-human .hand    { animation: fly-human-to-left   1.0s cubic-bezier(0.4,0,0.6,1) forwards; }
+.game-container.rotate-cw .slot-cpu-left .hand { animation: fly-left-to-top     1.0s cubic-bezier(0.4,0,0.6,1) forwards; }
+.game-container.rotate-cw .slot-cpu-top .hand  { animation: fly-top-to-right    1.0s cubic-bezier(0.4,0,0.6,1) forwards; }
+.game-container.rotate-cw .slot-cpu-right .hand{ animation: fly-right-to-human  1.0s cubic-bezier(0.4,0,0.6,1) forwards; }
 
-/* ROTATE COUNTER-CLOCKWISE — slowed to 1s */
-.game-container.rotate-ccw .slot-human .hand { animation: fly-human-to-right 1s ease-in-out forwards; }
-.game-container.rotate-ccw .slot-cpu-left .hand { animation: fly-left-to-human 1s ease-in-out forwards; }
-.game-container.rotate-ccw .slot-cpu-top .hand { animation: fly-top-to-left 1s ease-in-out forwards; }
-.game-container.rotate-ccw .slot-cpu-right .hand { animation: fly-right-to-top 1s ease-in-out forwards; }
+/* ── ROTATE COUNTER-CLOCKWISE: hands arc around table ellipse (CCW) ── */
+.game-container.rotate-ccw .slot-human .hand    { animation: fly-human-to-right  1.0s cubic-bezier(0.4,0,0.6,1) forwards; }
+.game-container.rotate-ccw .slot-cpu-left .hand { animation: fly-left-to-human   1.0s cubic-bezier(0.4,0,0.6,1) forwards; }
+.game-container.rotate-ccw .slot-cpu-top .hand  { animation: fly-top-to-left     1.0s cubic-bezier(0.4,0,0.6,1) forwards; }
+.game-container.rotate-ccw .slot-cpu-right .hand{ animation: fly-right-to-top    1.0s cubic-bezier(0.4,0,0.6,1) forwards; }
 
-/* SWAP LOGIC (7-Swap) */
-/* For 7 swap, only the involved hands move. E.g., swap-0-2 */
-.game-container.swap-0-1 .slot-human .hand { animation: fly-human-to-left 0.8s forwards; }
-.game-container.swap-0-1 .slot-cpu-left .hand { animation: fly-left-to-human 0.8s forwards; }
+/* ── CIRCULAR ARC KEYFRAMES for 0-Rotate ──
+   Cards trace the outer ellipse of the table, not straight lines.
+   Each arc has two mid-waypoints that bend the path around the edge. */
 
-.game-container.swap-0-2 .slot-human .hand { animation: fly-human-to-top 0.8s forwards; }
-.game-container.swap-0-2 .slot-cpu-top .hand { animation: fly-top-to-human 0.8s forwards; }
-
-.game-container.swap-0-3 .slot-human .hand { animation: fly-human-to-right 0.8s forwards; }
-.game-container.swap-0-3 .slot-cpu-right .hand { animation: fly-right-to-human 0.8s forwards; }
-
-.game-container.swap-1-2 .slot-cpu-left .hand { animation: fly-left-to-top 0.8s forwards; }
-.game-container.swap-1-2 .slot-cpu-top .hand { animation: fly-top-to-left 0.8s forwards; }
-
-.game-container.swap-1-3 .slot-cpu-left .hand { animation: fly-left-to-right 0.8s forwards; }
-.game-container.swap-1-3 .slot-cpu-right .hand { animation: fly-right-to-left 0.8s forwards; }
-
-.game-container.swap-2-3 .slot-cpu-top .hand { animation: fly-top-to-right 0.8s forwards; }
-.game-container.swap-2-3 .slot-cpu-right .hand { animation: fly-right-to-top 0.8s forwards; }
-
-/* REVERSE SWAPS (The engine might pass swap-2-0 instead of swap-0-2 depending on who played the 7) */
-.game-container.swap-1-0 .slot-human .hand { animation: fly-human-to-left 0.8s forwards; }
-.game-container.swap-1-0 .slot-cpu-left .hand { animation: fly-left-to-human 0.8s forwards; }
-.game-container.swap-2-0 .slot-human .hand { animation: fly-human-to-top 0.8s forwards; }
-.game-container.swap-2-0 .slot-cpu-top .hand { animation: fly-top-to-human 0.8s forwards; }
-.game-container.swap-3-0 .slot-human .hand { animation: fly-human-to-right 0.8s forwards; }
-.game-container.swap-3-0 .slot-cpu-right .hand { animation: fly-right-to-human 0.8s forwards; }
-.game-container.swap-2-1 .slot-cpu-left .hand { animation: fly-left-to-top 0.8s forwards; }
-.game-container.swap-2-1 .slot-cpu-top .hand { animation: fly-top-to-left 0.8s forwards; }
-.game-container.swap-3-1 .slot-cpu-left .hand { animation: fly-left-to-right 0.8s forwards; }
-.game-container.swap-3-1 .slot-cpu-right .hand { animation: fly-right-to-left 0.8s forwards; }
-.game-container.swap-3-2 .slot-cpu-top .hand { animation: fly-top-to-right 0.8s forwards; }
-.game-container.swap-3-2 .slot-cpu-right .hand { animation: fly-right-to-top 0.8s forwards; }
-
-/* VORTEX SHUFFLE LOGIC — Step 2: hands fly INTO vortex */
-.game-container.vortex-shuffle .slot-human .hand { animation: fly-human-to-center 0.85s cubic-bezier(0.4, 0, 1, 1) forwards; }
-.game-container.vortex-shuffle .slot-cpu-left .hand { animation: fly-left-to-center 0.85s cubic-bezier(0.4, 0, 1, 1) forwards; }
-.game-container.vortex-shuffle .slot-cpu-top .hand { animation: fly-top-to-center 0.85s cubic-bezier(0.4, 0, 1, 1) forwards; }
-.game-container.vortex-shuffle .slot-cpu-right .hand { animation: fly-right-to-center 0.85s cubic-bezier(0.4, 0, 1, 1) forwards; }
-
-/* VORTEX EJECT LOGIC — Step 4: hands burst OUT from vortex to positions */
-.game-container.vortex-eject .slot-human .hand { animation: fly-center-to-human 0.9s cubic-bezier(0.0, 0.0, 0.2, 1) both; }
-.game-container.vortex-eject .slot-cpu-left .hand { animation: fly-center-to-left 0.9s cubic-bezier(0.0, 0.0, 0.2, 1) both; }
-.game-container.vortex-eject .slot-cpu-top .hand { animation: fly-center-to-top 0.9s cubic-bezier(0.0, 0.0, 0.2, 1) both; }
-.game-container.vortex-eject .slot-cpu-right .hand { animation: fly-center-to-right 0.9s cubic-bezier(0.0, 0.0, 0.2, 1) both; }
-.game-container.vortex-eject .hand { z-index: 1000; }
-
-/* KEYFRAMES (Fly animations fade out right at the destination) */
-
-@keyframes fly-human-to-left { 
-    0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
-    80% { opacity: 1; }
-    100% { transform: translate(-40vw, -45vh) rotate(-90deg); opacity: 0; } 
+/* CW: Human (bottom-center) → Left (left-mid) */
+@keyframes fly-human-to-left {
+    0%   { transform: translate(0, 0) rotate(0deg);           opacity: 1; }
+    28%  { transform: translate(-20vw, 12vh) rotate(-25deg);  opacity: 1; }
+    62%  { transform: translate(-37vw, -18vh) rotate(-60deg); opacity: 0.85; }
+    100% { transform: translate(-40vw, -45vh) rotate(-90deg); opacity: 0; }
 }
-@keyframes fly-human-to-top { 
-    0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
-    80% { opacity: 1; }
-    100% { transform: translate(0, -75vh) rotate(0deg); opacity: 0; } 
+/* CW: Left (left-mid) → Top (top-center) */
+@keyframes fly-left-to-top {
+    0%   { transform: translate(0, 0) rotate(-90deg);          opacity: 1; }
+    28%  { transform: translate(14vw, -22vh) rotate(-60deg);   opacity: 1; }
+    62%  { transform: translate(32vw, -28vh) rotate(-22deg);   opacity: 0.85; }
+    100% { transform: translate(40vw, -30vh) rotate(0deg);     opacity: 0; }
 }
-@keyframes fly-human-to-right { 
-    0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
-    80% { opacity: 1; }
-    100% { transform: translate(40vw, -45vh) rotate(90deg); opacity: 0; } 
+/* CW: Top (top-center) → Right (right-mid) */
+@keyframes fly-top-to-right {
+    0%   { transform: translate(0, 0) rotate(0deg);            opacity: 1; }
+    28%  { transform: translate(22vw, 10vh) rotate(28deg);     opacity: 1; }
+    62%  { transform: translate(37vw, 20vh) rotate(62deg);     opacity: 0.85; }
+    100% { transform: translate(40vw, 30vh) rotate(90deg);     opacity: 0; }
 }
-@keyframes fly-human-to-center { 
-    0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
-    80% { opacity: 1; }
-    100% { transform: translate(0, -40vh) rotate(720deg) scale(0); opacity: 0; } 
+/* CW: Right (right-mid) → Human (bottom-center) */
+@keyframes fly-right-to-human {
+    0%   { transform: translate(0, 0) rotate(90deg);            opacity: 1; }
+    28%  { transform: translate(-14vw, 22vh) rotate(60deg);     opacity: 1; }
+    62%  { transform: translate(-32vw, 36vh) rotate(22deg);     opacity: 0.85; }
+    100% { transform: translate(-40vw, 45vh) rotate(0deg);      opacity: 0; }
 }
 
-@keyframes fly-left-to-top { 
-    0% { transform: translate(0, 0) rotate(-90deg); opacity: 1; }
-    80% { opacity: 1; }
-    100% { transform: translate(40vw, -30vh) rotate(0deg); opacity: 0; } 
+/* CCW: Human (bottom-center) → Right (right-mid) */
+@keyframes fly-human-to-right {
+    0%   { transform: translate(0, 0) rotate(0deg);            opacity: 1; }
+    28%  { transform: translate(20vw, 12vh) rotate(25deg);     opacity: 1; }
+    62%  { transform: translate(37vw, -18vh) rotate(62deg);    opacity: 0.85; }
+    100% { transform: translate(40vw, -45vh) rotate(90deg);    opacity: 0; }
 }
-@keyframes fly-left-to-right { 
-    0% { transform: translate(0, 0) rotate(-90deg); opacity: 1; }
-    80% { opacity: 1; }
-    100% { transform: translate(80vw, 0) rotate(90deg); opacity: 0; } 
+/* CCW: Right (right-mid) → Top (top-center) */
+@keyframes fly-right-to-top {
+    0%   { transform: translate(0, 0) rotate(90deg);             opacity: 1; }
+    28%  { transform: translate(-14vw, -22vh) rotate(62deg);     opacity: 1; }
+    62%  { transform: translate(-32vw, -28vh) rotate(22deg);     opacity: 0.85; }
+    100% { transform: translate(-40vw, -30vh) rotate(0deg);      opacity: 0; }
 }
-@keyframes fly-left-to-human { 
-    0% { transform: translate(0, 0) rotate(-90deg); opacity: 1; }
-    80% { opacity: 1; }
-    100% { transform: translate(40vw, 45vh) rotate(0deg); opacity: 0; } 
+/* CCW: Top (top-center) → Left (left-mid) */
+@keyframes fly-top-to-left {
+    0%   { transform: translate(0, 0) rotate(0deg);              opacity: 1; }
+    28%  { transform: translate(-22vw, 10vh) rotate(-28deg);     opacity: 1; }
+    62%  { transform: translate(-37vw, 20vh) rotate(-62deg);     opacity: 0.85; }
+    100% { transform: translate(-40vw, 30vh) rotate(-90deg);     opacity: 0; }
 }
-@keyframes fly-left-to-center { 
-    0% { transform: translate(0, 0) rotate(-90deg); opacity: 1; }
-    80% { opacity: 1; }
-    100% { transform: translate(40vw, 5vh) rotate(720deg) scale(0); opacity: 0; } 
-}
-
-@keyframes fly-top-to-right { 
-    0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
-    80% { opacity: 1; }
-    100% { transform: translate(40vw, 30vh) rotate(90deg); opacity: 0; } 
-}
-@keyframes fly-top-to-human { 
-    0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
-    80% { opacity: 1; }
-    100% { transform: translate(0, 75vh) rotate(0deg); opacity: 0; } 
-}
-@keyframes fly-top-to-left { 
-    0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
-    80% { opacity: 1; }
-    100% { transform: translate(-40vw, 30vh) rotate(-90deg); opacity: 0; } 
-}
-@keyframes fly-top-to-center { 
-    0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
-    80% { opacity: 1; }
-    100% { transform: translate(0, 35vh) rotate(720deg) scale(0); opacity: 0; } 
+/* CCW: Left (left-mid) → Human (bottom-center) */
+@keyframes fly-left-to-human {
+    0%   { transform: translate(0, 0) rotate(-90deg);            opacity: 1; }
+    28%  { transform: translate(14vw, 22vh) rotate(-62deg);      opacity: 1; }
+    62%  { transform: translate(32vw, 36vh) rotate(-22deg);      opacity: 0.85; }
+    100% { transform: translate(40vw, 45vh) rotate(0deg);        opacity: 0; }
 }
 
-@keyframes fly-right-to-human { 
-    0% { transform: translate(0, 0) rotate(90deg); opacity: 1; }
-    80% { opacity: 1; }
-    100% { transform: translate(-40vw, 45vh) rotate(0deg); opacity: 0; } 
+/* Auxiliary arcs used in 4+ player layouts */
+@keyframes fly-human-to-top {
+    0%   { transform: translate(0, 0) rotate(0deg);              opacity: 1; }
+    30%  { transform: translate(-14vw, -30vh) rotate(-12deg);    opacity: 1; }
+    65%  { transform: translate(-4vw, -62vh) rotate(-4deg);      opacity: 0.85; }
+    100% { transform: translate(0, -75vh) rotate(0deg);          opacity: 0; }
 }
-@keyframes fly-right-to-left { 
-    0% { transform: translate(0, 0) rotate(90deg); opacity: 1; }
-    80% { opacity: 1; }
-    100% { transform: translate(-80vw, 0) rotate(-90deg); opacity: 0; } 
+@keyframes fly-top-to-human {
+    0%   { transform: translate(0, 0) rotate(0deg);              opacity: 1; }
+    30%  { transform: translate(14vw, 30vh) rotate(12deg);       opacity: 1; }
+    65%  { transform: translate(4vw, 62vh) rotate(4deg);         opacity: 0.85; }
+    100% { transform: translate(0, 75vh) rotate(0deg);           opacity: 0; }
 }
-@keyframes fly-right-to-top { 
-    0% { transform: translate(0, 0) rotate(90deg); opacity: 1; }
-    80% { opacity: 1; }
-    100% { transform: translate(-40vw, -30vh) rotate(0deg); opacity: 0; } 
+@keyframes fly-left-to-right {
+    0%   { transform: translate(0, 0) rotate(-90deg);            opacity: 1; }
+    25%  { transform: translate(14vw, -30vh) rotate(-42deg);     opacity: 1; }
+    65%  { transform: translate(64vw, -14vh) rotate(50deg);      opacity: 0.85; }
+    100% { transform: translate(80vw, 0) rotate(90deg);          opacity: 0; }
 }
-@keyframes fly-right-to-center { 
-    0% { transform: translate(0, 0) rotate(90deg); opacity: 1; }
-    80% { opacity: 1; }
-    100% { transform: translate(-40vw, 5vh) rotate(720deg) scale(0); opacity: 0; } 
-}
-
-/* ── VORTEX EJECT: reverse of fly-*-to-center, burst outward from vortex ── */
-@keyframes fly-center-to-human {
-    0%   { transform: translate(0, -40vh) rotate(-720deg) scale(0); opacity: 0; filter: brightness(3) blur(3px); }
-    25%  { opacity: 1; filter: brightness(1.8) blur(1px); }
-    100% { transform: translate(0, 0) rotate(0deg) scale(1); opacity: 1; filter: brightness(1) blur(0); }
-}
-@keyframes fly-center-to-left {
-    0%   { transform: translate(40vw, 5vh) rotate(-720deg) scale(0); opacity: 0; filter: brightness(3) blur(3px); }
-    25%  { opacity: 1; filter: brightness(1.8) blur(1px); }
-    100% { transform: translate(0, 0) rotate(-90deg) scale(1); opacity: 1; filter: brightness(1) blur(0); }
-}
-@keyframes fly-center-to-top {
-    0%   { transform: translate(0, 35vh) rotate(-720deg) scale(0); opacity: 0; filter: brightness(3) blur(3px); }
-    25%  { opacity: 1; filter: brightness(1.8) blur(1px); }
-    100% { transform: translate(0, 0) rotate(0deg) scale(1); opacity: 1; filter: brightness(1) blur(0); }
-}
-@keyframes fly-center-to-right {
-    0%   { transform: translate(-40vw, 5vh) rotate(-720deg) scale(0); opacity: 0; filter: brightness(3) blur(3px); }
-    25%  { opacity: 1; filter: brightness(1.8) blur(1px); }
-    100% { transform: translate(0, 0) rotate(90deg) scale(1); opacity: 1; filter: brightness(1) blur(0); }
+@keyframes fly-right-to-left {
+    0%   { transform: translate(0, 0) rotate(90deg);             opacity: 1; }
+    25%  { transform: translate(-14vw, -30vh) rotate(42deg);     opacity: 1; }
+    65%  { transform: translate(-64vw, -14vh) rotate(-50deg);    opacity: 0.85; }
+    100% { transform: translate(-80vw, 0) rotate(-90deg);        opacity: 0; }
 }
 
 /* Wild Shuffle Icon override */
@@ -1239,47 +1160,22 @@ body {
 }
 
 /* ====================================================
-   SWAP / ROTATE ANIMATION OVERRIDES (simplified)
-   Complex flying animations removed - replaced with clean pulse flash
-   ==================================================== */
-.game-container[class*='rotate-'] .player-slot,
-.game-container[class*='swap-'] .player-slot {
-    animation: slot-swap-pulse 0.9s ease-in-out;
-}
-
-@keyframes slot-swap-pulse {
-    0%   { filter: brightness(1);    transform: scale(1);    }
-    30%  { filter: brightness(2.5); transform: scale(1.08); }
-    60%  { filter: brightness(1.5); transform: scale(0.96); }
-    100% { filter: brightness(1);    transform: scale(1);    }
-}
-
-/* ====================================================
-   TARGETED SWAP & ROTATE ANIMATIONS ON .hand
+   TARGETED SWAP & ROTATE ANIMATIONS — CARDS ONLY
+   Profiles/avatars are siblings of .hand, not inside it,
+   so they are never touched by these rules.
    ==================================================== */
 
-/* Applied only to the two swapping hands */
+/* Applied only to the two swapping hands (7-Swap) */
 .hand.swap-anim {
-    animation: swap-hand-pulse 0.9s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-/* Applied to ALL hands when a 0 rotates */
-.hand.rotate-anim {
-    animation: rotate-hand-pulse 0.9s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    animation: swap-hand-pulse 1.0s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
 
 @keyframes swap-hand-pulse {
-    0%   { transform: scale(1)    translateY(0);    filter: brightness(1);   opacity: 1; }
-    25%  { transform: scale(0.85) translateY(-8px); filter: brightness(1.8); opacity: 0.7; }
-    60%  { transform: scale(1.1)  translateY(4px);  filter: brightness(2.2); opacity: 1; }
-    100% { transform: scale(1)    translateY(0);    filter: brightness(1);   opacity: 1; }
-}
-
-@keyframes rotate-hand-pulse {
-    0%   { transform: scale(1)   rotate(0deg);  filter: brightness(1);   }
-    30%  { transform: scale(0.9) rotate(-5deg); filter: brightness(1.8); }
-    60%  { transform: scale(1.05) rotate(3deg); filter: brightness(2);   }
-    100% { transform: scale(1)   rotate(0deg);  filter: brightness(1);   }
+    0%   { transform: scale(1)    translateY(0);     filter: brightness(1)   drop-shadow(0 0 0px transparent); opacity: 1; }
+    15%  { transform: scale(0.78) translateY(-14px); filter: brightness(2.8) drop-shadow(0 0 22px #ffd700);   opacity: 0.75; }
+    42%  { transform: scale(1.18) translateY(-7px);  filter: brightness(3.5) drop-shadow(0 0 36px #ffd700);   opacity: 1; }
+    68%  { transform: scale(0.96) translateY(3px);   filter: brightness(2)   drop-shadow(0 0 18px #ffa500);   opacity: 1; }
+    100% { transform: scale(1)    translateY(0);     filter: brightness(1)   drop-shadow(0 0 0px transparent); opacity: 1; }
 }
 
 /* Override broken skip ::after CSS (had PowerShell encoding issues) */
@@ -1414,53 +1310,100 @@ body {
     mask-image: radial-gradient(circle, rgba(0,0,0,1) 30%, rgba(0,0,0,0) 65%);
 }
 
-/* Each card spins+shrinks individually into the vortex, staggered via --vortex-delay */
-.vortex-ingest {
-    animation: vortex-card-ingest 0.5s ease-in forwards !important;
+/* ====================================================
+   VORTEX CARD ANIMATIONS — Directional per player slot
+   Cards fly TOWARD center on ingest, BURST OUT on eject.
+   Hand containers stay put — only individual card wrappers move.
+   ==================================================== */
+
+/* ── INGEST: cards fly to center from each position ── */
+.slot-human .hand-card-wrapper.vortex-ingest {
+    animation: vortex-ingest-from-bottom 0.52s ease-in forwards !important;
+    animation-delay: var(--vortex-delay, 0s) !important;
+    animation-fill-mode: both !important;
+}
+.slot-cpu-left .hand-card-wrapper.vortex-ingest {
+    animation: vortex-ingest-from-left 0.52s ease-in forwards !important;
+    animation-delay: var(--vortex-delay, 0s) !important;
+    animation-fill-mode: both !important;
+}
+.slot-cpu-top .hand-card-wrapper.vortex-ingest {
+    animation: vortex-ingest-from-top 0.52s ease-in forwards !important;
+    animation-delay: var(--vortex-delay, 0s) !important;
+    animation-fill-mode: both !important;
+}
+.slot-cpu-right .hand-card-wrapper.vortex-ingest {
+    animation: vortex-ingest-from-right 0.52s ease-in forwards !important;
     animation-delay: var(--vortex-delay, 0s) !important;
     animation-fill-mode: both !important;
 }
 
-@keyframes vortex-card-ingest {
-    0%   {
-        transform: translateY(var(--card-ty, 0px)) rotate(var(--card-rot, 0deg)) scale(1);
-        opacity: 1;
-        filter: brightness(1);
-    }
-    70%  {
-        opacity: 0.6;
-        filter: brightness(2.5) blur(1px);
-    }
-    100% {
-        transform: translateY(var(--card-ty, 0px)) rotate(calc(var(--card-rot, 0deg) + 540deg)) scale(0.01);
-        opacity: 0;
-        filter: brightness(3) blur(3px);
-    }
+@keyframes vortex-ingest-from-bottom {
+    0%   { transform: translateY(var(--card-ty,0px)) rotate(var(--card-rot,0deg)) scale(1);      opacity: 1; filter: brightness(1); }
+    45%  { opacity: 0.85; filter: brightness(2) blur(0.5px); }
+    100% { transform: translate(0, -42vh) rotate(calc(var(--card-rot,0deg) + 540deg)) scale(0.04); opacity: 0; filter: brightness(3.5) blur(3px); }
+}
+@keyframes vortex-ingest-from-left {
+    0%   { transform: translateY(var(--card-ty,0px)) rotate(var(--card-rot,0deg)) scale(1);      opacity: 1; filter: brightness(1); }
+    45%  { opacity: 0.85; filter: brightness(2) blur(0.5px); }
+    100% { transform: translate(42vw, 3vh) rotate(calc(var(--card-rot,0deg) + 540deg)) scale(0.04); opacity: 0; filter: brightness(3.5) blur(3px); }
+}
+@keyframes vortex-ingest-from-top {
+    0%   { transform: translateY(var(--card-ty,0px)) rotate(var(--card-rot,0deg)) scale(1);      opacity: 1; filter: brightness(1); }
+    45%  { opacity: 0.85; filter: brightness(2) blur(0.5px); }
+    100% { transform: translate(0, 36vh) rotate(calc(var(--card-rot,0deg) + 540deg)) scale(0.04); opacity: 0; filter: brightness(3.5) blur(3px); }
+}
+@keyframes vortex-ingest-from-right {
+    0%   { transform: translateY(var(--card-ty,0px)) rotate(var(--card-rot,0deg)) scale(1);      opacity: 1; filter: brightness(1); }
+    45%  { opacity: 0.85; filter: brightness(2) blur(0.5px); }
+    100% { transform: translate(-42vw, 3vh) rotate(calc(var(--card-rot,0deg) + 540deg)) scale(0.04); opacity: 0; filter: brightness(3.5) blur(3px); }
 }
 
-/* Each card bursts out of vortex individually, staggered via --vortex-delay */
-.vortex-eject {
-    animation: vortex-card-eject 0.55s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards !important;
+/* ── EJECT: cards burst out from center to each position ── */
+.slot-human .hand-card-wrapper.vortex-eject {
+    animation: vortex-eject-to-bottom 0.58s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards !important;
+    animation-delay: var(--vortex-delay, 0s) !important;
+    animation-fill-mode: both !important;
+}
+.slot-cpu-left .hand-card-wrapper.vortex-eject {
+    animation: vortex-eject-to-left 0.58s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards !important;
+    animation-delay: var(--vortex-delay, 0s) !important;
+    animation-fill-mode: both !important;
+}
+.slot-cpu-top .hand-card-wrapper.vortex-eject {
+    animation: vortex-eject-to-top 0.58s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards !important;
+    animation-delay: var(--vortex-delay, 0s) !important;
+    animation-fill-mode: both !important;
+}
+.slot-cpu-right .hand-card-wrapper.vortex-eject {
+    animation: vortex-eject-to-right 0.58s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards !important;
     animation-delay: var(--vortex-delay, 0s) !important;
     animation-fill-mode: both !important;
 }
 
-@keyframes vortex-card-eject {
-    0%   {
-        transform: translateY(var(--card-ty, 0px)) rotate(var(--card-rot, 0deg)) scale(0.01);
-        opacity: 0;
-        filter: brightness(4) blur(4px);
-    }
-    55%  {
-        transform: translateY(var(--card-ty, 0px)) rotate(var(--card-rot, 0deg)) scale(1.14);
-        opacity: 1;
-        filter: brightness(1.6) blur(0);
-    }
-    100% {
-        transform: translateY(var(--card-ty, 0px)) rotate(var(--card-rot, 0deg)) scale(1);
-        opacity: 1;
-        filter: brightness(1) blur(0);
-    }
+@keyframes vortex-eject-to-bottom {
+    0%   { transform: translate(0, -42vh) rotate(calc(var(--card-rot,0deg) - 540deg)) scale(0.04); opacity: 0; filter: brightness(4) blur(4px); }
+    35%  { opacity: 1; filter: brightness(2) blur(0.5px); }
+    72%  { transform: translateY(calc(var(--card-ty,0px) - 6px)) rotate(var(--card-rot,0deg)) scale(1.12); }
+    100% { transform: translateY(var(--card-ty,0px)) rotate(var(--card-rot,0deg)) scale(1); opacity: 1; filter: brightness(1) blur(0); }
+}
+@keyframes vortex-eject-to-left {
+    0%   { transform: translate(42vw, 3vh) rotate(calc(var(--card-rot,0deg) - 540deg)) scale(0.04); opacity: 0; filter: brightness(4) blur(4px); }
+    35%  { opacity: 1; filter: brightness(2) blur(0.5px); }
+    72%  { transform: translateY(calc(var(--card-ty,0px) - 6px)) rotate(var(--card-rot,0deg)) scale(1.12); }
+    100% { transform: translateY(var(--card-ty,0px)) rotate(var(--card-rot,0deg)) scale(1); opacity: 1; filter: brightness(1) blur(0); }
+}
+@keyframes vortex-eject-to-top {
+    0%   { transform: translate(0, 36vh) rotate(calc(var(--card-rot,0deg) - 540deg)) scale(0.04); opacity: 0; filter: brightness(4) blur(4px); }
+    35%  { opacity: 1; filter: brightness(2) blur(0.5px); }
+    72%  { transform: translateY(calc(var(--card-ty,0px) - 6px)) rotate(var(--card-rot,0deg)) scale(1.12); }
+    100% { transform: translateY(var(--card-ty,0px)) rotate(var(--card-rot,0deg)) scale(1); opacity: 1; filter: brightness(1) blur(0); }
+}
+@keyframes vortex-eject-to-right {
+    0%   { transform: translate(-42vw, 3vh) rotate(calc(var(--card-rot,0deg) - 540deg)) scale(0.04); opacity: 0; filter: brightness(4) blur(4px); }
+    35%  { opacity: 1; filter: brightness(2) blur(0.5px); }
+    72%  { transform: translateY(calc(var(--card-ty,0px) - 6px)) rotate(var(--card-rot,0deg)) scale(1.12); }
+    100% { transform: translateY(var(--card-ty,0px)) rotate(var(--card-rot,0deg)) scale(1); opacity: 1; filter: brightness(1) blur(0); }
 }
 
 @keyframes vortex-cinematic-sequence {

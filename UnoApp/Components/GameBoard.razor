@@ -776,51 +776,58 @@
             return;
         }
 
-        // Swap and Rotate animations
-        if (animType.StartsWith("swap-") || animType == "rotate-cw" || animType == "rotate-ccw")
+        // ── 7-SWAP: Only the two involved hands pulse — nothing else moves ──
+        if (animType.StartsWith("swap-"))
+        {
+            var parts = animType.Split('-');
+            if (parts.Length == 3 && int.TryParse(parts[1], out int p1) && int.TryParse(parts[2], out int p2))
+            {
+                _swapP1 = p1;
+                _swapP2 = p2;
+                _isAnimating = true;
+                await InvokeAsync(StateHasChanged);
+                await Task.Delay(1050);
+                _swapP1 = -1;
+                _swapP2 = -1;
+                _isAnimating = false;
+                await InvokeAsync(StateHasChanged);
+            }
+            return;
+        }
+
+        // ── 0-ROTATE: Hands arc around the table along circular path ──
+        if (animType == "rotate-cw" || animType == "rotate-ccw")
         {
             _isAnimating = true;
-            await InvokeAsync(StateHasChanged);
-            
-            // Snapshot the hands so Blazor doesn't move elements while CSS animates them
-            if (Game != null)
-            {
-                _vortexHandSnapshot = Game.Players.Select(p => p.Hand.Count).ToArray();
-            }
 
-            // ── STEP 1: FLIP TO BACKS + FOLD ──
+            // Step 1: Fold cards into tight stacks + flip to backs
+            _vortexHandSnapshot = Game?.Players.Select(p => p.Hand.Count).ToArray();
             _zeroRotateActive = true;
             _animClass = "zero-fold";
             await InvokeAsync(StateHasChanged);
             await Task.Delay(600);
 
-            // ── STEP 2: FLY ──
+            // Step 2: Hands arc along circular path (only .hand elements, not profiles)
             _animClass = "zero-fold " + animType;
             await InvokeAsync(StateHasChanged);
-            
-            // Wait for fly animation to reach destination and fade out
-            await Task.Delay(1000);
+            await Task.Delay(1100);
 
-            // ── STEP 3: REVEAL ──
+            // Step 3: Reveal new hands — data already swapped by game engine
             _vortexHandSnapshot = null;
             _zeroRotateActive = false;
             _animClass = "zero-reveal";
             await InvokeAsync(StateHasChanged);
 
-            _ = Task.Delay(600).ContinueWith(_ =>
+            _ = Task.Delay(600).ContinueWith(_ => InvokeAsync(() =>
             {
-                InvokeAsync(() =>
-                {
-                    _animClass = "";
-                    _isAnimating = false;
-                    StateHasChanged();
-                });
-            });
-
+                _animClass = "";
+                _isAnimating = false;
+                StateHasChanged();
+            }));
             return;
         }
 
-        // Seven Preview animation
+        // ── SEVEN PREVIEW overlay ──
         if (animType.StartsWith("seven-preview-"))
         {
             var parts = animType.Split('-');
@@ -830,60 +837,57 @@
                 _sevenCpuTargetIndex = target;
                 _sevenOverlayActive = true;
                 await InvokeAsync(StateHasChanged);
-                await Task.Delay(2500); // Overlay visible time
+                await Task.Delay(2500);
                 _sevenOverlayActive = false;
                 await InvokeAsync(StateHasChanged);
             }
             return;
         }
 
-        // Vortex animation — 3 cinematic steps
+        // ── VORTEX SHUFFLE: 4-step card-only animation, board never disappears ──
         if (animType == "vortex-shuffle")
         {
-            // ── STEP 1: Vortex materialises at center ──────────────────────────
-            _showVortexAnimation = true;
             _isAnimating = true;
-            await InvokeAsync(StateHasChanged);
-            await Task.Delay(450); // vortex swirl opening beat
 
-            // ── STEP 2: All hands fly INTO the vortex ─────────────────────────
-            // Snapshot counts so ghost cards stay visible during flight.
-            if (Game != null)
-            {
-                _vortexHandSnapshot = Game.Players.Select((p, idx) =>
-                    idx == 0 ? Math.Min(p.Hand.Count, 10) : Math.Min(p.Hand.Count, 5)
-                ).ToArray();
-            }
-            _animClass = "vortex-shuffle"; // triggers fly-*-to-center on all .hand containers
+            // Step 1: Vortex graphic appears at center
+            _showVortexAnimation = true;
             await InvokeAsync(StateHasChanged);
-            await Task.Delay(1100); // hands travel to center and vanish (0.8s anim + buffer)
+            await Task.Delay(500);
 
-            // ── STEP 3: Peak churn — data swap while all cards are inside vortex ─
+            // Step 2: Individual cards fly into vortex one by one (hand containers stay put)
+            _vortexHandSnapshot = Game?.Players.Select((p, idx) =>
+                idx == 0 ? Math.Min(p.Hand.Count, 10) : Math.Min(p.Hand.Count, 5)
+            ).ToArray();
+            _isSwallowingCards = true;
+            await InvokeAsync(StateHasChanged);
+            // 10 cards × 0.07s stagger + 0.5s anim = ~1.2s; buffer to 1350ms
+            await Task.Delay(1350);
+
+            // Step 3: Data swap while all cards are inside the vortex
+            // Do NOT call StateHasChanged yet — keeps ingest animation fill-mode in place
+            _isSwallowingCards = false;
             _vortexHandSnapshot = null;
-            _animClass = "";
             if (Game != null)
             {
                 var activePlayer = Game.Players[Game.LastPlayerIndex];
                 Game.ResolveVortex(activePlayer);
             }
-            await InvokeAsync(StateHasChanged);
-            await Task.Delay(380); // vortex churns alone at peak brightness
+            await Task.Delay(420); // vortex churns at peak
 
-            // ── STEP 4: Cards spit back out — hands fly from center to positions ─
-            _animClass = "vortex-eject"; // triggers fly-center-to-* on all .hand containers
-            _isSpittingCards = true;     // individual cards pop in with staggered delay
+            // Step 4: New cards burst out from vortex center (single StateHasChanged)
+            _isSpittingCards = true;
             await InvokeAsync(StateHasChanged);
-            await Task.Delay(1200); // 0.9s hand fly + ~0.7s max card stagger
+            await Task.Delay(1300);
 
-            // ── STEP 5: Cleanup ───────────────────────────────────────────────
+            // Cleanup
             _isSpittingCards = false;
-            _animClass = "";
             _showVortexAnimation = false;
             _isAnimating = false;
             await InvokeAsync(StateHasChanged);
             return;
         }
 
+        // CPU color pick highlight
         if (animType.StartsWith("cpu-color-pick-") && Enum.TryParse<CardColor>(animType.Substring(15), out var pickedColor))
         {
             _highlightedColor = pickedColor;
