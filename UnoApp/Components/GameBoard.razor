@@ -183,6 +183,12 @@
                     <img src="/images/image_144935.png" alt="Vortex Swirl" class="vortex-swirl-graphic" />
                 </div>
             }
+
+            @if (_swapP1 >= 0 && _swapP2 >= 0)
+            {
+                <div class="swap-fly-stack fly-@(_swapP1)-@(_swapP2)"></div>
+                <div class="swap-fly-stack fly-@(_swapP2)-@(_swapP1)" style="animation-delay:0.06s"></div>
+            }
         </div>
 
         <!-- HUMAN (BOTTOM) -->
