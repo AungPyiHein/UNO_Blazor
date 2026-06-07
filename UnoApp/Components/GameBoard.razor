@@ -15,10 +15,20 @@
             var opponentIndex = Game.Players.IndexOf(opponent);
             var opponentStyle = GetOpponentStyle(j, Opponents.Count);
             var opponentPositionClass = GetOpponentPositionClass(j, Opponents.Count);
+            var capturedOpponent = opponent;
+
+            bool oppSwapSelectable = Game.Status == GameStatus.WaitingForSwapTarget && Game.CurrentPlayerIndex == 0;
+            bool oppCpuTarget = _sevenOverlayActive && _sevenCpuTargetIndex == opponentIndex;
+            string oppSwapClass = oppSwapSelectable ? "swap-selectable" : (oppCpuTarget ? "cpu-swap-target" : "");
             
-            <div class="player-slot slot-opponent @opponentPositionClass" style="@opponentStyle">
+            <div class="player-slot slot-opponent @opponentPositionClass @oppSwapClass" style="@opponentStyle"
+                 @onclick="() => { if (oppSwapSelectable) FinalizeSwap(capturedOpponent); }">
                 <div class="cpu-badge" style="position:relative">
                     <PlayerProfile Player="@opponent" IsActive="@(Game.CurrentPlayerIndex == opponentIndex)" IsUnoDeclared="@(opponent.Hand.Count == 1 && Game.PlayerAtRisk != opponent)" />
+                    @if (oppSwapSelectable || oppCpuTarget)
+                    {
+                        <div class="swap-card-count-badge">@opponent.Hand.Count cards</div>
+                    }
                     @if (_skippedPlayerIndex == opponentIndex)
                     {
                         <div class="skip-overlay" @key="_skipKey">
@@ -196,9 +206,16 @@
             int humanCountCurrent = Game.Players[0].Hand.Count;
             int overlap = humanCountCurrent > 20 ? -55 : (humanCountCurrent > 12 ? -45 : -35);
         }
-        <div class="player-slot slot-human" style="--overlap: @(overlap)px; --draw-origin-x: -14vw; --draw-origin-y: -48vh;">
+        @{
+            bool humanCpuTarget = _sevenOverlayActive && _sevenCpuTargetIndex == 0;
+        }
+        <div class="player-slot slot-human @(humanCpuTarget ? "cpu-swap-target" : "")" style="--overlap: @(overlap)px; --draw-origin-x: -14vw; --draw-origin-y: -48vh;">
             <div class="human-profile-wrapper" style="position:relative">
                 <PlayerProfile Player="@Game.Players[0]" IsActive="@(Game.CurrentPlayerIndex == 0)" IsUnoDeclared="@(Game.Players[0].Hand.Count == 1 && Game.PlayerAtRisk != Game.Players[0])" />
+                @if (humanCpuTarget)
+                {
+                    <div class="swap-card-count-badge">@Game.Players[0].Hand.Count cards</div>
+                }
                 @if (_skippedPlayerIndex == 0)
                 {
                     <div class="skip-overlay" @key="_skipKey">
@@ -294,55 +311,18 @@
         </div>
     }
 
-    @if ((Game.Status == GameStatus.WaitingForSwapTarget && Game.CurrentPlayerIndex == 0) || _sevenOverlayActive)
+    @if (Game.Status == GameStatus.WaitingForSwapTarget && Game.CurrentPlayerIndex == 0)
     {
-        var isHumanChoosing = (Game.Status == GameStatus.WaitingForSwapTarget && Game.CurrentPlayerIndex == 0);
-        var actorName = isHumanChoosing ? Game.Players[0].Name : Game.Players[_sevenActorIndex].Name;
-        
-        <div class="seven-swap-overlay">
-            <div class="seven-backdrop"></div>
-            
-            <div class="seven-center-card">
-                <div class="giant-seven">7</div>
-            </div>
-
-            @for (int i = 0; i < Game.Players.Count; i++)
-            {
-                int actorIdx = isHumanChoosing ? 0 : _sevenActorIndex;
-                if (i == actorIdx) continue;
-
-                    var p = Game.Players[i];
-                    var pos = GetPlayerArrowPosition(i);
-                    var culture = System.Globalization.CultureInfo.InvariantCulture;
-                    bool isTarget = (!isHumanChoosing && i == _sevenCpuTargetIndex);
-                    
-                    string arrowClass = "seven-target-arrow";
-                    if (isHumanChoosing) arrowClass += " clickable";
-                    else if (isTarget) arrowClass += " cpu-target";
-                    else arrowClass += " hidden";
-
-                    var xStr = pos.x.ToString("0.0", culture);
-                    // Center the popup container at the original player's position
-                    var yStr = pos.y.ToString("0.0", culture);
-
-                    <div class="@arrowClass" style="left: @xStr%; top: @yStr%;" @onclick="() => { if (isHumanChoosing) FinalizeSwap(p); }">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
-                            <polyline points="6 9 12 15 18 9"></polyline>
-                        </svg>
-                        <PlayerProfile Player="@p" IsActive="false" IsUnoDeclared="@(p.Hand.Count == 1 && Game.PlayerAtRisk != p)" />
-                    </div>
-                }
-
-            <div class="seven-instruction-bar">
-                @if (isHumanChoosing)
-                {
-                    <span>Choose who to swap hands with!</span>
-                }
-                else
-                {
-                    <span>@actorName is swapping with @Game.Players[_sevenCpuTargetIndex].Name!</span>
-                }
-            </div>
+        <div class="seven-swap-prompt">
+            <span class="seven-swap-prompt-icon">🔄</span>
+            <span>Choose who to swap hands with</span>
+        </div>
+    }
+    @if (_sevenOverlayActive && _sevenActorIndex >= 0 && _sevenCpuTargetIndex >= 0)
+    {
+        <div class="seven-swap-prompt cpu-swap-announce">
+            <span class="seven-swap-prompt-icon">🔄</span>
+            <span>@Game.Players[_sevenActorIndex].Name swaps with @Game.Players[_sevenCpuTargetIndex].Name!</span>
         </div>
     }
 

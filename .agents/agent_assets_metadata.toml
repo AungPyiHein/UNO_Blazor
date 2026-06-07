@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "PkFTAiHFxQf7_rjh7YQK8"
+uri = "file://UnoApp.tar.gz"
+type = "unspecified"
+title = "UnoApp — Full Source (tar.gz)"
