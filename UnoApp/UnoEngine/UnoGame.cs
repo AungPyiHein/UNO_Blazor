@@ -729,12 +729,14 @@ namespace UnoEngine
                 if (Status == GameStatus.WaitingForUnoCall && PlayerAtRisk == playerAtRisk)
                 {
                     LogAction($"Nobody called UNO! {playerAtRisk.Name} drew 2 penalty cards.");
+                    int riskIdx = Players.IndexOf(playerAtRisk);
                     for (int i = 0; i < 2; i++)
                     {
+                        if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"draw-{riskIdx}");
                         playerAtRisk.Hand.Add(DrawOne());
                         if (OnSoundEffect != null) await OnSoundEffect("cardDraw");
                         OnStateChanged?.Invoke();
-                        await Task.Delay(300);
+                        await Task.Delay(80);
                     }
                     PlayerAtRisk = null;
                     Status = GameStatus.Playing;
@@ -781,12 +783,14 @@ namespace UnoEngine
                     LastUnoViolatorIndex = Players.IndexOf(PlayerAtRisk);
                     ActiveNotificationBanner = $"{caller.Name.ToUpper()} CAUGHT {PlayerAtRisk.Name.ToUpper()}!";
                     if (OnSoundEffect != null) await OnSoundEffect("caught");
+                    int caughtIdx = Players.IndexOf(PlayerAtRisk);
                     for (int i = 0; i < 2; i++)
                     {
+                        if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"draw-{caughtIdx}");
                         PlayerAtRisk.Hand.Add(DrawOne());
                         if (OnSoundEffect != null) await OnSoundEffect("cardDraw");
                         OnStateChanged?.Invoke();
-                        await Task.Delay(300);
+                        await Task.Delay(80);
                     }
                 }
 
@@ -948,10 +952,11 @@ namespace UnoEngine
             Player nextPlayer = Players[nextPlayerIndex];
             for (int i = 0; i < count; i++)
             {
+                if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"draw-{nextPlayerIndex}");
                 nextPlayer.Hand.Add(DrawOne());
                 if (OnSoundEffect != null) await OnSoundEffect("cardDraw");
                 OnStateChanged?.Invoke();
-                await Task.Delay(300);
+                await Task.Delay(80);
             }
             MoveToNextTurn(); // Skip their turn after drawing
         }
@@ -961,11 +966,13 @@ namespace UnoEngine
             if (PendingDrawCount > 0)
             {
                 Player currentPlayer = Players[CurrentPlayerIndex];
+                int currentIdx = CurrentPlayerIndex;
                 for (int i = 0; i < PendingDrawCount; i++)
                 {
+                    if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"draw-{currentIdx}");
                     currentPlayer.Hand.Add(DrawOne());
                     OnStateChanged?.Invoke();
-                    await Task.Delay(300); // Visual delay for card-by-card draw
+                    await Task.Delay(80); // Visual delay for card-by-card draw
                 }
                 currentPlayer.CurrentStatus = ""; // Clear stale status
                 PendingDrawCount = 0;
@@ -1022,22 +1029,25 @@ namespace UnoEngine
                 }
             }
 
+            int playerIdx = Players.IndexOf(player);
             if (Settings.DrawUntilPlayable)
             {
                 UnoCard drawn;
                 do
                 {
+                    if (OnBoardAnimation != null && !player.IsHuman) await OnBoardAnimation.Invoke($"draw-{playerIdx}");
                     drawn = DrawOne();
                     player.Hand.Add(drawn);
                     if (OnSoundEffect != null) await OnSoundEffect("cardDraw");
                     OnStateChanged?.Invoke();
-                    await Task.Delay(800); // Even slower visual card draw
+                    await Task.Delay(400);
                 } while (!CanPlayCard(drawn));
                 
                 return drawn;
             }
             else
             {
+                if (OnBoardAnimation != null && !player.IsHuman) await OnBoardAnimation.Invoke($"draw-{playerIdx}");
                 UnoCard drawn = DrawOne();
                 player.Hand.Add(drawn);
                 if (OnSoundEffect != null) await OnSoundEffect("cardDraw");
@@ -1213,7 +1223,8 @@ namespace UnoEngine
                         if (OnSoundEffect != null) await OnSoundEffect("challengeBluffCaught");
                         ActiveNotificationBanner = $"BLUFF CAUGHT! {_wd4Player.Name.ToUpper()} DRAWS 4!";
                         LogAction($"{challenger.Name} challenged — {_wd4Player.Name} was bluffing! They draw 4.");
-                        for (int i = 0; i < 4; i++) { _wd4Player.Hand.Add(DrawOne()); OnStateChanged?.Invoke(); await Task.Delay(250); }
+                        int wd4PlayerIdx = Players.IndexOf(_wd4Player);
+                        for (int i = 0; i < 4; i++) { if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"draw-{wd4PlayerIdx}"); _wd4Player.Hand.Add(DrawOne()); OnStateChanged?.Invoke(); await Task.Delay(80); }
                     }
                     else
                     {
@@ -1229,14 +1240,16 @@ namespace UnoEngine
                         if (OnSoundEffect != null) await OnSoundEffect("challengeFail");
                         ActiveNotificationBanner = $"WRONG CALL! {challenger.Name.ToUpper()} DRAWS 6!";
                         LogAction($"{challenger.Name} challenged — bluff NOT confirmed. {challenger.Name} draws 6.");
-                        for (int i = 0; i < 6; i++) { challenger.Hand.Add(DrawOne()); OnStateChanged?.Invoke(); await Task.Delay(250); }
+                        int challengerIdx = Players.IndexOf(challenger);
+                        for (int i = 0; i < 6; i++) { if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"draw-{challengerIdx}"); challenger.Hand.Add(DrawOne()); OnStateChanged?.Invoke(); await Task.Delay(80); }
                         MoveToNextTurn();
                     }
                 }
                 else
                 {
                     LogAction($"{challenger.Name} accepts the Wild Draw 4 and draws 4.");
-                    for (int i = 0; i < 4; i++) { challenger.Hand.Add(DrawOne()); if (OnSoundEffect != null) await OnSoundEffect("cardDraw"); OnStateChanged?.Invoke(); await Task.Delay(250); }
+                    int acceptIdx = Players.IndexOf(challenger);
+                    for (int i = 0; i < 4; i++) { if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"draw-{acceptIdx}"); challenger.Hand.Add(DrawOne()); if (OnSoundEffect != null) await OnSoundEffect("cardDraw"); OnStateChanged?.Invoke(); await Task.Delay(80); }
                     MoveToNextTurn();
                     Status = GameStatus.Playing;
                     _wd4Player = null;

@@ -2501,3 +2501,29 @@ body {
     box-shadow: 0 2px 0 #14532d, 0 4px 15px rgba(34,197,94,0.2);
 }
 
+/* ── DRAW-PILE FLY: card animates from draw pile to the drawing player ── */
+.cpu-draw-fly {
+    position: absolute;
+    z-index: 1000;
+    pointer-events: none;
+    left: 36%;
+    top: 40%;
+    transform: translate(-50%, -50%) rotate(-30deg);
+    animation: draw-fly 0.42s cubic-bezier(0.4, 0, 0.6, 1) forwards;
+}
+
+@keyframes draw-fly {
+    0% {
+        left: 36%;
+        top: 40%;
+        transform: translate(-50%, -50%) rotate(-30deg) scale(1);
+        opacity: 1;
+    }
+    60% { opacity: 0.85; }
+    100% {
+        left: var(--fly-to-x, 50%);
+        top: var(--fly-to-y, 50%);
+        transform: translate(-50%, -50%) rotate(0deg) scale(0.7);
+        opacity: 0;
+    }
+}

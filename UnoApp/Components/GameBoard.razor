@@ -199,6 +199,13 @@
                 <div class="swap-fly-stack fly-@(_swapP1)-@(_swapP2)"></div>
                 <div class="swap-fly-stack fly-@(_swapP2)-@(_swapP1)" style="animation-delay:0.06s"></div>
             }
+
+            @if (_drawFlyTarget >= 0)
+            {
+                <div class="cpu-draw-fly" style="@_drawFlyStyle">
+                    <UnoCardComponent IsBack="true" />
+                </div>
+            }
         </div>
 
         <!-- HUMAN (BOTTOM) -->
@@ -651,6 +658,8 @@
     private int _sevenCpuTargetIndex = -1;
 
     private UnoCard? _drawnPlayableCard = null;
+    private int _drawFlyTarget = -1;
+    private string _drawFlyStyle = "";
     private bool _showGameLog = false;
 
     private async Task PlayDrawnCard()
@@ -810,6 +819,20 @@
                 _isAnimating = false;
                 StateHasChanged();
             }));
+            return;
+        }
+
+        // ── DRAW FLY: card flies from draw pile to the drawing player's slot ──
+        if (animType.StartsWith("draw-") && int.TryParse(animType.Substring(5), out int drawTarget))
+        {
+            var (tx, ty) = GetPlayerArrowPosition(drawTarget);
+            var culture = System.Globalization.CultureInfo.InvariantCulture;
+            _drawFlyStyle = $"--fly-to-x: {tx.ToString("0.0", culture)}%; --fly-to-y: {ty.ToString("0.0", culture)}%;";
+            _drawFlyTarget = drawTarget;
+            await InvokeAsync(StateHasChanged);
+            await Task.Delay(420);
+            _drawFlyTarget = -1;
+            await InvokeAsync(StateHasChanged);
             return;
         }
 
