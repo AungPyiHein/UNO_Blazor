@@ -84,6 +84,11 @@ namespace UnoEngine.Models
         /// </summary>
         public AiDifficulty CpuDifficulty { get; set; } = AiDifficulty.Normal;
 
+        /// <summary>
+        /// Cards the challenger draws when a WD4 challenge is wrong (no bluff detected). Default 6.
+        /// </summary>
+        public int Wd4WrongChallengePenalty { get; set; } = 6;
+
         public GameSettings Clone()
         {
             return new GameSettings
@@ -100,7 +105,8 @@ namespace UnoEngine.Models
                 ForcedPlay = this.ForcedPlay,
                 EnableWildDraw4Challenge = this.EnableWildDraw4Challenge,
                 UnoFailurePenaltyCards = this.UnoFailurePenaltyCards,
-                CpuDifficulty = this.CpuDifficulty
+                CpuDifficulty = this.CpuDifficulty,
+                Wd4WrongChallengePenalty = this.Wd4WrongChallengePenalty
             };
         }
     }

@@ -728,9 +728,10 @@ namespace UnoEngine
             {
                 if (Status == GameStatus.WaitingForUnoCall && PlayerAtRisk == playerAtRisk)
                 {
-                    LogAction($"Nobody called UNO! {playerAtRisk.Name} drew 2 penalty cards.");
+                    LogAction($"Nobody called UNO! {playerAtRisk.Name} drew {Settings.UnoFailurePenaltyCards} penalty cards.");
                     int riskIdx = Players.IndexOf(playerAtRisk);
-                    for (int i = 0; i < 2; i++)
+                    if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"penalty-{riskIdx}-{Settings.UnoFailurePenaltyCards}");
+                    for (int i = 0; i < Settings.UnoFailurePenaltyCards; i++)
                     {
                         if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"draw-{riskIdx}");
                         playerAtRisk.Hand.Add(DrawOne());
@@ -784,7 +785,8 @@ namespace UnoEngine
                     ActiveNotificationBanner = $"{caller.Name.ToUpper()} CAUGHT {PlayerAtRisk.Name.ToUpper()}!";
                     if (OnSoundEffect != null) await OnSoundEffect("caught");
                     int caughtIdx = Players.IndexOf(PlayerAtRisk);
-                    for (int i = 0; i < 2; i++)
+                    if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"penalty-{caughtIdx}-{Settings.UnoFailurePenaltyCards}");
+                    for (int i = 0; i < Settings.UnoFailurePenaltyCards; i++)
                     {
                         if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"draw-{caughtIdx}");
                         PlayerAtRisk.Hand.Add(DrawOne());
@@ -950,6 +952,7 @@ namespace UnoEngine
         {
             int nextPlayerIndex = GetNextPlayerIndex();
             Player nextPlayer = Players[nextPlayerIndex];
+            if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"penalty-{nextPlayerIndex}-{count}");
             for (int i = 0; i < count; i++)
             {
                 if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"draw-{nextPlayerIndex}");
@@ -967,6 +970,7 @@ namespace UnoEngine
             {
                 Player currentPlayer = Players[CurrentPlayerIndex];
                 int currentIdx = CurrentPlayerIndex;
+                if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"penalty-{currentIdx}-{PendingDrawCount}");
                 for (int i = 0; i < PendingDrawCount; i++)
                 {
                     if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"draw-{currentIdx}");
@@ -1224,6 +1228,7 @@ namespace UnoEngine
                         ActiveNotificationBanner = $"BLUFF CAUGHT! {_wd4Player.Name.ToUpper()} DRAWS 4!";
                         LogAction($"{challenger.Name} challenged — {_wd4Player.Name} was bluffing! They draw 4.");
                         int wd4PlayerIdx = Players.IndexOf(_wd4Player);
+                        if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"penalty-{wd4PlayerIdx}-4");
                         for (int i = 0; i < 4; i++) { if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"draw-{wd4PlayerIdx}"); _wd4Player.Hand.Add(DrawOne()); OnStateChanged?.Invoke(); await Task.Delay(80); }
                     }
                     else
@@ -1238,10 +1243,12 @@ namespace UnoEngine
                         
                         // Now proceed with penalty
                         if (OnSoundEffect != null) await OnSoundEffect("challengeFail");
-                        ActiveNotificationBanner = $"WRONG CALL! {challenger.Name.ToUpper()} DRAWS 6!";
-                        LogAction($"{challenger.Name} challenged — bluff NOT confirmed. {challenger.Name} draws 6.");
+                        int wrongPenalty = Settings.Wd4WrongChallengePenalty;
+                        ActiveNotificationBanner = $"WRONG CALL! {challenger.Name.ToUpper()} DRAWS {wrongPenalty}!";
+                        LogAction($"{challenger.Name} challenged — bluff NOT confirmed. {challenger.Name} draws {wrongPenalty}.");
                         int challengerIdx = Players.IndexOf(challenger);
-                        for (int i = 0; i < 6; i++) { if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"draw-{challengerIdx}"); challenger.Hand.Add(DrawOne()); OnStateChanged?.Invoke(); await Task.Delay(80); }
+                        if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"penalty-{challengerIdx}-{wrongPenalty}");
+                        for (int i = 0; i < wrongPenalty; i++) { if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"draw-{challengerIdx}"); challenger.Hand.Add(DrawOne()); OnStateChanged?.Invoke(); await Task.Delay(80); }
                         MoveToNextTurn();
                     }
                 }
@@ -1249,6 +1256,7 @@ namespace UnoEngine
                 {
                     LogAction($"{challenger.Name} accepts the Wild Draw 4 and draws 4.");
                     int acceptIdx = Players.IndexOf(challenger);
+                    if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"penalty-{acceptIdx}-4");
                     for (int i = 0; i < 4; i++) { if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"draw-{acceptIdx}"); challenger.Hand.Add(DrawOne()); if (OnSoundEffect != null) await OnSoundEffect("cardDraw"); OnStateChanged?.Invoke(); await Task.Delay(80); }
                     MoveToNextTurn();
                     Status = GameStatus.Playing;

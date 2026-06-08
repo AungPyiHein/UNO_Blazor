@@ -261,6 +261,24 @@
                                             </label>
                                         </div>
                                     </div>
+                                    @if (_editingSettings.EnableWildDraw4Challenge)
+                                    {
+                                        <div class="hand-size-config uno-penalty-config">
+                                            <div class="hand-size-meta">
+                                                <span class="rule-icon">📥</span>
+                                                <div class="rule-text">
+                                                    <span class="rule-title">Wrong Challenge Penalty</span>
+                                                    <span class="rule-desc">Cards drawn by challenger when WD4 bluff is NOT confirmed.</span>
+                                                </div>
+                                            </div>
+                                            <div class="hand-size-control">
+                                                <span class="hand-size-val">@_editingSettings.Wd4WrongChallengePenalty Cards</span>
+                                                <input type="range" min="1" max="10" step="1"
+                                                       value="@_editingSettings.Wd4WrongChallengePenalty"
+                                                       @onchange="UpdateWd4WrongPenalty" />
+                                            </div>
+                                        </div>
+                                    }
 
                                     <!-- 7-Swap -->
                                     <div class="rule-card @(_editingSettings.SevenSwap ? "active" : "")">
@@ -1688,6 +1706,15 @@
         if (int.TryParse(e.Value?.ToString(), out var val))
         {
             _editingSettings.UnoFailurePenaltyCards = Math.Clamp(val, 1, 5);
+        }
+    }
+
+    private void UpdateWd4WrongPenalty(ChangeEventArgs e)
+    {
+        if (_editingPreset?.IsReadonly == true || _editingSettings == null) return;
+        if (int.TryParse(e.Value?.ToString(), out var val))
+        {
+            _editingSettings.Wd4WrongChallengePenalty = Math.Clamp(val, 1, 10);
         }
     }
 
