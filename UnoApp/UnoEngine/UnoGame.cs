@@ -548,17 +548,19 @@ namespace UnoEngine
 
         private async Task EndPlayCardSequence(Player player)
         {
-            if (player.Hand.Count == 1)
+            // Scan ALL players — 7-swap and 0-rotate can leave any player at 1 card
+            Player? unoRisk = Players.FirstOrDefault(p => p.Hand.Count == 1);
+            if (unoRisk != null)
             {
-                if (IsUnoCalled)
+                if (IsUnoCalled && unoRisk == player)
                 {
-                    IsUnoCalled = false; // Reset
+                    IsUnoCalled = false; // Player pre-declared UNO, safe
                     PlayerAtRisk = null;
                 }
                 else
                 {
-                    PlayerAtRisk = player;
-                    SafeFireAndForget(() => RunUnoTimerAsync(player));
+                    PlayerAtRisk = unoRisk;
+                    SafeFireAndForget(() => RunUnoTimerAsync(unoRisk));
                     return; // Turn sequence will resume after UNO QTE
                 }
             }
@@ -1011,7 +1013,9 @@ namespace UnoEngine
                 var hasPlayableCard = player.Hand.Any(card => CanPlayCard(card));
                 if (hasPlayableCard)
                 {
-                    ActiveNotificationBanner = $"{player.Name.ToUpper()} MUST PLAY A CARD!";
+                    // Only show the banner for the human player — CPU hits this as an internal guard
+                    if (player.IsHuman)
+                        ActiveNotificationBanner = $"{player.Name.ToUpper()} MUST PLAY A CARD!";
                     LogAction($"{player.Name} tried to draw but has a playable card.");
                     OnStateChanged?.Invoke();
                     return null;
