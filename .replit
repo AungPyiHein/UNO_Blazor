@@ -15,13 +15,13 @@ args = "Start application"
 name = "Start application"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd UnoApp && dotnet run --urls http://0.0.0.0:5000"
-waitForPort = 5000
-
 [workflows.workflow.metadata]
 outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd UnoApp.Server && ASPNETCORE_ENVIRONMENT=Development dotnet run --urls http://0.0.0.0:5000"
+waitForPort = 5000
 
 [[ports]]
 localPort = 5000
