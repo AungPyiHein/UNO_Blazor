@@ -1,0 +1,265 @@
+@page "/lobby"
+@inject UnoApp.Services.LobbyService LobbyService
+@inject NavigationManager Nav
+@implements IDisposable
+
+<div class="lobby-wrap">
+    @if (!_joined)
+    {
+        <div class="lobby-card">
+            <h1 class="lobby-title">🃏 Local Multiplayer</h1>
+            <p class="lobby-sub">Open this page in multiple browser tabs on the same device.</p>
+
+            <div class="lobby-field">
+                <label>Your Name</label>
+                <input class="lobby-input" @bind="_playerName" placeholder="e.g. Alice" maxlength="20" />
+            </div>
+            <div class="lobby-field">
+                <label>Room Code</label>
+                <input class="lobby-input lobby-input-code" @bind="_roomCode" placeholder="e.g. GAME01" maxlength="10" @oninput="UpperRoomCode" />
+            </div>
+
+            @if (!string.IsNullOrEmpty(_error))
+            {
+                <p class="lobby-error">@_error</p>
+            }
+
+            <button class="lobby-btn" @onclick="JoinRoom" disabled="@_connecting">
+                @(_connecting ? "Connecting…" : "Join Room")
+            </button>
+        </div>
+    }
+    else
+    {
+        <div class="lobby-card lobby-room">
+            <h2 class="lobby-room-code">Room <span>@_roomCode.ToUpperInvariant()</span></h2>
+
+            <div class="lobby-players">
+                @foreach (var (player, idx) in _players.Select((p, i) => (p, i)))
+                {
+                    <div class="lobby-player @(player == _playerName.Trim() ? "lobby-player-me" : "")">
+                        <span class="lobby-player-avatar">@(player.Length > 0 ? player[0].ToString().ToUpper() : "?") </span>
+                        <span class="lobby-player-name">@player</span>
+                        @if (idx == 0) { <span class="lobby-badge">HOST</span> }
+                        @if (player == _playerName.Trim()) { <span class="lobby-badge lobby-badge-you">YOU</span> }
+                    </div>
+                }
+            </div>
+
+            @if (_isHost)
+            {
+                @if (_players.Count < 2)
+                {
+                    <p class="lobby-waiting">Waiting for at least one more player to join…</p>
+                }
+                else
+                {
+                    <button class="lobby-btn lobby-btn-start" @onclick="StartGame">▶ Start Game (@_players.Count players)</button>
+                }
+            }
+            else
+            {
+                <p class="lobby-waiting">Waiting for <strong>@(_players.Count > 0 ? _players[0] : "host")</strong> to start the game…</p>
+            }
+
+            <button class="lobby-btn lobby-btn-leave" @onclick="LeaveRoom">Leave Room</button>
+        </div>
+    }
+</div>
+
+<style>
+.lobby-wrap {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #0a0a0f;
+    padding: 20px;
+}
+.lobby-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 24px;
+    padding: 40px 48px;
+    width: 100%;
+    max-width: 460px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+.lobby-title { font-size: 2rem; font-weight: 900; color: #22c55e; margin: 0; text-align: center; }
+.lobby-sub { color: rgba(255,255,255,0.5); font-size: 0.9rem; text-align: center; margin: 0; }
+.lobby-field { display: flex; flex-direction: column; gap: 6px; }
+.lobby-field label { color: rgba(255,255,255,0.6); font-size: 0.85rem; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; }
+.lobby-input {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 12px;
+    padding: 12px 16px;
+    color: #fff;
+    font-size: 1rem;
+    outline: none;
+    transition: border-color 0.2s;
+}
+.lobby-input:focus { border-color: #22c55e; }
+.lobby-input-code { text-transform: uppercase; letter-spacing: 2px; font-weight: 700; }
+.lobby-error { color: #ef4444; font-size: 0.9rem; margin: 0; text-align: center; }
+.lobby-btn {
+    background: #22c55e;
+    color: #000;
+    border: none;
+    border-radius: 14px;
+    padding: 14px 28px;
+    font-size: 1rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+    letter-spacing: 0.5px;
+}
+.lobby-btn:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
+.lobby-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.lobby-btn-start { background: #22c55e; font-size: 1.1rem; }
+.lobby-btn-leave { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); margin-top: 4px; font-size: 0.9rem; }
+.lobby-btn-leave:hover { background: rgba(239,68,68,0.2); color: #ef4444; }
+
+.lobby-room-code { font-size: 1.4rem; font-weight: 800; color: rgba(255,255,255,0.8); text-align: center; margin: 0; }
+.lobby-room-code span { color: #22c55e; font-size: 1.8rem; letter-spacing: 3px; display: block; margin-top: 4px; }
+.lobby-players { display: flex; flex-direction: column; gap: 10px; }
+.lobby-player {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 10px 14px;
+}
+.lobby-player-me { border-color: #22c55e; background: rgba(34,197,94,0.08); }
+.lobby-player-avatar {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: #22c55e;
+    color: #000;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 900; font-size: 1rem;
+}
+.lobby-player-name { flex: 1; color: #fff; font-weight: 600; }
+.lobby-badge {
+    background: rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.6);
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 1px;
+    padding: 3px 8px;
+    border-radius: 20px;
+    text-transform: uppercase;
+}
+.lobby-badge-you { background: rgba(34,197,94,0.2); color: #22c55e; }
+.lobby-waiting { color: rgba(255,255,255,0.5); font-size: 0.9rem; text-align: center; margin: 0; }
+</style>
+
+@code {
+    private string _playerName = "";
+    private string _roomCode = "";
+    private bool _joined = false;
+    private bool _isHost = false;
+    private bool _connecting = false;
+    private string _error = "";
+    private List<string> _players = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        LobbyService.PlayersUpdated += OnPlayersUpdated;
+        LobbyService.GameStarted   += OnGameStarted;
+        LobbyService.RoomClosed    += OnRoomClosed;
+
+        if (!LobbyService.IsConnected)
+        {
+            try
+            {
+                await LobbyService.ConnectAsync(Nav.BaseUri);
+            }
+            catch (Exception ex)
+            {
+                _error = $"Could not connect: {ex.Message}";
+            }
+        }
+    }
+
+    private void UpperRoomCode(ChangeEventArgs e)
+    {
+        _roomCode = (e.Value?.ToString() ?? "").ToUpperInvariant();
+    }
+
+    private async Task JoinRoom()
+    {
+        _error = "";
+        if (string.IsNullOrWhiteSpace(_playerName)) { _error = "Enter your name."; return; }
+        if (string.IsNullOrWhiteSpace(_roomCode))   { _error = "Enter a room code."; return; }
+
+        _connecting = true;
+        try
+        {
+            if (!LobbyService.IsConnected)
+                await LobbyService.ConnectAsync(Nav.BaseUri);
+            await LobbyService.JoinRoomAsync(_roomCode, _playerName);
+            _joined = true;
+        }
+        catch (Exception ex)
+        {
+            _error = $"Join failed: {ex.Message}";
+        }
+        finally
+        {
+            _connecting = false;
+        }
+    }
+
+    private async Task StartGame()
+    {
+        await LobbyService.StartGameAsync();
+    }
+
+    private async Task LeaveRoom()
+    {
+        _joined = false;
+        _players.Clear();
+        LobbyService.ResetGame();
+        await Task.CompletedTask;
+    }
+
+    private void OnPlayersUpdated(string roomCode, List<string> players)
+    {
+        _players = players;
+        _isHost  = players.Count > 0 && players[0] == _playerName.Trim();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnGameStarted(string[] players)
+    {
+        int idx = Array.IndexOf(players, _playerName.Trim());
+        LobbyService.SetPlayerInfo(idx, players);
+
+        InvokeAsync(() =>
+        {
+            if (idx == 0)
+                Nav.NavigateTo("/");          // host → home page starts the game
+            else
+                Nav.NavigateTo("/multiplayer-game");
+        });
+    }
+
+    private void OnRoomClosed()
+    {
+        _joined  = false;
+        _players.Clear();
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        LobbyService.PlayersUpdated -= OnPlayersUpdated;
+        LobbyService.GameStarted   -= OnGameStarted;
+        LobbyService.RoomClosed    -= OnRoomClosed;
+    }
+}

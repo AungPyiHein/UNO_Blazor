@@ -1,0 +1,1 @@
+- [Multiplayer Architecture](multiplayer-arch.md) — host-authority design: host runs UnoGame, remote players get IsRemote=true slots, state broadcast via hub after every OnStateChanged.

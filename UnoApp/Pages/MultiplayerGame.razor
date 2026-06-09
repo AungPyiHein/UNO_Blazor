@@ -1,0 +1,409 @@
+@page "/multiplayer-game"
+@inject UnoApp.Services.LobbyService LobbyService
+@inject NavigationManager Nav
+@implements IDisposable
+@using UnoApp.Multiplayer
+@using System.Text.Json
+
+<div class="mpg-board">
+    @if (_state == null)
+    {
+        <div class="mpg-center-msg">⏳ Waiting for game state from host…</div>
+    }
+    else if (_state.IsGameOver)
+    {
+        <div class="mpg-gameover">
+            <h2>🏆 @(_state.WinnerIndex.HasValue ? _state.PlayerNames[_state.WinnerIndex.Value] + " wins!" : "Game Over!")</h2>
+            <p>Thanks for playing!</p>
+            <button class="mpg-btn" @onclick="BackToLobby">Back to Lobby</button>
+        </div>
+    }
+    else
+    {
+        @if (!string.IsNullOrEmpty(_state.NotificationBanner))
+        {
+            <div class="mpg-banner">@_state.NotificationBanner</div>
+        }
+
+        <div class="mpg-top-area">
+            <!-- Player slots -->
+            <div class="mpg-players">
+                @for (int i = 0; i < _state.PlayerNames.Length; i++)
+                {
+                    int idx = i;
+                    bool isCurrent = idx == _state.CurrentPlayerIndex;
+                    bool isMe = idx == LobbyService.MyPlayerIndex;
+                    <div class="mpg-player @(isCurrent ? "mpg-player-active" : "") @(isMe ? "mpg-player-me" : "")">
+                        <div class="mpg-player-avatar">@(_state.PlayerNames[idx].Length > 0 ? _state.PlayerNames[idx][0].ToString().ToUpper() : "?")</div>
+                        <div class="mpg-player-name">@_state.PlayerNames[idx] @(isMe ? "(You)" : "")</div>
+                        <div class="mpg-player-cards">🃏 @_state.HandCounts[idx]</div>
+                        @if (isCurrent) { <div class="mpg-arrow">▶</div> }
+                    </div>
+                }
+            </div>
+
+            <!-- Top card -->
+            <div class="mpg-discard">
+                @if (_state.TopCard != null)
+                {
+                    string activeColor = _state.ActiveColor ?? _state.TopCard.Color;
+                    <div class="mpg-top-card mpg-color-@activeColor.ToLower()">
+                        <span class="mpg-card-val">@FormatValue(_state.TopCard.Value)</span>
+                        <span class="mpg-card-color">@activeColor</span>
+                    </div>
+                }
+                <div class="mpg-dir">@(_state.Direction == 1 ? "▶ Clockwise" : "◀ Counter")</div>
+                @if (_state.PendingDraw > 0)
+                {
+                    <div class="mpg-pending">⚠️ +@_state.PendingDraw stacked</div>
+                }
+            </div>
+        </div>
+
+        <!-- Action zone -->
+        <div class="mpg-action-zone">
+            @if (_pendingWildCardId != null)
+            {
+                <p class="mpg-prompt">Pick a color for your Wild:</p>
+                <div class="mpg-color-row">
+                    @foreach (var col in new[] { "Red", "Blue", "Green", "Yellow" })
+                    {
+                        var c = col;
+                        <button class="mpg-color-pick mpg-color-@c.ToLower()" @onclick='() => SendColorMove(c)'>@c</button>
+                    }
+                    <button class="mpg-btn-cancel" @onclick='() => { _pendingWildCardId = null; }'>✕</button>
+                </div>
+            }
+            else if (_state.IsMyTurn)
+            {
+                @if (_state.Status == "WaitingForWd4Challenge")
+                {
+                    <p class="mpg-prompt">Wild Draw 4 played on you. Challenge or accept?</p>
+                    <div class="mpg-btns">
+                        <button class="mpg-btn mpg-btn-red" @onclick='() => SendSimpleMove("challenge")'>⚔️ Challenge</button>
+                        <button class="mpg-btn" @onclick='() => SendSimpleMove("accept")'>📥 Draw +4</button>
+                    </div>
+                }
+                else if (_state.Status == "WaitingForColorSelection")
+                {
+                    <p class="mpg-prompt">You played a Wild! Choose a color:</p>
+                    <div class="mpg-color-row">
+                        @foreach (var col in new[] { "Red", "Blue", "Green", "Yellow" })
+                        {
+                            var c = col;
+                            <button class="mpg-color-pick mpg-color-@c.ToLower()" @onclick='() => SendColorOnlyMove(c)'>@c</button>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <p class="mpg-prompt">Your turn!</p>
+                    <div class="mpg-hand">
+                        @foreach (var card in _state.MyHand)
+                        {
+                            var cc = card;
+                            <div class="mpg-card mpg-color-@cc.Color.ToLower() @(cc.IsPlayable ? "mpg-card-playable" : "mpg-card-dim")"
+                                 @onclick='() => OnCardClicked(cc)'>
+                                <span class="mpg-card-val">@FormatValue(cc.Value)</span>
+                            </div>
+                        }
+                    </div>
+                    <div class="mpg-btns">
+                        <button class="mpg-btn" @onclick='() => SendSimpleMove("draw")'>🃏 Draw</button>
+                        <button class="mpg-btn mpg-btn-uno" @onclick="SendUno">UNO!</button>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="mpg-waiting">
+                    Waiting for <strong>@_state.PlayerNames[_state.CurrentPlayerIndex]</strong>…
+                </div>
+                @if (_state.Status == "WaitingForUnoCall")
+                {
+                    <button class="mpg-btn mpg-btn-uno" @onclick="SendUno">⚡ Catch UNO!</button>
+                }
+            }
+        </div>
+    }
+</div>
+
+<style>
+.mpg-board {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: #0a0a0f;
+    color: #fff;
+    font-family: inherit;
+    padding: 16px;
+    gap: 16px;
+}
+.mpg-center-msg, .mpg-waiting {
+    text-align: center;
+    color: rgba(255,255,255,0.5);
+    font-size: 1.1rem;
+    margin: auto;
+    padding: 40px;
+}
+.mpg-gameover {
+    margin: auto;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    align-items: center;
+}
+.mpg-gameover h2 { font-size: 2rem; color: #22c55e; }
+.mpg-banner {
+    background: rgba(239,68,68,0.15);
+    border: 1px solid rgba(239,68,68,0.3);
+    border-radius: 12px;
+    padding: 10px 20px;
+    text-align: center;
+    font-weight: 800;
+    letter-spacing: 1px;
+    color: #ef4444;
+    font-size: 0.95rem;
+}
+.mpg-top-area {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+.mpg-players {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+    min-width: 200px;
+}
+.mpg-player {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 10px 14px;
+    position: relative;
+    transition: border-color 0.3s;
+}
+.mpg-player-active { border-color: #22c55e; background: rgba(34,197,94,0.08); }
+.mpg-player-me { border-color: #3b82f6; }
+.mpg-player-avatar {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: #22c55e;
+    color: #000;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 900; font-size: 0.9rem;
+    flex-shrink: 0;
+}
+.mpg-player-name { flex: 1; font-weight: 600; font-size: 0.9rem; }
+.mpg-player-cards { color: rgba(255,255,255,0.5); font-size: 0.85rem; }
+.mpg-arrow { color: #22c55e; font-size: 1.2rem; }
+
+.mpg-discard {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+.mpg-top-card {
+    width: 80px; height: 120px;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    border: 3px solid rgba(255,255,255,0.3);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+.mpg-card-val { font-size: 1.8rem; font-weight: 900; color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,0.5); }
+.mpg-card-color { font-size: 0.65rem; color: rgba(255,255,255,0.8); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+.mpg-dir { font-size: 0.8rem; color: rgba(255,255,255,0.4); }
+.mpg-pending { color: #f97316; font-weight: 800; font-size: 0.9rem; }
+
+.mpg-color-red    { background: #ef4444; }
+.mpg-color-blue   { background: #3b82f6; }
+.mpg-color-green  { background: #22c55e; }
+.mpg-color-yellow { background: #eab308; }
+.mpg-color-wild   { background: linear-gradient(135deg, #ef4444 25%, #3b82f6 25% 50%, #22c55e 50% 75%, #eab308 75%); }
+
+.mpg-action-zone {
+    margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+.mpg-prompt {
+    color: #22c55e;
+    font-weight: 700;
+    font-size: 1rem;
+    margin: 0;
+    text-align: center;
+}
+.mpg-hand {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+}
+.mpg-card {
+    width: 60px; height: 90px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+    border: 2px solid rgba(255,255,255,0.2);
+}
+.mpg-card-playable { border-color: rgba(255,255,255,0.8); }
+.mpg-card-playable:hover { transform: translateY(-10px); box-shadow: 0 8px 20px rgba(0,0,0,0.5); }
+.mpg-card-dim { opacity: 0.4; cursor: not-allowed; }
+.mpg-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.mpg-btn {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 12px;
+    color: #fff;
+    padding: 12px 24px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+}
+.mpg-btn:hover { background: rgba(255,255,255,0.18); transform: translateY(-1px); }
+.mpg-btn-red { background: rgba(239,68,68,0.2); border-color: #ef4444; color: #ef4444; }
+.mpg-btn-uno { background: rgba(234,179,8,0.2); border-color: #eab308; color: #eab308; }
+.mpg-color-row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.mpg-color-pick {
+    width: 70px; height: 50px;
+    border-radius: 10px;
+    border: 2px solid rgba(255,255,255,0.3);
+    color: #fff;
+    font-weight: 800;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: transform 0.15s;
+}
+.mpg-color-pick:hover { transform: scale(1.08); border-color: #fff; }
+.mpg-btn-cancel {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    color: rgba(255,255,255,0.5);
+    padding: 8px 12px;
+    cursor: pointer;
+}
+</style>
+
+@code {
+    private GameStateDto? _state;
+    private string? _pendingWildCardId;
+    private static readonly JsonSerializerOptions _jsonOpts = new() { PropertyNameCaseInsensitive = true };
+
+    protected override void OnInitialized()
+    {
+        LobbyService.StateUpdated += OnStateUpdated;
+    }
+
+    private void OnStateUpdated(string json)
+    {
+        try
+        {
+            _state = JsonSerializer.Deserialize<GameStateDto>(json, _jsonOpts);
+            InvokeAsync(StateHasChanged);
+        }
+        catch { /* ignore malformed state */ }
+    }
+
+    private void OnCardClicked(CardDto card)
+    {
+        if (_state == null || !_state.IsMyTurn || !card.IsPlayable) return;
+
+        if (card.Color == "Wild")
+        {
+            _pendingWildCardId = card.Id;
+            return; // re-render shows local color picker
+        }
+
+        _ = SendPlayMove(card.Id, null, null);
+    }
+
+    private async Task SendPlayMove(string cardId, string? color, int? targetIndex)
+    {
+        await LobbyService.SendMoveAsync(new MoveDto
+        {
+            PlayerIndex = LobbyService.MyPlayerIndex,
+            Type        = "play",
+            CardId      = cardId,
+            Color       = color,
+            TargetIndex = targetIndex
+        });
+    }
+
+    private async Task SendSimpleMove(string type)
+    {
+        await LobbyService.SendMoveAsync(new MoveDto
+        {
+            PlayerIndex = LobbyService.MyPlayerIndex,
+            Type        = type
+        });
+    }
+
+    // Wild card: player picked a color locally before sending the play move
+    private async Task SendColorMove(string color)
+    {
+        if (_pendingWildCardId == null) return;
+        var cardId = _pendingWildCardId;
+        _pendingWildCardId = null;
+        await SendPlayMove(cardId, color, null);
+    }
+
+    // Fallback: WaitingForColorSelection state arrived from host (shouldn't normally happen)
+    private async Task SendColorOnlyMove(string color)
+    {
+        await LobbyService.SendMoveAsync(new MoveDto
+        {
+            PlayerIndex = LobbyService.MyPlayerIndex,
+            Type        = "color",
+            Color       = color
+        });
+    }
+
+    private async Task SendUno()
+    {
+        await LobbyService.SendMoveAsync(new MoveDto
+        {
+            PlayerIndex = LobbyService.MyPlayerIndex,
+            Type        = "uno"
+        });
+    }
+
+    private void BackToLobby()
+    {
+        LobbyService.ResetGame();
+        Nav.NavigateTo("/lobby");
+    }
+
+    private static string FormatValue(string? value) => value switch
+    {
+        "DrawTwo"   => "+2",
+        "WildDraw4" => "+4",
+        "Skip"      => "⛔",
+        "Reverse"   => "↩",
+        "Wild"      => "🃏",
+        "Vortex"    => "🌀",
+        null        => "?",
+        _           => value
+    };
+
+    public void Dispose()
+    {
+        LobbyService.StateUpdated -= OnStateUpdated;
+    }
+}
