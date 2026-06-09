@@ -245,40 +245,42 @@
 
 
                                     <!-- Wild Draw 4 Challenge -->
-                                    <div class="rule-card @(_editingSettings.EnableWildDraw4Challenge ? "active" : "")">
-                                        <div class="rule-meta">
-                                            <span class="rule-icon">⚔️</span>
-                                            <div class="rule-text">
-                                                <span class="rule-title">Wild Draw 4 Challenge</span>
-                                                <span class="rule-desc">Targets can challenge played +4s for illegal matching color.</span>
-                                            </div>
-                                        </div>
-                                        <div class="rule-control">
-                                            <label class="switch">
-                                                <input type="checkbox" checked="@_editingSettings.EnableWildDraw4Challenge" 
-                                                       @onchange="(e) => ToggleRule(val => _editingSettings.EnableWildDraw4Challenge = val, e)" />
-                                                <span class="slider"></span>
-                                            </label>
-                                        </div>
-                                    </div>
-                                    @if (_editingSettings.EnableWildDraw4Challenge)
-                                    {
-                                        <div class="hand-size-config uno-penalty-config">
-                                            <div class="hand-size-meta">
-                                                <span class="rule-icon">📥</span>
+                                    <div class="wd4-section">
+                                        <div class="rule-card @(_editingSettings.EnableWildDraw4Challenge ? "active" : "")">
+                                            <div class="rule-meta">
+                                                <span class="rule-icon">⚔️</span>
                                                 <div class="rule-text">
-                                                    <span class="rule-title">Wrong Challenge Penalty</span>
-                                                    <span class="rule-desc">Cards drawn by challenger when WD4 bluff is NOT confirmed.</span>
+                                                    <span class="rule-title">Wild Draw 4 Challenge</span>
+                                                    <span class="rule-desc">Targets can challenge played +4s for illegal matching color.</span>
                                                 </div>
                                             </div>
-                                            <div class="hand-size-control">
-                                                <span class="hand-size-val">@_editingSettings.Wd4WrongChallengePenalty Cards</span>
-                                                <input type="range" min="1" max="10" step="1"
-                                                       value="@_editingSettings.Wd4WrongChallengePenalty"
-                                                       @onchange="UpdateWd4WrongPenalty" />
+                                            <div class="rule-control">
+                                                <label class="switch">
+                                                    <input type="checkbox" checked="@_editingSettings.EnableWildDraw4Challenge" 
+                                                           @onchange="(e) => ToggleRule(val => _editingSettings.EnableWildDraw4Challenge = val, e)" />
+                                                    <span class="slider"></span>
+                                                </label>
                                             </div>
                                         </div>
-                                    }
+                                        @if (_editingSettings.EnableWildDraw4Challenge)
+                                        {
+                                            <div class="hand-size-config uno-penalty-config">
+                                                <div class="hand-size-meta">
+                                                    <span class="rule-icon">📥</span>
+                                                    <div class="rule-text">
+                                                        <span class="rule-title">Wrong Challenge Penalty</span>
+                                                        <span class="rule-desc">Cards drawn by challenger when WD4 bluff is NOT confirmed.</span>
+                                                    </div>
+                                                </div>
+                                                <div class="hand-size-control">
+                                                    <span class="hand-size-val">@_editingSettings.Wd4WrongChallengePenalty Cards</span>
+                                                    <input type="range" min="6" max="10" step="1"
+                                                           value="@_editingSettings.Wd4WrongChallengePenalty"
+                                                           @onchange="UpdateWd4WrongPenalty" />
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
 
                                     <!-- 7-Swap -->
                                     <div class="rule-card @(_editingSettings.SevenSwap ? "active" : "")">
@@ -1005,6 +1007,7 @@
     .uno-penalty-config .hand-size-val { color: #ef4444; }
     .uno-penalty-config .hand-size-control input[type="range"] { accent-color: #ef4444; }
     .rules-grid .hand-size-config { grid-column: 1 / -1; }
+    .wd4-section { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 12px; }
 
     .advanced-options-container {
         border-top: 1px dashed rgba(255, 255, 255, 0.1);
@@ -1715,7 +1718,7 @@
         if (_editingPreset?.IsReadonly == true || _editingSettings == null) return;
         if (int.TryParse(e.Value?.ToString(), out var val))
         {
-            _editingSettings.Wd4WrongChallengePenalty = Math.Clamp(val, 1, 10);
+            _editingSettings.Wd4WrongChallengePenalty = Math.Clamp(val, 6, 10);
         }
     }
 
