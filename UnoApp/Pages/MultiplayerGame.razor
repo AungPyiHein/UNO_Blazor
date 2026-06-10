@@ -3,443 +3,437 @@
 @inject NavigationManager Nav
 @implements IDisposable
 @using UnoApp.Multiplayer
+@using UnoApp.Components
+@using UnoEngine.Models
 @using System.Text.Json
+@using System.Globalization
 
-<div class="mpg-arena">
+<div class="game-container">
     @if (_state == null)
     {
-        <div class="mpg-loading">
+        <div class="mpg-loading-wrap">
             <div class="mpg-loading-spinner"></div>
             <p>Connecting to game…</p>
         </div>
     }
-    else if (_state.IsGameOver)
-    {
-        <div class="mpg-gameover">
-            <div class="mpg-gameover-trophy">🏆</div>
-            <h2>@(_state.WinnerIndex.HasValue ? _state.PlayerNames[_state.WinnerIndex.Value] + " Wins!" : "Game Over!")</h2>
-            <button class="mpg-action-btn" @onclick="BackToLobby">← Back to Lobby</button>
-        </div>
-    }
     else
     {
-        @if (!string.IsNullOrEmpty(_state.NotificationBanner))
+        <div class="tabletop-3d"></div>
+
+        @for (int j = 0; j < Opponents.Count; j++)
         {
-            <div class="mpg-banner">@_state.NotificationBanner</div>
+            int jc       = j;
+            int oi       = Opponents[j].idx;
+            string oName = Opponents[j].name;
+            bool oActive = oi == _state.CurrentPlayerIndex;
+            bool oUno    = _state.HandCounts[oi] == 1;
+            bool oSwap   = _state.IsMyTurn && _state.Status == "WaitingForSwapTarget";
+
+            <div class="player-slot slot-opponent @GuestOpponentPosClass(jc, Opponents.Count) @(oSwap ? "swap-selectable" : "")"
+                 style="@GuestOpponentStyle(jc, Opponents.Count)"
+                 @onclick='() => { if (_state!.IsMyTurn && _state.Status == "WaitingForSwapTarget") _ = SendSwapMove(oi); }'>
+
+                <div class="cpu-badge" style="position:relative">
+                    <div class="mpg-pp @(oActive ? "mpg-pp-active" : "") @(oUno ? "mpg-pp-uno" : "")">
+                        <div class="mpg-pp-ring"></div>
+                        <div class="mpg-pp-circle"
+                             style="background:linear-gradient(135deg,@GuestColor(oName),@GuestColorDark(oName))">
+                            <span class="mpg-pp-initials">@GuestInitials(oName)</span>
+                            <div class="mpg-pp-card-badge">
+                                <div class="mpg-pp-tiny-card"></div>
+                                <span class="mpg-pp-count">@_state.HandCounts[oi]</span>
+                            </div>
+                            @if (oUno) { <div class="mpg-pp-uno-badge">UNO!</div> }
+                        </div>
+                        <div class="mpg-pp-info @(oActive ? "mpg-pp-info-active" : "")">
+                            <div class="mpg-pp-name">@oName</div>
+                            <div class="mpg-pp-status @(oActive ? "active-thinking" : "")"
+                                 style="@(oActive ? "" : "visibility:hidden")">
+                                @(oActive ? "THINKING…" : "\u00a0")
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="hand">
+                    @for (int ci = 0; ci < OppCardCount(jc); ci++)
+                    {
+                        int cic = ci;
+                        <div class="hand-card-wrapper"
+                             style="--card-rot:@(OppCardRot(jc,cic).ToString("0.00",IC))deg; --card-ty:@(OppCardTy(jc,cic).ToString("0.00",IC))px; z-index:@cic;">
+                            <UnoCardComponent IsBack="true" />
+                        </div>
+                    }
+                </div>
+            </div>
         }
 
-        <!-- Top bar: players -->
-        <div class="mpg-players-bar">
-            @for (int i = 0; i < _state.PlayerNames.Length; i++)
-            {
-                int idx = i;
-                bool isCurrent = idx == _state.CurrentPlayerIndex;
-                bool isMe = idx == LobbyService.MyPlayerIndex;
-                <div class="mpg-pslot @(isCurrent ? "pslot-active" : "") @(isMe ? "pslot-me" : "")">
-                    <div class="pslot-avatar" style="background:@AvatarColor(idx)">@FirstLetter(_state.PlayerNames[idx])</div>
-                    <div class="pslot-info">
-                        <div class="pslot-name">@_state.PlayerNames[idx]@(isMe ? " (You)" : "")</div>
-                        <div class="pslot-count">🃏 @_state.HandCounts[idx]</div>
-                    </div>
-                    @if (isCurrent) { <div class="pslot-turn-dot"></div> }
-                </div>
-            }
-        </div>
-
-        <!-- Middle: top card + direction -->
-        <div class="mpg-center">
-            @if (_state.TopCard != null)
-            {
-                string activeColor = (_state.ActiveColor ?? _state.TopCard.Color).ToLower();
-                <div class="mpg-topcard-wrap">
-                    <div class="uno-card uno-card-@activeColor">
-                        <div class="uno-card-corner uno-card-corner-tl">@FormatLabel(_state.TopCard.Value)</div>
-                        <div class="uno-card-oval">
-                            <span class="uno-card-center-val">@FormatLabel(_state.TopCard.Value)</span>
-                        </div>
-                        <div class="uno-card-corner uno-card-corner-br">@FormatLabel(_state.TopCard.Value)</div>
-                    </div>
-                    @if (_state.PendingDraw > 0)
-                    {
-                        <div class="mpg-stacked-badge">+@_state.PendingDraw</div>
-                    }
-                </div>
-            }
-            <div class="mpg-dir-badge">@(_state.Direction == 1 ? "▶ Clockwise" : "◀ Counter-clockwise")</div>
-        </div>
-
-        <!-- Bottom: action zone -->
-        <div class="mpg-bottom">
-            @if (_pendingWildCardId != null)
-            {
-                <p class="mpg-turn-label">Choose a color for your Wild:</p>
-                <div class="mpg-color-row">
-                    @foreach (var col in new[] { "Red", "Blue", "Green", "Yellow" })
-                    {
-                        var c = col;
-                        <button class="mpg-color-btn mpg-color-btn-@c.ToLower()" @onclick='() => SendColorMove(c)'>@c</button>
-                    }
-                    <button class="mpg-cancel-btn" @onclick='() => { _pendingWildCardId = null; }'>✕</button>
-                </div>
-            }
-            else if (_state.IsMyTurn)
-            {
-                @if (_state.Status == "WaitingForWd4Challenge")
+        <div class="center-area">
+            <div class="turn-indicator-container">
+                @if (_state.Direction == 1)
                 {
-                    <p class="mpg-turn-label">Wild Draw 4 played on you!</p>
-                    <div class="mpg-btns-row">
-                        <button class="mpg-action-btn mpg-btn-danger" @onclick='() => SendSimpleMove("challenge")'>⚔️ Challenge</button>
-                        <button class="mpg-action-btn" @onclick='() => SendSimpleMove("accept")'>📥 Accept +4</button>
-                    </div>
-                }
-                else if (_state.Status == "WaitingForColorSelection")
-                {
-                    <p class="mpg-turn-label">Pick a color:</p>
-                    <div class="mpg-color-row">
-                        @foreach (var col in new[] { "Red", "Blue", "Green", "Yellow" })
-                        {
-                            var c = col;
-                            <button class="mpg-color-btn mpg-color-btn-@c.ToLower()" @onclick='() => SendColorOnlyMove(c)'>@c</button>
-                        }
-                    </div>
+                    <svg viewBox="0 0 100 100" class="turn-indicator-svg spin-clockwise">
+                        <defs>
+                            <filter id="mpg-glow-cw" x="-30%" y="-30%" width="160%" height="160%">
+                                <feGaussianBlur stdDeviation="1.2" result="b"/>
+                                <feComponentTransfer in="b" result="bb"><feFuncA type="linear" slope="0.5"/></feComponentTransfer>
+                                <feMerge><feMergeNode in="bb"/><feMergeNode in="SourceGraphic"/></feMerge>
+                            </filter>
+                            <marker id="mpg-ah-cw" viewBox="0 0 10 10" refX="0" refY="5" markerWidth="11" markerHeight="11" orient="auto" markerUnits="userSpaceOnUse">
+                                <path d="M 0,1.5 L 9,5 L 0,8.5 Z" fill="rgba(255,255,255,0.28)"/>
+                            </marker>
+                            <g id="mpg-arc-cw">
+                                <path d="M 17.2,58.8 A 34,34 0 0,1 74.0,26.0" fill="none" stroke="rgba(255,255,255,0.28)" stroke-width="4.5" stroke-linecap="round" marker-end="url(#mpg-ah-cw)"/>
+                            </g>
+                        </defs>
+                        <g filter="url(#mpg-glow-cw)">
+                            <use href="#mpg-arc-cw"/>
+                            <use href="#mpg-arc-cw" transform="rotate(180 50 50)"/>
+                        </g>
+                    </svg>
                 }
                 else
                 {
-                    <p class="mpg-turn-label">✨ Your turn!</p>
-                    <div class="mpg-hand">
-                        @foreach (var card in _state.MyHand)
-                        {
-                            var cc = card;
-                            string cardColor = cc.Color.ToLower();
-                            <div class="uno-card uno-card-@cardColor @(cc.IsPlayable ? "uno-card-playable" : "uno-card-dim")"
-                                 @onclick='() => OnCardClicked(cc)'>
-                                <div class="uno-card-corner uno-card-corner-tl">@FormatLabel(cc.Value)</div>
-                                <div class="uno-card-oval">
-                                    <span class="uno-card-center-val">@FormatLabel(cc.Value)</span>
-                                </div>
-                                <div class="uno-card-corner uno-card-corner-br">@FormatLabel(cc.Value)</div>
-                            </div>
-                        }
-                    </div>
-                    <div class="mpg-btns-row">
-                        <button class="mpg-action-btn" @onclick='() => SendSimpleMove("draw")'>🃏 Draw</button>
-                        <button class="mpg-action-btn mpg-btn-uno" @onclick="SendUno">UNO!</button>
-                    </div>
+                    <svg viewBox="0 0 100 100" class="turn-indicator-svg spin-counter">
+                        <defs>
+                            <filter id="mpg-glow-ccw" x="-30%" y="-30%" width="160%" height="160%">
+                                <feGaussianBlur stdDeviation="1.2" result="b"/>
+                                <feComponentTransfer in="b" result="bb"><feFuncA type="linear" slope="0.5"/></feComponentTransfer>
+                                <feMerge><feMergeNode in="bb"/><feMergeNode in="SourceGraphic"/></feMerge>
+                            </filter>
+                            <marker id="mpg-ah-ccw" viewBox="0 0 10 10" refX="0" refY="5" markerWidth="11" markerHeight="11" orient="auto" markerUnits="userSpaceOnUse">
+                                <path d="M 0,1.5 L 9,5 L 0,8.5 Z" fill="rgba(255,255,255,0.28)"/>
+                            </marker>
+                            <g id="mpg-arc-ccw">
+                                <path d="M 17.2,58.8 A 34,34 0 0,1 74.0,26.0" fill="none" stroke="rgba(255,255,255,0.28)" stroke-width="4.5" stroke-linecap="round" marker-end="url(#mpg-ah-ccw)"/>
+                            </g>
+                        </defs>
+                        <g filter="url(#mpg-glow-ccw)" transform="translate(50,50) scale(-1,1) translate(-50,-50)">
+                            <use href="#mpg-arc-ccw"/>
+                            <use href="#mpg-arc-ccw" transform="rotate(180 50 50)"/>
+                        </g>
+                    </svg>
                 }
-            }
-            else
-            {
-                <div class="mpg-waiting-msg">
-                    Waiting for <strong>@_state.PlayerNames[_state.CurrentPlayerIndex]</strong>…
-                </div>
-                @if (_state.Status == "WaitingForUnoCall")
+            </div>
+
+            <div class="discard-pile">
+                @if (_state.TopCard != null)
                 {
-                    <button class="mpg-action-btn mpg-btn-uno" @onclick="SendUno">⚡ Catch UNO!</button>
+                    <div class="discard-active-card"
+                         style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);">
+                        <UnoCardView Color="@ParseColor(_state.ActiveColor ?? _state.TopCard.Color)"
+                                     Value="@ParseValue(_state.TopCard.Value)"
+                                     SizeClass="w-16 h-24" />
+                    </div>
                 }
-                <!-- Show hand face-down while waiting -->
-                <div class="mpg-hand mpg-hand-waiting">
-                    @foreach (var card in _state.MyHand)
-                    {
-                        <div class="uno-card uno-card-back"></div>
-                    }
+                @if (_state.PendingDraw > 0)
+                {
+                    <div class="stack-badge">+@_state.PendingDraw</div>
+                }
+            </div>
+        </div>
+
+        <div class="draw-pile" @onclick="HandleGuestDraw">
+            <UnoCardComponent IsBack="true" />
+        </div>
+
+        <div class="player-slot slot-human"
+             style="--overlap:@(HumanOverlap)px; --draw-origin-x:-14vw; --draw-origin-y:-48vh;">
+            <div class="human-profile-wrapper">
+                <div class="mpg-pp @(HumanIsActive ? "mpg-pp-active" : "") @(HumanHasUno ? "mpg-pp-uno" : "")">
+                    <div class="mpg-pp-ring"></div>
+                    <div class="mpg-pp-circle"
+                         style="background:linear-gradient(135deg,@GuestColor(MyName),@GuestColorDark(MyName))">
+                        <span class="mpg-pp-initials">@GuestInitials(MyName)</span>
+                        <div class="mpg-pp-card-badge">
+                            <div class="mpg-pp-tiny-card"></div>
+                            <span class="mpg-pp-count">@_state.HandCounts[MyIdx]</span>
+                        </div>
+                        @if (HumanHasUno) { <div class="mpg-pp-uno-badge">UNO!</div> }
+                    </div>
+                    <div class="mpg-pp-info @(HumanIsActive ? "mpg-pp-info-active" : "")">
+                        <div class="mpg-pp-name">@MyName (You)</div>
+                        <div class="mpg-pp-status @(HumanIsActive ? "active-thinking" : "")"
+                             style="@(HumanIsActive ? "" : "visibility:hidden")">
+                            @(HumanIsActive ? "YOUR TURN" : "\u00a0")
+                        </div>
+                    </div>
                 </div>
+            </div>
+
+            <div class="hand">
+                @for (int i = 0; i < _state.MyHand.Count; i++)
+                {
+                    int ic    = i;
+                    var card  = _state.MyHand[i];
+                    bool canPlay = _state.IsMyTurn && card.IsPlayable
+                                   && _state.Status != "WaitingForColorSelection"
+                                   && _state.Status != "WaitingForWd4Challenge"
+                                   && _state.Status != "WaitingForSwapTarget";
+                    var cc = card;
+                    <div class="hand-card-wrapper @(canPlay ? "mpg-playable" : "")"
+                         style="--card-rot:@(HumanCardRot(ic).ToString("0.00",IC))deg; --card-ty:@(HumanCardTy(ic).ToString("0.00",IC))px; z-index:@ic;"
+                         @onclick='() => { if (canPlay) OnCardClicked(cc); }'>
+                        <UnoCardView Color="@ParseColor(cc.Color)" Value="@ParseValue(cc.Value)"
+                                     SizeClass="w-16 h-24"
+                                     Style="@((!_state.IsMyTurn || !cc.IsPlayable) ? "opacity:0.45;" : "")" />
+                    </div>
+                }
+            </div>
+        </div>
+
+        @if (_pendingWildCardId != null || (_state.IsMyTurn && _state.Status == "WaitingForColorSelection"))
+        {
+            <div class="color-picker-overlay">
+                <div class="color-picker-diamond interactive">
+                    <div class="color-picker-center-logo">UNO</div>
+                    <button class="color-btn color-btn-red"    @onclick='() => PickColor("Red")'><span class="btn-shine"></span></button>
+                    <button class="color-btn color-btn-yellow" @onclick='() => PickColor("Yellow")'><span class="btn-shine"></span></button>
+                    <button class="color-btn color-btn-green"  @onclick='() => PickColor("Green")'><span class="btn-shine"></span></button>
+                    <button class="color-btn color-btn-blue"   @onclick='() => PickColor("Blue")'><span class="btn-shine"></span></button>
+                </div>
+            </div>
+        }
+
+        @if (_state.IsMyTurn && _state.Status == "WaitingForWd4Challenge")
+        {
+            <div class="wd4-challenge-container">
+                @if (_state.TopCard != null)
+                {
+                    <div class="wd4-card-main">
+                        <UnoCardView Color="@ParseColor(_state.TopCard.Color)"
+                                     Value="@ParseValue(_state.TopCard.Value)"
+                                     SizeClass="w-32 h-48" />
+                    </div>
+                }
+                <div class="wd4-btn-row">
+                    <button class="wd4-btn wd4-challenge-btn" @onclick='() => _ = SendSimpleMove("challenge")'>CHALLENGE</button>
+                    <button class="wd4-btn wd4-accept-btn"    @onclick='() => _ = SendSimpleMove("accept")'>DRAW +4</button>
+                </div>
+            </div>
+        }
+
+        @if (_state.IsMyTurn && _state.Status == "WaitingForSwapTarget")
+        {
+            <div class="seven-swap-prompt">
+                <span class="seven-swap-prompt-icon">🔄</span>
+                <span>Choose who to swap hands with</span>
+            </div>
+        }
+
+        <div class="hud-action-container">
+            @if (_state.IsMyTurn && _state.HandCounts[MyIdx] == 1)
+            {
+                <button class="ubisoft-uno-btn" @onclick="SendUno">UNO!</button>
+            }
+            @if (_state.Status == "WaitingForUnoCall")
+            {
+                <button class="ubisoft-catch-btn" @onclick="SendUno">!</button>
             }
         </div>
+
+        @if (!string.IsNullOrEmpty(_state.NotificationBanner))
+        {
+            <div class="ubisoft-announcement-banner">
+                <div class="banner-glitch-line"></div>
+                <span class="banner-text">@_state.NotificationBanner</span>
+            </div>
+        }
+
+        @if (_state.IsGameOver)
+        {
+            <div class="modal-overlay glass-modal">
+                <div class="glass-panel game-over-panel">
+                    <div class="round-label">GAME OVER</div>
+                    <h1 class="winner-title">
+                        @(_state.WinnerIndex.HasValue
+                            ? _state.PlayerNames[_state.WinnerIndex.Value] + " WINS!"
+                            : "GAME OVER!")
+                    </h1>
+                    <div class="game-over-btns">
+                        <button class="new-game-btn" @onclick="BackToLobby">← BACK TO LOBBY</button>
+                    </div>
+                </div>
+            </div>
+        }
     }
 </div>
 
 <style>
-/* ── Arena shell ─────────────────────────────────────────────── */
-.mpg-arena {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    background: radial-gradient(ellipse at 50% 0%, #0d1a0d 0%, #080810 60%);
-    color: #fff;
-    font-family: inherit;
-    overflow: hidden;
-}
-
-/* ── Loading ─────────────────────────────────────────────────── */
-.mpg-loading {
-    margin: auto;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 20px;
-    color: rgba(255,255,255,0.4);
-    font-size: 1.1rem;
+.mpg-loading-wrap {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    display: flex; flex-direction: column; align-items: center; gap: 20px;
+    color: rgba(255,255,255,0.4); font-size: 1.1rem;
 }
 .mpg-loading-spinner {
     width: 48px; height: 48px;
     border: 4px solid rgba(255,255,255,0.1);
-    border-top-color: #22c55e;
-    border-radius: 50%;
-    animation: spin 0.9s linear infinite;
+    border-top-color: #22c55e; border-radius: 50%;
+    animation: mpg-spin 0.9s linear infinite;
 }
-@@keyframes spin { to { transform: rotate(360deg); } }
+@@keyframes mpg-spin { to { transform: rotate(360deg); } }
 
-/* ── Game over ───────────────────────────────────────────────── */
-.mpg-gameover {
-    margin: auto;
-    text-align: center;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 20px;
-}
-.mpg-gameover-trophy { font-size: 5rem; animation: popIn 0.5s cubic-bezier(0.175,0.885,0.32,1.275); }
-.mpg-gameover h2 { font-size: 2.5rem; font-weight: 900; letter-spacing: 2px; color: #22c55e; }
-@@keyframes popIn { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-
-/* ── Notification banner ─────────────────────────────────────── */
-.mpg-banner {
-    background: rgba(239,68,68,0.12);
-    border-bottom: 1px solid rgba(239,68,68,0.3);
-    padding: 10px 20px;
-    text-align: center;
-    font-weight: 800;
-    letter-spacing: 1px;
-    color: #ef4444;
-    font-size: 0.9rem;
-    flex-shrink: 0;
+.mpg-playable { cursor: pointer; }
+.mpg-playable:hover {
+    transform: translateY(calc(var(--card-ty) - 30px)) rotate(var(--card-rot)) scale(1.15) !important;
+    z-index: 200 !important;
 }
 
-/* ── Players bar ─────────────────────────────────────────────── */
-.mpg-players-bar {
-    display: flex;
-    gap: 10px;
-    padding: 14px 18px;
-    background: rgba(255,255,255,0.03);
-    border-bottom: 1px solid rgba(255,255,255,0.06);
-    flex-wrap: wrap;
-    flex-shrink: 0;
+.mpg-pp { display: flex; flex-direction: column; align-items: center; gap: 8px; position: relative; transition: all 0.4s cubic-bezier(0.175,0.885,0.32,1.275); }
+.mpg-pp-active { transform: scale(1.15); z-index: 50; }
+.mpg-pp-ring { position: absolute; width: 76px; height: 76px; border-radius: 50%; border: 2px solid transparent; top: -6px; transition: all 0.3s ease; }
+.mpg-pp-active .mpg-pp-ring { border-color: #3b82f6; animation: mpg-ring-pulse 2s infinite; }
+@@keyframes mpg-ring-pulse {
+    0%   { transform: scale(0.95); opacity: 1; box-shadow: 0 0 0 0 rgba(59,130,246,0.7); }
+    70%  { transform: scale(1.1);  opacity: 0; box-shadow: 0 0 0 15px rgba(59,130,246,0); }
+    100% { transform: scale(0.95); opacity: 0; }
 }
-.mpg-pslot {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 14px;
-    border-radius: 40px;
-    background: rgba(255,255,255,0.04);
-    border: 1.5px solid rgba(255,255,255,0.08);
-    position: relative;
-    transition: border-color 0.25s, background 0.25s;
-}
-.pslot-active { border-color: #22c55e; background: rgba(34,197,94,0.1); }
-.pslot-me { border-color: #6366f1; }
-.pslot-active.pslot-me { border-color: #22c55e; }
-.pslot-avatar {
-    width: 30px; height: 30px;
-    border-radius: 50%;
+.mpg-pp-circle {
+    width: 64px; height: 64px; border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    font-weight: 900; font-size: 0.85rem; color: #000;
-    flex-shrink: 0;
+    position: relative; box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    border: 3px solid rgba(255,255,255,0.1); z-index: 2;
 }
-.pslot-name { font-weight: 700; font-size: 0.82rem; line-height: 1.2; }
-.pslot-count { color: rgba(255,255,255,0.4); font-size: 0.75rem; }
-.pslot-turn-dot {
-    width: 8px; height: 8px;
-    border-radius: 50%;
-    background: #22c55e;
-    box-shadow: 0 0 8px #22c55e;
-    animation: pulse 1.2s ease-in-out infinite;
-    margin-left: 4px;
+.mpg-pp-active .mpg-pp-circle { border-color: white; box-shadow: 0 0 20px rgba(59,130,246,0.6); }
+.mpg-pp-uno .mpg-pp-circle { border-color: #ef4444; animation: mpg-uno-warn 1s infinite alternate; }
+@@keyframes mpg-uno-warn {
+    from { box-shadow: 0 0 5px rgba(239,68,68,0.4); }
+    to   { box-shadow: 0 0 20px rgba(239,68,68,0.8); }
 }
-@@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.8)} }
-
-/* ── Center (top card) ───────────────────────────────────────── */
-.mpg-center {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 18px;
-    padding: 20px;
+.mpg-pp-initials { color: white; font-size: 1.4rem; font-weight: 900; text-shadow: 1px 1px 4px rgba(0,0,0,0.5); }
+.mpg-pp-card-badge {
+    position: absolute; top: -15px; right: -20px;
+    background: #0f172a; color: white; padding: 4px 10px;
+    border-radius: 8px; display: flex; align-items: center; gap: 6px;
+    font-weight: 900; font-size: 1.1rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.8);
+    border: 2px solid rgba(255,255,255,0.2);
 }
-.mpg-topcard-wrap { position: relative; }
-.mpg-stacked-badge {
-    position: absolute;
-    top: -10px; right: -14px;
-    background: #f97316;
-    color: #fff;
-    font-weight: 900;
-    font-size: 1rem;
-    padding: 4px 10px;
-    border-radius: 20px;
-    box-shadow: 0 0 12px rgba(249,115,22,0.6);
+.mpg-pp-tiny-card { width: 12px; height: 18px; background: linear-gradient(135deg,#ef4444,#b91c1c); border: 2px solid white; border-radius: 3px; }
+.mpg-pp-count { animation: mpg-pop-count 0.4s cubic-bezier(0.175,0.885,0.32,1.275); }
+@@keyframes mpg-pop-count {
+    0%   { transform: scale(0.5); opacity: 0; }
+    50%  { transform: scale(1.6); color: #facc15; }
+    100% { transform: scale(1);   opacity: 1; color: white; }
 }
-.mpg-dir-badge {
-    color: rgba(255,255,255,0.35);
-    font-size: 0.8rem;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-}
-
-/* ── Bottom action zone ──────────────────────────────────────── */
-.mpg-bottom {
-    flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 14px;
-    padding: 18px 18px 28px;
-    background: rgba(0,0,0,0.3);
-    border-top: 1px solid rgba(255,255,255,0.06);
-}
-.mpg-turn-label {
-    font-size: 1rem;
-    font-weight: 700;
-    color: #22c55e;
-    letter-spacing: 1px;
-    margin: 0;
-}
-.mpg-waiting-msg {
-    color: rgba(255,255,255,0.4);
-    font-size: 0.95rem;
-    text-align: center;
-}
-
-/* ── Card hand ───────────────────────────────────────────────── */
-.mpg-hand {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    justify-content: center;
-    max-width: 100%;
-}
-.mpg-hand-waiting { opacity: 0.35; pointer-events: none; }
-
-/* ── Buttons ─────────────────────────────────────────────────── */
-.mpg-btns-row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
-.mpg-action-btn {
-    background: rgba(255,255,255,0.08);
-    border: 1.5px solid rgba(255,255,255,0.15);
-    border-radius: 14px;
-    color: #fff;
-    padding: 12px 28px;
-    font-size: 0.95rem;
-    font-weight: 700;
-    cursor: pointer;
-    letter-spacing: 0.5px;
-    transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
-}
-.mpg-action-btn:hover { background: rgba(255,255,255,0.15); transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.4); }
-.mpg-btn-danger { background: rgba(239,68,68,0.15); border-color: #ef4444; color: #ef4444; }
-.mpg-btn-danger:hover { background: rgba(239,68,68,0.25); }
-.mpg-btn-uno { background: rgba(234,179,8,0.15); border-color: #eab308; color: #eab308; }
-.mpg-btn-uno:hover { background: rgba(234,179,8,0.28); }
-.mpg-cancel-btn {
-    background: transparent;
-    border: 1px solid rgba(255,255,255,0.15);
-    border-radius: 10px;
-    color: rgba(255,255,255,0.4);
-    padding: 8px 14px;
-    cursor: pointer;
-    font-size: 1rem;
-}
-
-/* ── Color picker ────────────────────────────────────────────── */
-.mpg-color-row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; align-items: center; }
-.mpg-color-btn {
-    width: 76px; height: 54px;
-    border-radius: 12px;
-    border: 2px solid rgba(255,255,255,0.25);
-    color: #fff;
-    font-weight: 800;
-    font-size: 0.8rem;
-    cursor: pointer;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    transition: transform 0.15s, box-shadow 0.15s;
-}
-.mpg-color-btn:hover { transform: scale(1.1); box-shadow: 0 4px 16px rgba(0,0,0,0.4); border-color: #fff; }
-.mpg-color-btn-red    { background: #dc2626; }
-.mpg-color-btn-blue   { background: #2563eb; }
-.mpg-color-btn-green  { background: #16a34a; }
-.mpg-color-btn-yellow { background: #ca8a04; }
-
-/* ── UNO Card ────────────────────────────────────────────────── */
-.uno-card {
-    width: 64px; height: 96px;
-    border-radius: 10px;
-    border: 2.5px solid rgba(255,255,255,0.25);
-    position: relative;
+.mpg-pp-uno-badge {
+    position: absolute; left: -36px; top: 50%;
+    transform: translateY(-50%) scale(1);
+    width: 48px; height: 48px; border-radius: 50%;
+    background: linear-gradient(135deg,#ff7e00 0%,#ff003c 100%);
+    border: 3px solid #fff; color: #fff;
+    font-size: 0.9rem; font-weight: 900;
     display: flex; align-items: center; justify-content: center;
-    cursor: pointer;
-    transition: transform 0.18s cubic-bezier(0.175,0.885,0.32,1.275), box-shadow 0.18s;
-    flex-shrink: 0;
-    user-select: none;
-    overflow: hidden;
+    box-shadow: 0 0 20px #ff003c, 0 4px 10px rgba(0,0,0,0.5);
+    animation: mpg-uno-badge-pop 0.4s cubic-bezier(0.175,0.885,0.32,1.4) forwards;
 }
-.uno-card-playable { border-color: rgba(255,255,255,0.7); }
-.uno-card-playable:hover {
-    transform: translateY(-14px) scale(1.07);
-    box-shadow: 0 16px 32px rgba(0,0,0,0.6), 0 0 20px rgba(255,255,255,0.15);
-    z-index: 10;
+@@keyframes mpg-uno-badge-pop {
+    0%   { transform: translateY(-50%) scale(0); opacity: 0; }
+    75%  { transform: translateY(-50%) scale(1.2); opacity: 1; }
+    100% { transform: translateY(-50%) scale(1); opacity: 1; }
 }
-.uno-card-dim { opacity: 0.38; cursor: not-allowed; }
+.mpg-pp-info {
+    text-align: center; background: rgba(15,23,42,0.6);
+    padding: 4px 12px; border-radius: 20px;
+    backdrop-filter: blur(4px); border: 1px solid rgba(255,255,255,0.1);
+    min-width: 80px;
+}
+.mpg-pp-info-active { background: rgba(30,41,59,0.9); border-color: rgba(59,130,246,0.4); }
+.mpg-pp-name { color: white; font-size: 0.75rem; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; }
+.mpg-pp-status { color: #60a5fa; font-size: 0.6rem; font-weight: 600; height: 12px; }
 
-/* card colors */
-.uno-card-red    { background: linear-gradient(145deg, #ef4444, #b91c1c); }
-.uno-card-blue   { background: linear-gradient(145deg, #3b82f6, #1d4ed8); }
-.uno-card-green  { background: linear-gradient(145deg, #22c55e, #15803d); }
-.uno-card-yellow { background: linear-gradient(145deg, #eab308, #a16207); }
-.uno-card-wild   { background: linear-gradient(135deg, #ef4444 25%, #3b82f6 25% 50%, #22c55e 50% 75%, #eab308 75%); }
-.uno-card-back   { background: linear-gradient(145deg, #1e1b4b, #312e81); cursor: default; }
+.wd4-challenge-container {
+    position: absolute; bottom: 230px; left: 50%;
+    transform: translateX(-50%);
+    display: flex; flex-direction: column; align-items: center; gap: 18px;
+    z-index: 500; animation: mpg-wd4-pop 0.4s cubic-bezier(0.175,0.885,0.32,1.275);
+}
+.wd4-card-main { filter: drop-shadow(0 12px 32px rgba(0,0,0,0.8)); }
+.wd4-btn-row { display: flex; gap: 18px; }
+.wd4-btn {
+    padding: 14px 36px; border-radius: 30px;
+    border: 3px solid rgba(255,255,255,0.3);
+    font-size: 1.1rem; font-weight: 900; letter-spacing: 2px;
+    cursor: pointer; text-transform: uppercase; transition: all 0.2s ease;
+}
+.wd4-challenge-btn { background: linear-gradient(135deg,#ef4444,#b91c1c); color:#fff; box-shadow: 0 0 20px rgba(239,68,68,0.5); }
+.wd4-challenge-btn:hover { transform: scale(1.07); box-shadow: 0 0 30px rgba(239,68,68,0.8); }
+.wd4-accept-btn { background: linear-gradient(135deg,#3b82f6,#1d4ed8); color:#fff; box-shadow: 0 0 20px rgba(59,130,246,0.5); }
+.wd4-accept-btn:hover { transform: scale(1.07); box-shadow: 0 0 30px rgba(59,130,246,0.8); }
+@@keyframes mpg-wd4-pop {
+    from { transform: translateX(-50%) scale(0.7); opacity: 0; }
+    to   { transform: translateX(-50%) scale(1);   opacity: 1; }
+}
 
-/* inner oval */
-.uno-card-oval {
-    width: 42px; height: 66px;
-    background: rgba(255,255,255,0.18);
-    border-radius: 50%;
-    border: 2px solid rgba(255,255,255,0.3);
-    display: flex; align-items: center; justify-content: center;
-    position: relative;
-    transform: rotate(-30deg);
-}
-.uno-card-center-val {
-    transform: rotate(30deg);
-    font-size: 1.35rem;
-    font-weight: 900;
-    color: #fff;
-    text-shadow: 0 1px 4px rgba(0,0,0,0.6);
-    line-height: 1;
-}
-/* corners */
-.uno-card-corner {
-    position: absolute;
-    font-size: 0.6rem;
-    font-weight: 900;
-    color: #fff;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
-    line-height: 1;
-}
-.uno-card-corner-tl { top: 4px; left: 5px; }
-.uno-card-corner-br { bottom: 4px; right: 5px; transform: rotate(180deg); }
-
-/* top card larger */
-.mpg-topcard-wrap .uno-card {
-    width: 90px; height: 135px;
-    border-radius: 14px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.6);
-    cursor: default;
-}
-.mpg-topcard-wrap .uno-card:hover { transform: none; box-shadow: 0 8px 32px rgba(0,0,0,0.6); }
-.mpg-topcard-wrap .uno-card-oval { width: 60px; height: 94px; }
-.mpg-topcard-wrap .uno-card-center-val { font-size: 2rem; }
-.mpg-topcard-wrap .uno-card-corner { font-size: 0.85rem; }
-.mpg-topcard-wrap .uno-card-corner-tl { top: 6px; left: 8px; }
-.mpg-topcard-wrap .uno-card-corner-br { bottom: 6px; right: 8px; }
+.round-label { font-size: 0.95rem; letter-spacing: 3px; text-transform: uppercase; color: rgba(255,255,255,0.5); font-weight: 700; }
+.game-over-btns { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
 </style>
 
 @code {
+    private static readonly CultureInfo IC = CultureInfo.InvariantCulture;
+
     private GameStateDto? _state;
     private string? _pendingWildCardId;
     private static readonly JsonSerializerOptions _jsonOpts = new() { PropertyNameCaseInsensitive = true };
 
-    private static readonly string[] _avatarColors = { "#22c55e","#3b82f6","#f97316","#a855f7","#ec4899","#14b8a6" };
+    private static readonly string[] _colors     = { "#ef4444","#3b82f6","#22c55e","#eab308","#a855f7","#ec4899" };
+    private static readonly string[] _colorsDark = { "#991b1b","#1e40af","#166534","#854d0e","#6b21a8","#9d174d" };
+
+    private int MyIdx => LobbyService.MyPlayerIndex;
+    private string MyName => _state != null ? _state.PlayerNames[MyIdx] : "";
+    private bool HumanIsActive => _state != null && MyIdx == _state.CurrentPlayerIndex;
+    private bool HumanHasUno => _state != null && _state.HandCounts[MyIdx] == 1;
+    private int HumanOverlap => _state != null
+        ? (_state.MyHand.Count > 20 ? -55 : _state.MyHand.Count > 12 ? -45 : -35)
+        : -35;
+
+    private List<(string name, int idx)> Opponents =>
+        _state == null
+            ? new()
+            : Enumerable.Range(0, _state.PlayerNames.Length)
+                .Where(i => i != MyIdx)
+                .Select(i => (_state.PlayerNames[i], i))
+                .ToList();
+
+    private double HumanCardRot(int i)
+    {
+        int count = _state!.MyHand.Count;
+        double mid = (count - 1) / 2.0;
+        double angle = count <= 7 ? 5.0 : count <= 12 ? 3.5 : count <= 18 ? 2.5 : count <= 25 ? 1.5 : 1.0;
+        return (i - mid) * angle;
+    }
+
+    private double HumanCardTy(int i)
+    {
+        int count = _state!.MyHand.Count;
+        double mid = (count - 1) / 2.0;
+        double tyF = count <= 7 ? 1.5 : count <= 14 ? 0.8 : count <= 20 ? 0.4 : 0.2;
+        return Math.Pow(i - mid, 2) * tyF;
+    }
+
+    private int OppCardCount(int j)
+    {
+        var opp = Opponents;
+        int maxCard = opp.Count >= 4 ? 10 : 15;
+        return Math.Min(_state!.HandCounts[opp[j].idx], maxCard);
+    }
+
+    private double OppCardRot(int j, int ci)
+    {
+        int count = OppCardCount(j);
+        double mid = (count - 1) / 2.0;
+        double ang = count <= 7 ? 5.0 : count <= 12 ? 3.5 : 2.5;
+        return (ci - mid) * ang;
+    }
+
+    private double OppCardTy(int j, int ci)
+    {
+        int count = OppCardCount(j);
+        double mid = (count - 1) / 2.0;
+        double tyF = count <= 7 ? 1.0 : count <= 12 ? 0.6 : 0.3;
+        return Math.Pow(ci - mid, 2) * tyF;
+    }
 
     protected override void OnInitialized()
     {
@@ -448,11 +442,7 @@
 
     private void OnStateUpdated(string json)
     {
-        try
-        {
-            _state = JsonSerializer.Deserialize<GameStateDto>(json, _jsonOpts);
-            InvokeAsync(StateHasChanged);
-        }
+        try { _state = JsonSerializer.Deserialize<GameStateDto>(json, _jsonOpts); InvokeAsync(StateHasChanged); }
         catch { }
     }
 
@@ -462,16 +452,48 @@
         if (card.Color == "Wild")
         {
             _pendingWildCardId = card.Id;
+            StateHasChanged();
             return;
         }
         _ = SendPlayMove(card.Id, null, null);
+    }
+
+    private void PickColor(string color)
+    {
+        if (_pendingWildCardId != null)
+        {
+            var id = _pendingWildCardId;
+            _pendingWildCardId = null;
+            _ = SendPlayMove(id, color, null);
+        }
+        else if (_state?.Status == "WaitingForColorSelection")
+        {
+            _ = SendColorOnlyMove(color);
+        }
+    }
+
+    private async Task HandleGuestDraw()
+    {
+        if (_state == null || !_state.IsMyTurn) return;
+        if (_state.Status is "WaitingForColorSelection" or "WaitingForWd4Challenge" or "WaitingForSwapTarget") return;
+        await SendSimpleMove("draw");
+    }
+
+    private async Task SendSwapMove(int targetIdx)
+    {
+        await LobbyService.SendMoveAsync(new MoveDto
+        {
+            PlayerIndex = MyIdx,
+            Type        = "play",
+            TargetIndex = targetIdx
+        });
     }
 
     private async Task SendPlayMove(string cardId, string? color, int? targetIndex)
     {
         await LobbyService.SendMoveAsync(new MoveDto
         {
-            PlayerIndex = LobbyService.MyPlayerIndex,
+            PlayerIndex = MyIdx,
             Type        = "play",
             CardId      = cardId,
             Color       = color,
@@ -481,38 +503,17 @@
 
     private async Task SendSimpleMove(string type)
     {
-        await LobbyService.SendMoveAsync(new MoveDto
-        {
-            PlayerIndex = LobbyService.MyPlayerIndex,
-            Type        = type
-        });
-    }
-
-    private async Task SendColorMove(string color)
-    {
-        if (_pendingWildCardId == null) return;
-        var cardId = _pendingWildCardId;
-        _pendingWildCardId = null;
-        await SendPlayMove(cardId, color, null);
+        await LobbyService.SendMoveAsync(new MoveDto { PlayerIndex = MyIdx, Type = type });
     }
 
     private async Task SendColorOnlyMove(string color)
     {
-        await LobbyService.SendMoveAsync(new MoveDto
-        {
-            PlayerIndex = LobbyService.MyPlayerIndex,
-            Type        = "color",
-            Color       = color
-        });
+        await LobbyService.SendMoveAsync(new MoveDto { PlayerIndex = MyIdx, Type = "color", Color = color });
     }
 
     private async Task SendUno()
     {
-        await LobbyService.SendMoveAsync(new MoveDto
-        {
-            PlayerIndex = LobbyService.MyPlayerIndex,
-            Type        = "uno"
-        });
+        await LobbyService.SendMoveAsync(new MoveDto { PlayerIndex = MyIdx, Type = "uno" });
     }
 
     private void BackToLobby()
@@ -521,35 +522,42 @@
         Nav.NavigateTo("/lobby");
     }
 
-    private static string FormatLabel(string? value) => value switch
+    private static string GuestOpponentStyle(int j, int total)
     {
-        "DrawTwo"   => "+2",
-        "WildDraw4" => "+4",
-        "Skip"      => "⊘",
-        "Reverse"   => "↺",
-        "Wild"      => "W",
-        "Vortex"    => "◉",
-        "Zero"      => "0",
-        "One"       => "1",
-        "Two"       => "2",
-        "Three"     => "3",
-        "Four"      => "4",
-        "Five"      => "5",
-        "Six"       => "6",
-        "Seven"     => "7",
-        "Eight"     => "8",
-        "Nine"      => "9",
-        null        => "?",
-        _           => value
-    };
-
-    private static string AvatarColor(int idx) => _avatarColors[idx % _avatarColors.Length];
-
-    private static string FirstLetter(string name) =>
-        name.Length > 0 ? name[0].ToString().ToUpper() : "?";
-
-    public void Dispose()
-    {
-        LobbyService.StateUpdated -= OnStateUpdated;
+        double x = 50, y = 15, s = 0.7;
+        if      (total == 1) { x = 50; y = 15; s = 0.7; }
+        else if (total == 2) { if (j == 0) { x = 10; y = 45; s = 0.85; } else { x = 90; y = 45; s = 0.85; } }
+        else if (total == 3) { if (j == 0) { x = 10; y = 45; s = 0.85; } else if (j == 1) { x = 50; y = 15; s = 0.7; } else { x = 90; y = 45; s = 0.85; } }
+        else if (total == 4) { if (j == 0) { x = 10; y = 45; s = 0.85; } else if (j == 1) { x = 35; y = 15; s = 0.7; } else if (j == 2) { x = 65; y = 15; s = 0.7; } else { x = 90; y = 45; s = 0.85; } }
+        else                 { if (j == 0) { x = 10; y = 45; s = 0.85; } else if (j == 1) { x = 25; y = 15; s = 0.7; } else if (j == 2) { x = 50; y = 15; s = 0.7; } else if (j == 3) { x = 75; y = 15; s = 0.7; } else { x = 90; y = 45; s = 0.85; } }
+        double dx = 36.0 - x, dy = 40.0 - y;
+        return $"position:absolute;left:{x.ToString("0.0",IC)}%;top:{y.ToString("0.0",IC)}%;transform:translate(-50%,-50%) scale({s.ToString("0.0",IC)});--draw-origin-x:{dx.ToString("0.0",IC)}vw;--draw-origin-y:{dy.ToString("0.0",IC)}vh;";
     }
+
+    private static string GuestOpponentPosClass(int j, int total)
+    {
+        if (total == 1) return "slot-cpu-top";
+        if (total == 2) return j == 0 ? "slot-cpu-left" : "slot-cpu-right";
+        if (total == 3) { if (j == 0) return "slot-cpu-left"; if (j == 1) return "slot-cpu-top"; return "slot-cpu-right"; }
+        if (total == 4) { if (j == 0) return "slot-cpu-left"; if (j == 1 || j == 2) return "slot-cpu-top"; return "slot-cpu-right"; }
+        if (j == 0) return "slot-cpu-left"; if (j >= 1 && j <= 3) return "slot-cpu-top"; return "slot-cpu-right";
+    }
+
+    private static string GuestColor(string name)     => _colors    [Math.Abs(name.GetHashCode()) % _colors.Length];
+    private static string GuestColorDark(string name) => _colorsDark[Math.Abs(name.GetHashCode()) % _colorsDark.Length];
+
+    private static string GuestInitials(string name)
+    {
+        if (string.IsNullOrEmpty(name)) return "?";
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 1) return parts[0][..Math.Min(2, parts[0].Length)].ToUpper();
+        return (parts[0][0].ToString() + parts[1][0].ToString()).ToUpper();
+    }
+
+    private static CardColor ParseColor(string? s) =>
+        Enum.TryParse<CardColor>(s, true, out var c) ? c : CardColor.Wild;
+    private static CardValue ParseValue(string? s) =>
+        Enum.TryParse<CardValue>(s, true, out var v) ? v : CardValue.Wild;
+
+    public void Dispose() => LobbyService.StateUpdated -= OnStateUpdated;
 }

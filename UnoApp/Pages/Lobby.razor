@@ -31,6 +31,22 @@
             </div>
 
             <div class="lobby-field">
+                <label>Total Players</label>
+                <div class="count-selector">
+                    @for (int n = 2; n <= 6; n++)
+                    {
+                        var num = n;
+                        <button type="button"
+                                class="count-btn @(_totalPlayers == num ? "active" : "")"
+                                @onclick="() => SetTotalPlayers(num)">
+                            @num
+                        </button>
+                    }
+                </div>
+                <p class="lobby-hint">1 human host + up to @(_totalPlayers - 1) more seats</p>
+            </div>
+
+            <div class="lobby-field">
                 <label>Room Code</label>
                 <div class="room-code-row">
                     <input class="lobby-input lobby-input-code" @bind="_roomCode" placeholder="AUTO-GENERATED" maxlength="8" @oninput="UpperRoomCode" />
@@ -41,7 +57,7 @@
             <div class="lobby-field">
                 <label>CPU Players (fill empty seats)</label>
                 <div class="cpu-selector">
-                    @for (int i = 0; i <= 4; i++)
+                    @for (int i = 0; i <= _totalPlayers - 1; i++)
                     {
                         var count = i;
                         <button type="button"
@@ -51,6 +67,17 @@
                         </button>
                     }
                 </div>
+                @{
+                    int humanSeats = _totalPlayers - 1 - _cpuCount;
+                }
+                @if (humanSeats > 0)
+                {
+                    <p class="lobby-hint">Waiting for @humanSeats more human@(humanSeats > 1 ? "s" : "") to join</p>
+                }
+                else
+                {
+                    <p class="lobby-hint" style="color:#a5b4fc">All seats filled with CPUs — can start solo!</p>
+                }
             </div>
 
             @if (!string.IsNullOrEmpty(_error))
@@ -210,6 +237,27 @@
 }
 .gen-btn:hover { background: rgba(255,255,255,0.14); }
 
+.count-selector { display: flex; gap: 8px; }
+.count-btn {
+    flex: 1;
+    background: rgba(255,255,255,0.06);
+    border: 1.5px solid rgba(255,255,255,0.12);
+    border-radius: 12px;
+    color: rgba(255,255,255,0.7);
+    padding: 12px 6px;
+    font-size: 1.1rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+.count-btn.active {
+    background: rgba(34,197,94,0.2);
+    border-color: #22c55e;
+    color: #22c55e;
+    box-shadow: 0 0 12px rgba(34,197,94,0.2);
+}
+.count-btn:hover:not(.active) { background: rgba(255,255,255,0.1); }
+.lobby-hint { color: rgba(255,255,255,0.4); font-size: 0.8rem; margin: 2px 0 0; }
 .cpu-selector { display: flex; gap: 6px; flex-wrap: wrap; }
 .cpu-btn {
     background: rgba(255,255,255,0.06);
@@ -301,6 +349,14 @@
     private string _error = "";
     private List<string> _players = new();
     private int _cpuCount = 1;
+    private int _totalPlayers = 4;
+
+    private void SetTotalPlayers(int n)
+    {
+        _totalPlayers = n;
+        if (_cpuCount > _totalPlayers - 1)
+            _cpuCount = _totalPlayers - 1;
+    }
 
     protected override async Task OnInitializedAsync()
     {
