@@ -1,0 +1,40 @@
+modules = ["web", "dotnet-7.0", "nodejs-20", "dotnet-9.0"]
+[agent]
+expertMode = true
+stack = "BEST_EFFORT_FALLBACK"
+
+[nix]
+channel = "stable-25_05"
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "dotnet run --project UnoApp.Server/UnoApp.Server.csproj"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[ports]]
+localPort = 5000
+externalPort = 80
+
+[deployment]
+deploymentTarget = "autoscale"
+run = ["dotnet", "publish/UnoApp.Server.dll", "--urls", "http://0.0.0.0:5000"]
+build = ["dotnet", "publish", "UnoApp.Server/UnoApp.Server.csproj", "-c", "Release", "-o", "publish"]
