@@ -1,0 +1,821 @@
+@using UnoApp.Multiplayer
+@using UnoApp.Components
+@using UnoEngine.Models
+@using System.Globalization
+@implements IDisposable
+@inject UnoApp.Services.AudioService AudioService
+
+@if (State == null)
+{
+    <div class="gv-loading-wrap">
+        <div class="gv-loading-spinner"></div>
+        <p>Loading game…</p>
+    </div>
+}
+else
+{
+    <div class="game-container @_animClass">
+        <div class="tabletop-3d"></div>
+
+        @for (int j = 0; j < Opponents.Count; j++)
+        {
+            int jc = j;
+            int oi = Opponents[j].idx;
+            string oName = Opponents[j].name;
+            bool oActive = oi == State.CurrentPlayerIndex;
+            bool oUno = State.HandCounts.Length > oi && State.HandCounts[oi] == 1;
+            bool oSwap = State.IsMyTurn && State.Status == "WaitingForSwapTarget";
+            bool oCpuTarget = _sevenOverlayActive && _sevenCpuTargetIndex == oi;
+
+            <div class="player-slot slot-opponent @GetOpponentPosClass(jc, Opponents.Count) @(oSwap ? "swap-selectable" : (oCpuTarget ? "cpu-swap-target" : ""))"
+                 style="@GetOpponentStyle(jc, Opponents.Count)"
+                 @onclick="() => { if (oSwap) _ = SendSwap(oi); }">
+
+                <div class="cpu-badge" style="position:relative">
+                    <div class="mpg-pp @(oActive ? "mpg-pp-active" : "") @(oUno ? "mpg-pp-uno" : "")">
+                        <div class="mpg-pp-ring"></div>
+                        <div class="mpg-pp-circle"
+                             style="background:linear-gradient(135deg,@PlayerColor(oName),@PlayerColorDark(oName))">
+                            <span class="mpg-pp-initials">@PlayerInitials(oName)</span>
+                            <div class="mpg-pp-card-badge">
+                                <div class="mpg-pp-tiny-card"></div>
+                                <span class="mpg-pp-count">@(State.HandCounts.Length > oi ? State.HandCounts[oi] : 0)</span>
+                            </div>
+                            @if (oUno) { <div class="mpg-pp-uno-badge">UNO!</div> }
+                        </div>
+                        <div class="mpg-pp-info @(oActive ? "mpg-pp-info-active" : "")">
+                            <div class="mpg-pp-name">@oName</div>
+                            <div class="mpg-pp-status @(oActive ? "active-thinking" : "")"
+                                 style="@(oActive ? "" : "visibility:hidden")">
+                                @(oActive ? "THINKING…" : "\u00a0")
+                            </div>
+                        </div>
+                    </div>
+                    @if (_penaltyBadges.TryGetValue(oi, out int oppBadge))
+                    {
+                        <div class="penalty-badge" @key="@($"pb-{oi}-{oppBadge}")">+@oppBadge cards</div>
+                    }
+                    @if (oSwap || oCpuTarget)
+                    {
+                        <div class="swap-card-count-badge">@(State.HandCounts.Length > oi ? State.HandCounts[oi] : 0) cards</div>
+                    }
+                    @if (_skippedPlayerIndex == oi)
+                    {
+                        <div class="skip-overlay" @key="_skipKey">
+                            <svg viewBox="0 0 100 100">
+                                <circle cx="50" cy="50" r="45" stroke="#cc0000" stroke-width="10" fill="rgba(180,0,0,0.15)"/>
+                                <line x1="18" y1="18" x2="82" y2="82" stroke="#cc0000" stroke-width="10" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+                    }
+                </div>
+
+                <div class="hand @(IsSwapPartner(oi) ? "swap-anim" : "") @_rotateAnim">
+                    @{
+                        int maxDisplay = Opponents.Count >= 4 ? 10 : 15;
+                        int oppCount = _vortexHandSnapshot != null && oi < _vortexHandSnapshot.Length
+                            ? _vortexHandSnapshot[oi]
+                            : Math.Min(State.HandCounts.Length > oi ? State.HandCounts[oi] : 0, maxDisplay);
+                        double oppMid = (oppCount - 1) / 2.0;
+                        double oppAng = oppCount <= 7 ? 5.0 : oppCount <= 12 ? 3.5 : 2.5;
+                        double oppTyF = oppCount <= 7 ? 1.0 : oppCount <= 12 ? 0.6 : 0.3;
+                    }
+                    @for (int ci = 0; ci < oppCount; ci++)
+                    {
+                        double offset = ci - oppMid;
+                        <div class="hand-card-wrapper @(_isSwallowingCards ? "vortex-ingest" : "") @(_isSpittingCards ? "vortex-eject" : "")"
+                             style="--card-rot:@((offset * oppAng).ToString("0.00", IC))deg; --card-ty:@((Math.Pow(offset, 2) * oppTyF).ToString("0.00", IC))px; z-index:@ci; @GetVortexDelayStyle(ci)">
+                            <UnoCardComponent IsBack="true" />
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
+        <div class="draw-pile" @onclick="HandleDraw">
+            <UnoCardComponent IsBack="true" />
+            @if (_drawFlyTarget >= 0)
+            {
+                <div class="cpu-draw-fly" style="@_drawFlyStyle">
+                    <UnoCardComponent IsBack="true" />
+                </div>
+            }
+        </div>
+
+        @if (_swapP1 >= 0 && _swapP2 >= 0)
+        {
+            <div class="swap-fly-stack fly-@(_swapP1)-@(_swapP2)"></div>
+            <div class="swap-fly-stack fly-@(_swapP2)-@(_swapP1)" style="animation-delay:0.06s"></div>
+        }
+
+        <div class="center-area">
+            <div class="turn-indicator-container">
+                @if (State.Direction == 1)
+                {
+                    <svg viewBox="0 0 100 100" class="turn-indicator-svg spin-clockwise">
+                        <defs>
+                            <filter id="gv-glow-cw" x="-30%" y="-30%" width="160%" height="160%">
+                                <feGaussianBlur stdDeviation="1.2" result="b"/>
+                                <feComponentTransfer in="b" result="bb"><feFuncA type="linear" slope="0.5"/></feComponentTransfer>
+                                <feMerge><feMergeNode in="bb"/><feMergeNode in="SourceGraphic"/></feMerge>
+                            </filter>
+                            <marker id="gv-ah-cw" viewBox="0 0 10 10" refX="0" refY="5" markerWidth="11" markerHeight="11" orient="auto" markerUnits="userSpaceOnUse">
+                                <path d="M 0,1.5 L 9,5 L 0,8.5 Z" fill="rgba(255,255,255,0.28)"/>
+                            </marker>
+                            <g id="gv-arc-cw">
+                                <path d="M 17.2,58.8 A 34,34 0 0,1 74.0,26.0" fill="none" stroke="rgba(255,255,255,0.28)" stroke-width="4.5" stroke-linecap="round" marker-end="url(#gv-ah-cw)"/>
+                            </g>
+                        </defs>
+                        <g filter="url(#gv-glow-cw)"><use href="#gv-arc-cw"/><use href="#gv-arc-cw" transform="rotate(180 50 50)"/></g>
+                    </svg>
+                }
+                else
+                {
+                    <svg viewBox="0 0 100 100" class="turn-indicator-svg spin-counter">
+                        <defs>
+                            <filter id="gv-glow-ccw" x="-30%" y="-30%" width="160%" height="160%">
+                                <feGaussianBlur stdDeviation="1.2" result="b"/>
+                                <feComponentTransfer in="b" result="bb"><feFuncA type="linear" slope="0.5"/></feComponentTransfer>
+                                <feMerge><feMergeNode in="bb"/><feMergeNode in="SourceGraphic"/></feMerge>
+                            </filter>
+                            <marker id="gv-ah-ccw" viewBox="0 0 10 10" refX="0" refY="5" markerWidth="11" markerHeight="11" orient="auto" markerUnits="userSpaceOnUse">
+                                <path d="M 0,1.5 L 9,5 L 0,8.5 Z" fill="rgba(255,255,255,0.28)"/>
+                            </marker>
+                            <g id="gv-arc-ccw">
+                                <path d="M 17.2,58.8 A 34,34 0 0,1 74.0,26.0" fill="none" stroke="rgba(255,255,255,0.28)" stroke-width="4.5" stroke-linecap="round" marker-end="url(#gv-ah-ccw)"/>
+                            </g>
+                        </defs>
+                        <g filter="url(#gv-glow-ccw)" transform="translate(50,50) scale(-1,1) translate(-50,-50)">
+                            <use href="#gv-arc-ccw"/><use href="#gv-arc-ccw" transform="rotate(180 50 50)"/>
+                        </g>
+                    </svg>
+                }
+            </div>
+
+            <div class="discard-pile">
+                @{
+                    var history = State.DiscardHistory;
+                }
+                @for (int i = 0; i < history.Count; i++)
+                {
+                    var dc = history[i];
+                    bool isTop = i == history.Count - 1;
+                    string messyStyle = GetDtoMessyStyle(dc, isTop);
+                    if (isTop)
+                    {
+                        string animStyle = GetDiscardAnimStyle(State.LastPlayerIndex, Opponents.Count);
+                        <div @key="dc.Id" class="discard-active-card" style="@messyStyle @animStyle">
+                            <UnoCardView Color="@ParseColor(State.ActiveColor ?? dc.Color)" Value="@ParseValue(dc.Value)" SizeClass="w-16 h-24" />
+                        </div>
+                    }
+                    else
+                    {
+                        <div @key="dc.Id" class="discard-history-card" style="@messyStyle">
+                            <UnoCardView Color="@ParseColor(dc.Color)" Value="@ParseValue(dc.Value)" SizeClass="w-16 h-24" />
+                        </div>
+                    }
+                }
+                @if (State.PendingDraw > 0)
+                {
+                    <div class="stack-badge">+@State.PendingDraw</div>
+                }
+                @if (State.Status == "WaitingForJumpIn")
+                {
+                    <svg class="qte-ring" viewBox="0 0 100 100"
+                         style="--qte-duration: @(State.JumpInTimerSeconds.ToString("0.0", IC))s;">
+                        <circle cx="50" cy="50" r="45"></circle>
+                    </svg>
+                }
+            </div>
+
+            @if (_showVortexAnimation)
+            {
+                <div class="vortex-animation-overlay">
+                    <img src="/images/image_144935.png" alt="Vortex Swirl" class="vortex-swirl-graphic" />
+                </div>
+            }
+        </div>
+
+        @{
+            int myCount = State.MyHand.Count;
+            int myOverlap = myCount > 20 ? -55 : myCount > 12 ? -45 : -35;
+            bool humanCpuTarget = _sevenOverlayActive && _sevenCpuTargetIndex == State.MyPlayerIndex;
+        }
+        <div class="player-slot slot-human @(humanCpuTarget ? "cpu-swap-target" : "")"
+             style="--overlap:@myOverlap px; --draw-origin-x:-14vw; --draw-origin-y:-48vh;">
+            <div class="human-profile-wrapper" style="position:relative">
+                <div class="mpg-pp @(State.IsMyTurn ? "mpg-pp-active" : "") @(State.CanCallUno ? "mpg-pp-uno" : "")">
+                    <div class="mpg-pp-ring"></div>
+                    <div class="mpg-pp-circle"
+                         style="background:linear-gradient(135deg,@PlayerColor(MyName),@PlayerColorDark(MyName))">
+                        <span class="mpg-pp-initials">@PlayerInitials(MyName)</span>
+                        <div class="mpg-pp-card-badge">
+                            <div class="mpg-pp-tiny-card"></div>
+                            <span class="mpg-pp-count">@(State.HandCounts.Length > State.MyPlayerIndex ? State.HandCounts[State.MyPlayerIndex] : 0)</span>
+                        </div>
+                        @if (State.CanCallUno) { <div class="mpg-pp-uno-badge">UNO!</div> }
+                    </div>
+                    <div class="mpg-pp-info @(State.IsMyTurn ? "mpg-pp-info-active" : "")">
+                        <div class="mpg-pp-name">@MyName</div>
+                        <div class="mpg-pp-status @(State.IsMyTurn ? "active-thinking" : "")"
+                             style="@(State.IsMyTurn ? "" : "visibility:hidden")">
+                            @(State.IsMyTurn ? "YOUR TURN" : "\u00a0")
+                        </div>
+                    </div>
+                </div>
+                @if (_penaltyBadges.TryGetValue(State.MyPlayerIndex, out int myBadge))
+                {
+                    <div class="penalty-badge" @key="@($"pb-me-{myBadge}")">+@myBadge cards</div>
+                }
+                @if (humanCpuTarget)
+                {
+                    <div class="swap-card-count-badge">@myCount cards</div>
+                }
+                @if (_skippedPlayerIndex == State.MyPlayerIndex)
+                {
+                    <div class="skip-overlay" @key="_skipKey">
+                        <svg viewBox="0 0 100 100">
+                            <circle cx="50" cy="50" r="45" stroke="#cc0000" stroke-width="10" fill="rgba(180,0,0,0.15)"/>
+                            <line x1="18" y1="18" x2="82" y2="82" stroke="#cc0000" stroke-width="10" stroke-linecap="round"/>
+                        </svg>
+                    </div>
+                }
+            </div>
+
+            @{
+                var sortedHand = State.MyHand
+                    .OrderBy(c => c.Color switch { "Red" => 0, "Yellow" => 1, "Green" => 2, "Blue" => 3, _ => 4 })
+                    .ThenBy(c => c.Value)
+                    .ToList();
+                int hCount = sortedHand.Count;
+                int snapshotCount = _vortexHandSnapshot != null ? _vortexHandSnapshot[State.MyPlayerIndex] : hCount;
+                double hMid = (snapshotCount - 1) / 2.0;
+                double hAng = hCount <= 7 ? 5.0 : hCount <= 12 ? 3.5 : hCount <= 18 ? 2.5 : hCount <= 25 ? 1.5 : 1.0;
+                double hTyF = hCount <= 7 ? 1.5 : hCount <= 14 ? 0.8 : hCount <= 20 ? 0.4 : 0.2;
+            }
+            <div class="hand @(IsSwapPartner(State.MyPlayerIndex) ? "swap-anim" : "") @_rotateAnim">
+                @for (int i = 0; i < snapshotCount; i++)
+                {
+                    var card = i < sortedHand.Count ? sortedHand[i] : null;
+                    double off = i - hMid;
+                    bool isDrawnCard = card != null && card.Id == State.DrawnCardId;
+                    bool canJumpIn = false;
+                    bool canPlay = card != null && State.IsMyTurn && card.IsPlayable
+                                   && State.Status != "WaitingForColorSelection"
+                                   && State.Status != "WaitingForWd4Challenge"
+                                   && State.Status != "WaitingForSwapTarget"
+                                   && !_isProcessingAction && !_isAnimating;
+
+                    <div @key="@(card != null ? card.Id : $"ghost-{i}")"
+                         class="hand-card-wrapper @(_isSwallowingCards ? "vortex-ingest" : "") @(_isSpittingCards ? "vortex-eject" : "") @(isDrawnCard ? "drawn-card-highlight" : "") @(canJumpIn ? "jump-in-highlight" : "") @(canPlay ? "mpg-playable" : "")"
+                         style="--card-rot:@((off * hAng).ToString("0.00", IC))deg; --card-ty:@((Math.Pow(off, 2) * hTyF).ToString("0.00", IC))px; z-index:@(isDrawnCard ? 1000 : i); @GetVortexDelayStyle(i)"
+                         @onclick="() => { if (card != null) OnCardClickedAsync(card); }">
+                        @if (card != null && !_isSwallowingCards && !_zeroRotateActive)
+                        {
+                            <UnoCardView Color="@ParseColor(card.Color)" Value="@ParseValue(card.Value)"
+                                         SizeClass="w-16 h-24"
+                                         Style="@((!State.IsMyTurn || !card.IsPlayable) && !isDrawnCard ? "opacity:0.45;" : "")" />
+                            @if (isDrawnCard)
+                            {
+                                <div class="drawn-card-bubble">
+                                    <button class="bubble-btn bubble-play" @onclick="PlayDrawnCard" @onclick:stopPropagation>PLAY</button>
+                                    @if (!State.ForcedPlay)
+                                    {
+                                        <button class="bubble-btn bubble-keep" @onclick="KeepDrawnCard" @onclick:stopPropagation>KEEP</button>
+                                    }
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <UnoCardComponent IsBack="true" />
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        @if (_pendingWildCardId != null || State.Status == "WaitingForColorSelection")
+        {
+            <div class="color-picker-overlay">
+                <div class="color-picker-diamond @(State.IsMyTurn || _pendingWildCardId != null ? "interactive" : "")">
+                    <div class="color-picker-center-logo">UNO</div>
+                    <button class="color-btn color-btn-red    @(_highlightedColor == CardColor.Red    ? "cpu-pick" : "")" @onclick='() => PickColor("Red")'><span class="btn-shine"></span></button>
+                    <button class="color-btn color-btn-yellow @(_highlightedColor == CardColor.Yellow ? "cpu-pick" : "")" @onclick='() => PickColor("Yellow")'><span class="btn-shine"></span></button>
+                    <button class="color-btn color-btn-green  @(_highlightedColor == CardColor.Green  ? "cpu-pick" : "")" @onclick='() => PickColor("Green")'><span class="btn-shine"></span></button>
+                    <button class="color-btn color-btn-blue   @(_highlightedColor == CardColor.Blue   ? "cpu-pick" : "")" @onclick='() => PickColor("Blue")'><span class="btn-shine"></span></button>
+                </div>
+            </div>
+        }
+
+        @if (State.Status == "WaitingForSwapTarget" && State.IsMyTurn)
+        {
+            <div class="seven-swap-prompt">
+                <span class="seven-swap-prompt-icon">🔄</span>
+                <span>Choose who to swap hands with</span>
+            </div>
+        }
+        @if (_sevenOverlayActive && _sevenActorIndex >= 0 && _sevenCpuTargetIndex >= 0)
+        {
+            <div class="seven-swap-prompt cpu-swap-announce">
+                <span class="seven-swap-prompt-icon">🔄</span>
+                <span>@(State.PlayerNames.Length > _sevenActorIndex ? State.PlayerNames[_sevenActorIndex] : "?") swaps with @(State.PlayerNames.Length > _sevenCpuTargetIndex ? State.PlayerNames[_sevenCpuTargetIndex] : "?")!</span>
+            </div>
+        }
+
+        @if (State.Status == "WaitingForWd4Challenge" && State.Wd4ChallengerIndex == State.MyPlayerIndex)
+        {
+            <div class="wd4-challenge-container">
+                @if (State.TopCard != null)
+                {
+                    <div class="wd4-card-main">
+                        <UnoCardView Color="@ParseColor(State.TopCard.Color)" Value="@ParseValue(State.TopCard.Value)" SizeClass="w-32 h-48" />
+                    </div>
+                }
+                <div class="wd4-btn-row">
+                    <button class="wd4-btn wd4-challenge-btn" @onclick='() => _ = EmitMove(new MoveDto { PlayerIndex = State.MyPlayerIndex, Type = "challenge" })'>CHALLENGE</button>
+                    <button class="wd4-btn wd4-accept-btn"    @onclick='() => _ = EmitMove(new MoveDto { PlayerIndex = State.MyPlayerIndex, Type = "accept" })'>DRAW +4</button>
+                </div>
+            </div>
+        }
+
+        @if (State.Status == "RevealingWd4Bluff" && State.Wd4BluffCards.Count > 0)
+        {
+            <div class="bluff-reveal-above-hand">
+                <div class="result-section">
+                    <span class="result-mark success">✓</span>
+                    <span class="result-message">BLUFF CAUGHT!</span>
+                </div>
+                <div class="bluff-cards-floating-above-hand">
+                    @for (int bi = 0; bi < State.Wd4BluffCards.Count; bi++)
+                    {
+                        var bc = State.Wd4BluffCards[bi];
+                        int delay = bi;
+                        <div class="floating-card-small" style="--delay:@(delay * 0.15)s;">
+                            <UnoCardView Color="@ParseColor(bc.Color)" Value="@ParseValue(bc.Value)" SizeClass="w-20 h-30" />
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
+        <div class="hud-action-container">
+            @if (State.CanCallUno)
+            {
+                <button class="ubisoft-uno-btn" @onclick="DeclareUno">UNO!</button>
+            }
+            @if (State.CanCatchUno)
+            {
+                <button class="ubisoft-catch-btn" @onclick="CatchUno">!</button>
+            }
+        </div>
+
+        @if (!string.IsNullOrEmpty(_bannerText))
+        {
+            <div class="ubisoft-announcement-banner">
+                <div class="banner-glitch-line"></div>
+                <span class="banner-text">@_bannerText</span>
+            </div>
+        }
+
+        <button class="game-log-toggle" @onclick='() => _showGameLog = !_showGameLog' title="Game Log">📋</button>
+        @if (_showGameLog)
+        {
+            <div class="game-log-panel">
+                <div class="game-log-header">
+                    <span>GAME LOG — Round @State.RoundNumber</span>
+                    <button class="log-close-btn" @onclick='() => _showGameLog = false'>✕</button>
+                </div>
+                <div class="game-log-entries">
+                    @foreach (var entry in State.GameLog.AsEnumerable().Reverse().Take(60))
+                    {
+                        <div class="log-entry">@entry</div>
+                    }
+                </div>
+            </div>
+        }
+
+        @if (State.IsGameOver)
+        {
+            <div class="modal-overlay glass-modal">
+                <div class="glass-panel game-over-panel">
+                    <div class="round-label">ROUND @State.RoundNumber COMPLETE</div>
+                    <h1 class="winner-title">
+                        🏆 @(State.WinnerIndex.HasValue && State.PlayerNames.Length > State.WinnerIndex.Value
+                            ? State.PlayerNames[State.WinnerIndex.Value] + " WINS!"
+                            : "GAME OVER!")
+                    </h1>
+                    @if (State.WinnerIndex.HasValue && State.RoundScores.Length > State.WinnerIndex.Value)
+                    {
+                        <p class="winner-score">+@State.RoundScores[State.WinnerIndex.Value] pts this round</p>
+                    }
+
+                    <div class="result-player-list">
+                        @for (int pi = 0; pi < State.PlayerNames.Length; pi++)
+                        {
+                            int pidx = pi;
+                            bool isWin = State.WinnerIndex == pidx;
+                            int cards = State.HandCounts.Length > pidx ? State.HandCounts[pidx] : 0;
+                            int total = State.TotalScores.Length > pidx ? State.TotalScores[pidx] : 0;
+                            int round = State.RoundScores.Length > pidx ? State.RoundScores[pidx] : 0;
+                            <div class="result-player-row @(isWin ? "result-winner" : "result-loser")">
+                                <span class="result-badge">@(isWin ? "WIN" : "LOSE")</span>
+                                <span class="result-name">@State.PlayerNames[pidx]</span>
+                                <span class="result-score">+@round this round</span>
+                                <span class="result-total">@total total</span>
+                                @if (!isWin && cards > 0)
+                                {
+                                    <span class="result-cards">🃏 @cards left</span>
+                                }
+                            </div>
+                        }
+                    </div>
+
+                    <div class="game-over-btns">
+                        <button class="next-round-btn" @onclick="() => OnNextRound.InvokeAsync()">NEXT ROUND</button>
+                        <button class="new-game-btn"   @onclick="() => OnStartGame.InvokeAsync()">NEW GAME</button>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private static readonly CultureInfo IC = CultureInfo.InvariantCulture;
+    private static readonly string[] _colors     = { "#ef4444","#3b82f6","#22c55e","#eab308","#a855f7","#ec4899" };
+    private static readonly string[] _colorsDark = { "#991b1b","#1e40af","#166534","#854d0e","#6b21a8","#9d174d" };
+
+    [Parameter] public GameStateDto?          State              { get; set; }
+    [Parameter] public EventCallback<MoveDto> OnMove             { get; set; }
+    [Parameter] public EventCallback          OnNextRound        { get; set; }
+    [Parameter] public EventCallback          OnStartGame        { get; set; }
+    [Parameter] public Func<string, Task>?    OnAnimationMidpoint { get; set; }
+
+    private string MyName => State != null && State.PlayerNames.Length > State.MyPlayerIndex
+        ? State.PlayerNames[State.MyPlayerIndex] : "";
+
+    private List<(string name, int idx)> Opponents => State == null
+        ? new()
+        : Enumerable.Range(0, State.PlayerNames.Length)
+            .Where(i => i != State.MyPlayerIndex)
+            .Select(i => (State.PlayerNames[i], i))
+            .ToList();
+
+    // ── Animation state ─────────────────────────────────────────────────────
+    private string  _animClass            = "";
+    private int     _skippedPlayerIndex   = -1;
+    private int     _skipKey              = 0;
+    private int     _swapP1               = -1;
+    private int     _swapP2               = -1;
+    private string  _rotateAnim           = "";
+    private bool    _showVortexAnimation  = false;
+    private bool    _zeroRotateActive     = false;
+    private bool    _isAnimating          = false;
+    private bool    _isSwallowingCards    = false;
+    private bool    _isSpittingCards      = false;
+    private int[]?  _vortexHandSnapshot   = null;
+    private CardColor? _highlightedColor  = null;
+    private bool    _sevenOverlayActive   = false;
+    private int     _sevenActorIndex      = -1;
+    private int     _sevenCpuTargetIndex  = -1;
+    private int     _drawFlyTarget        = -1;
+    private string  _drawFlyStyle         = "";
+    private Dictionary<int, int> _penaltyBadges = new();
+
+    // ── UI state ─────────────────────────────────────────────────────────────
+    private bool    _showGameLog         = false;
+    private bool    _isProcessingAction  = false;
+    private string? _pendingWildCardId   = null;
+    private string  _bannerText          = "";
+    private System.Threading.CancellationTokenSource? _bannerCts;
+    private string  _lastSeenBanner      = "";
+    private string  _lastAnimTrigger     = "";
+
+    // ── Parameter change tracking ─────────────────────────────────────────
+    protected override async Task OnParametersSetAsync()
+    {
+        if (State == null) return;
+
+        // Show banner when NotificationBanner changes
+        if (State.NotificationBanner != _lastSeenBanner)
+        {
+            _lastSeenBanner = State.NotificationBanner;
+            if (!string.IsNullOrEmpty(_lastSeenBanner))
+                ShowBanner(_lastSeenBanner);
+        }
+
+        // Trigger animations from DTO (MP path)
+        if (!string.IsNullOrEmpty(State.AnimationTrigger) && State.AnimationTrigger != _lastAnimTrigger)
+        {
+            _lastAnimTrigger = State.AnimationTrigger;
+            _ = TriggerAnimation(_lastAnimTrigger);
+        }
+    }
+
+    // ── Public API: called by SP parent via @ref ──────────────────────────
+    public async Task TriggerAnimation(string animType)
+    {
+        if (string.IsNullOrEmpty(animType)) return;
+
+        if (animType.StartsWith("skip-") && int.TryParse(animType.Split('-')[1], out int skipIdx))
+        {
+            _skipKey++;
+            _skippedPlayerIndex = skipIdx;
+            await InvokeAsync(StateHasChanged);
+            await Task.Delay(1200);
+            _skippedPlayerIndex = -1;
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        if (animType.StartsWith("swap-"))
+        {
+            var parts = animType.Split('-');
+            if (parts.Length == 3 && int.TryParse(parts[1], out int p1) && int.TryParse(parts[2], out int p2))
+            {
+                _swapP1 = p1; _swapP2 = p2; _isAnimating = true;
+                await InvokeAsync(StateHasChanged);
+                await Task.Delay(1050);
+                _swapP1 = -1; _swapP2 = -1; _isAnimating = false;
+                await InvokeAsync(StateHasChanged);
+            }
+            return;
+        }
+
+        if (animType == "rotate-cw" || animType == "rotate-ccw")
+        {
+            _isAnimating = true;
+            _vortexHandSnapshot = State?.HandCounts.ToArray();
+            _zeroRotateActive = true;
+            _animClass = "zero-fold";
+            await InvokeAsync(StateHasChanged);
+            await Task.Delay(600);
+
+            _animClass = "zero-fold " + animType;
+            await InvokeAsync(StateHasChanged);
+            await Task.Delay(1100);
+
+            _vortexHandSnapshot = null;
+            _zeroRotateActive = false;
+            _animClass = "zero-reveal";
+            await InvokeAsync(StateHasChanged);
+            _ = Task.Delay(600).ContinueWith(_ => InvokeAsync(() => { _animClass = ""; _isAnimating = false; StateHasChanged(); }));
+            return;
+        }
+
+        if (animType.StartsWith("penalty-"))
+        {
+            var parts = animType.Split('-');
+            if (parts.Length == 3 && int.TryParse(parts[1], out int bTarget) && int.TryParse(parts[2], out int bCount))
+            {
+                _penaltyBadges[bTarget] = bCount;
+                await InvokeAsync(StateHasChanged);
+                _ = Task.Delay(1800).ContinueWith(_ => InvokeAsync(() => { _penaltyBadges.Remove(bTarget); StateHasChanged(); }));
+            }
+            return;
+        }
+
+        if (animType.StartsWith("draw-") && int.TryParse(animType.Substring(5), out int drawTarget))
+        {
+            var (tx, ty) = GetPlayerArrowPosition(drawTarget);
+            _drawFlyStyle = $"--fly-to-x:{tx.ToString("0.0", IC)}%; --fly-to-y:{ty.ToString("0.0", IC)}%;";
+            _drawFlyTarget = drawTarget;
+            await InvokeAsync(StateHasChanged);
+            await Task.Delay(420);
+            _drawFlyTarget = -1;
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        if (animType.StartsWith("seven-preview-"))
+        {
+            var parts = animType.Split('-');
+            if (parts.Length == 4 && int.TryParse(parts[2], out int actor) && int.TryParse(parts[3], out int target))
+            {
+                _sevenActorIndex = actor; _sevenCpuTargetIndex = target; _sevenOverlayActive = true;
+                await InvokeAsync(StateHasChanged);
+                await Task.Delay(2500);
+                _sevenOverlayActive = false;
+                await InvokeAsync(StateHasChanged);
+            }
+            return;
+        }
+
+        if (animType == "vortex-shuffle")
+        {
+            _isAnimating = true;
+            _showVortexAnimation = true;
+            await InvokeAsync(StateHasChanged);
+            await Task.Delay(500);
+
+            _vortexHandSnapshot = State?.HandCounts.Select((c, idx) =>
+                idx == (State?.MyPlayerIndex ?? 0) ? Math.Min(c, 10) : Math.Min(c, 5)).ToArray();
+            _isSwallowingCards = true;
+            await InvokeAsync(StateHasChanged);
+            await Task.Delay(1350);
+
+            _isSwallowingCards = false;
+            _vortexHandSnapshot = null;
+
+            if (OnAnimationMidpoint != null)
+                await OnAnimationMidpoint("resolve-vortex");
+
+            await Task.Delay(420);
+
+            _isSpittingCards = true;
+            await InvokeAsync(StateHasChanged);
+            await Task.Delay(1300);
+
+            _isSpittingCards = false;
+            _showVortexAnimation = false;
+            _isAnimating = false;
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        if (animType.StartsWith("cpu-color-pick-") && Enum.TryParse<CardColor>(animType.Substring(15), out var pickedColor))
+        {
+            _highlightedColor = pickedColor;
+            await InvokeAsync(StateHasChanged);
+            await Task.Delay(800);
+            _highlightedColor = null;
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        _animClass = animType;
+        await InvokeAsync(StateHasChanged);
+        await Task.Delay(1000);
+        _animClass = "";
+        await InvokeAsync(StateHasChanged);
+    }
+
+    // ── User actions ─────────────────────────────────────────────────────
+    private void OnCardClickedAsync(CardDto card)
+    {
+        if (State == null || _isProcessingAction || _isAnimating) return;
+        if (!State.IsMyTurn || !card.IsPlayable) return;
+        if (card.Color == "Wild")
+        {
+            _pendingWildCardId = card.Id;
+            StateHasChanged();
+            return;
+        }
+        _ = EmitMove(new MoveDto { PlayerIndex = State.MyPlayerIndex, Type = "play", CardId = card.Id });
+    }
+
+    private void PickColor(string color)
+    {
+        if (_pendingWildCardId != null)
+        {
+            var id = _pendingWildCardId;
+            _pendingWildCardId = null;
+            _ = EmitMove(new MoveDto { PlayerIndex = State!.MyPlayerIndex, Type = "play", CardId = id, Color = color });
+        }
+        else if (State?.Status == "WaitingForColorSelection")
+        {
+            _ = EmitMove(new MoveDto { PlayerIndex = State.MyPlayerIndex, Type = "color", Color = color });
+        }
+    }
+
+    private async Task HandleDraw()
+    {
+        if (State == null || !State.IsMyTurn || _isProcessingAction || _isAnimating) return;
+        if (State.Status is "WaitingForColorSelection" or "WaitingForWd4Challenge" or "WaitingForSwapTarget") return;
+        await EmitMove(new MoveDto { PlayerIndex = State.MyPlayerIndex, Type = "draw" });
+    }
+
+    private async Task PlayDrawnCard()
+    {
+        if (State?.DrawnCardId == null || _isProcessingAction) return;
+        await EmitMove(new MoveDto { PlayerIndex = State.MyPlayerIndex, Type = "play-drawn", CardId = State.DrawnCardId });
+    }
+
+    private async Task KeepDrawnCard()
+    {
+        if (State?.DrawnCardId == null || _isProcessingAction) return;
+        await EmitMove(new MoveDto { PlayerIndex = State.MyPlayerIndex, Type = "keep-drawn" });
+    }
+
+    private async Task DeclareUno()
+    {
+        if (State == null) return;
+        await EmitMove(new MoveDto { PlayerIndex = State.MyPlayerIndex, Type = "uno" });
+    }
+
+    private async Task CatchUno()
+    {
+        if (State == null) return;
+        await EmitMove(new MoveDto { PlayerIndex = State.MyPlayerIndex, Type = "catch" });
+    }
+
+    private Task SendSwap(int targetIdx)
+        => EmitMove(new MoveDto { PlayerIndex = State!.MyPlayerIndex, Type = "swap", TargetIndex = targetIdx });
+
+    private async Task EmitMove(MoveDto move)
+    {
+        if (_isProcessingAction) return;
+        _isProcessingAction = true;
+        try { await OnMove.InvokeAsync(move); }
+        finally { _isProcessingAction = false; }
+    }
+
+    // ── Banner ────────────────────────────────────────────────────────────
+    private void ShowBanner(string message)
+    {
+        _bannerCts?.Cancel();
+        _bannerCts = new System.Threading.CancellationTokenSource();
+        var token = _bannerCts.Token;
+        _bannerText = message;
+        InvokeAsync(StateHasChanged);
+        _ = Task.Delay(3000, token).ContinueWith(t => {
+            if (!t.IsCanceled)
+            {
+                _bannerText = "";
+                InvokeAsync(StateHasChanged);
+            }
+        });
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────
+    private bool IsSwapPartner(int playerIndex) => _swapP1 == playerIndex || _swapP2 == playerIndex;
+
+    private string GetVortexDelayStyle(int cardIndex)
+    {
+        if (!_isSwallowingCards && !_isSpittingCards) return "";
+        return $" --vortex-delay:{(cardIndex * 0.07).ToString("0.00", IC)}s;";
+    }
+
+    private static (double x, double y) GetPlayerArrowPosition(int playerIndex)
+    {
+        if (playerIndex == 0) return (50.0, 88.0);
+        return (50.0, 15.0);
+    }
+
+    private static string GetOpponentStyle(int j, int total)
+    {
+        double x = 50, y = 15, s = 0.7;
+        if      (total == 1) { x = 50; y = 15; s = 0.7; }
+        else if (total == 2) { if (j == 0) { x = 10; y = 45; s = 0.85; } else { x = 90; y = 45; s = 0.85; } }
+        else if (total == 3) { if (j == 0) { x = 10; y = 45; s = 0.85; } else if (j == 1) { x = 50; y = 15; s = 0.7; } else { x = 90; y = 45; s = 0.85; } }
+        else if (total == 4) { if (j == 0) { x = 10; y = 45; s = 0.85; } else if (j == 1) { x = 35; y = 15; s = 0.7; } else if (j == 2) { x = 65; y = 15; s = 0.7; } else { x = 90; y = 45; s = 0.85; } }
+        else                 { if (j == 0) { x = 10; y = 45; s = 0.85; } else if (j == 1) { x = 25; y = 15; s = 0.7; } else if (j == 2) { x = 50; y = 15; s = 0.7; } else if (j == 3) { x = 75; y = 15; s = 0.7; } else { x = 90; y = 45; s = 0.85; } }
+        double dx = 36.0 - x, dy = 40.0 - y;
+        return $"position:absolute;left:{x.ToString("0.0",IC)}%;top:{y.ToString("0.0",IC)}%;transform:translate(-50%,-50%) scale({s.ToString("0.0",IC)});--draw-origin-x:{dx.ToString("0.0",IC)}vw;--draw-origin-y:{dy.ToString("0.0",IC)}vh;";
+    }
+
+    private static string GetOpponentPosClass(int j, int total)
+    {
+        if (total == 1) return "slot-cpu-top";
+        if (total == 2) return j == 0 ? "slot-cpu-left" : "slot-cpu-right";
+        if (total == 3) { if (j == 0) return "slot-cpu-left"; if (j == 1) return "slot-cpu-top"; return "slot-cpu-right"; }
+        if (total == 4) { if (j == 0) return "slot-cpu-left"; if (j == 1 || j == 2) return "slot-cpu-top"; return "slot-cpu-right"; }
+        if (j == 0) return "slot-cpu-left"; if (j >= 1 && j <= 3) return "slot-cpu-top"; return "slot-cpu-right";
+    }
+
+    private string GetDtoMessyStyle(CardDto card, bool isTop)
+    {
+        int hash = card.Id.GetHashCode();
+        double rotation = card.RotationAngle != 0 ? card.RotationAngle : ((Math.Abs(hash) % 200) / 100.0 - 1.0) * 12.0;
+        double offsetX  = (Math.Abs(hash % 17)) / 16.0 * 20.0 - 10.0;
+        double offsetY  = (Math.Abs((hash >> 4) % 17)) / 16.0 * 20.0 - 10.0;
+        string style = $"position:absolute;left:calc(50% + {offsetX.ToString("0.0",IC)}px);top:calc(50% + {offsetY.ToString("0.0",IC)}px);transform:translate(-50%,-50%) rotate({rotation.ToString("0.0",IC)}deg);";
+        return style + (isTop ? " z-index:10;" : " z-index:2; opacity:0.85;");
+    }
+
+    private string GetDiscardAnimStyle(int lastPlayerIndex, int opponentCount)
+    {
+        if (lastPlayerIndex < 0) return "";
+        if (lastPlayerIndex == State!.MyPlayerIndex)
+            return "animation: play-from-human 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);";
+
+        int j = lastPlayerIndex > State.MyPlayerIndex ? lastPlayerIndex - 1 : lastPlayerIndex;
+        int total = opponentCount;
+        double x = 50, y = 15;
+        if      (total == 1) { x = 50; y = 15; }
+        else if (total == 2) { x = (j == 0) ? 10 : 90; y = 45; }
+        else if (total == 3) { if (j == 0) { x = 10; y = 45; } else if (j == 1) { x = 50; y = 15; } else { x = 90; y = 45; } }
+        else if (total == 4) { if (j == 0) { x = 10; y = 45; } else if (j == 1) { x = 35; y = 15; } else if (j == 2) { x = 65; y = 15; } else { x = 90; y = 45; } }
+        else                 { if (j == 0) { x = 10; y = 45; } else if (j == 1) { x = 25; y = 15; } else if (j == 2) { x = 50; y = 15; } else if (j == 3) { x = 75; y = 15; } else { x = 90; y = 45; } }
+        double dx = x - 50.0, dy = y - 50.0;
+        return $"--play-origin-x:{dx.ToString("0.0",IC)}vw; --play-origin-y:{dy.ToString("0.0",IC)}vh; animation: play-from-opponent 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);";
+    }
+
+    private static string PlayerColor(string name)     => _colors    [Math.Abs(name.GetHashCode()) % _colors.Length];
+    private static string PlayerColorDark(string name) => _colorsDark[Math.Abs(name.GetHashCode()) % _colorsDark.Length];
+    private static string PlayerInitials(string name)
+    {
+        if (string.IsNullOrEmpty(name)) return "?";
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 1) return parts[0][..Math.Min(2, parts[0].Length)].ToUpper();
+        return (parts[0][0].ToString() + parts[1][0].ToString()).ToUpper();
+    }
+
+    private static CardColor ParseColor(string? s) =>
+        Enum.TryParse<CardColor>(s, true, out var c) ? c : CardColor.Wild;
+    private static CardValue ParseValue(string? s) =>
+        Enum.TryParse<CardValue>(s, true, out var v) ? v : CardValue.Wild;
+
+    public void Dispose() => _bannerCts?.Cancel();
+}

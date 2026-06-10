@@ -1159,7 +1159,7 @@
     }
     else
     {
-        <GameBoard Game="_game" OnStartGame="ResetGame" OnNextRound="HandleNextRound" />
+        <GameView @ref="_gameViewRef" State="@_spState" OnMove="HandleSpMove" OnNextRound="HandleNextRound" OnStartGame="ResetGame" OnAnimationMidpoint="HandleAnimMidpoint" />
     }
 </div>
 
@@ -2359,6 +2359,12 @@
     private Dictionary<int, TaskCompletionSource<MoveDto?>> _pendingRemoteMoves = new();
     private static readonly JsonSerializerOptions _mpJsonOpts = new() { PropertyNameCaseInsensitive = true };
 
+    // Unified GameView state (SP + MP host)
+    private GameStateDto? _spState;
+    private GameView? _gameViewRef;
+    private string? _spDrawnCardId;
+    private string _pendingAnimTrigger = "";
+
     private bool _showRulesModal = false;
     private bool _showRuleBookModal = false;
 
@@ -3062,6 +3068,13 @@
 
         _game.GetRemoteHumanMove = GetRemoteMoveAsync;
         _leaderboardUpdated = false;
+        _game.OnBoardAnimation += async (anim) =>
+        {
+            _pendingAnimTrigger = anim;
+            if (_gameViewRef != null) await _gameViewRef.TriggerAnimation(anim);
+            await BroadcastStateAsync();
+            _pendingAnimTrigger = "";
+        };
         _game.OnStateChanged += async () =>
         {
             ManageAfkTimer();
@@ -3070,6 +3083,7 @@
                 UpdateLeaderboard();
                 _leaderboardUpdated = true;
             }
+            _spState = BuildStateForPlayer(0);
             await BroadcastStateAsync();
             await InvokeAsync(StateHasChanged);
         };
@@ -3080,6 +3094,7 @@
         _isGameStarted = true;
 
         await _game.DealStartingCardsAsync();
+        _spState = BuildStateForPlayer(0);
         await BroadcastStateAsync();
         await _game.StartTurnAsync();
     }
@@ -3140,35 +3155,37 @@
 
         return new GameStateDto
         {
-            CurrentPlayerIndex = game.CurrentPlayerIndex,
-            TopCard = topCard != null ? new CardDto
-            {
-                Id = topCard.Id.ToString(),
-                Color = topCard.Color.ToString(),
-                Value = topCard.Value.ToString()
-            } : null,
-            ActiveColor = game.LastValidColor.ToString(),
-            HandCounts = game.Players.Select(p => p.Hand.Count).ToArray(),
-            PlayerNames = game.Players.Select(p => p.Name).ToArray(),
-            MyHand = player.Hand.Select(c => new CardDto
-            {
-                Id = c.Id.ToString(),
-                Color = c.Color.ToString(),
-                Value = c.Value.ToString(),
-                IsPlayable = game.CurrentPlayerIndex == playerIndex && game.CanPlayCard(c)
-            }).ToList(),
-            IsMyTurn = game.CurrentPlayerIndex == playerIndex,
-            Status = game.Status.ToString(),
-            Direction = game.GameDirection,
-            IsGameOver = game.Status == GameStatus.GameOver,
-            WinnerIndex = game.Winner != null ? game.Players.IndexOf(game.Winner) : null,
-            PendingDraw = game.PendingDrawCount,
-            NotificationBanner = game.ActiveNotificationBanner,
-            Wd4ChallengerIndex = game.Wd4ChallengerIndex,
-            MatchTimestamp = game.MatchTimestamp?.ToString("o") ?? "",
-            TotalScores = game.Players.Select(p => p.TotalScore).ToArray(),
-            RoundScores = game.Players.Select(p => p.RoundScore).ToArray(),
-            PlayerStatuses = game.Players.Select(p => p.CurrentStatus).ToArray()
+            CurrentPlayerIndex   = game.CurrentPlayerIndex,
+            TopCard              = topCard != null ? new CardDto { Id = topCard.Id.ToString(), Color = topCard.Color.ToString(), Value = topCard.Value.ToString(), RotationAngle = topCard.RotationAngle } : null,
+            ActiveColor          = game.LastValidColor.ToString(),
+            HandCounts           = game.Players.Select(p => p.Hand.Count).ToArray(),
+            PlayerNames          = game.Players.Select(p => p.Name).ToArray(),
+            MyHand               = player.Hand.Select(c => new CardDto { Id = c.Id.ToString(), Color = c.Color.ToString(), Value = c.Value.ToString(), IsPlayable = game.CurrentPlayerIndex == playerIndex && game.CanPlayCard(c), RotationAngle = c.RotationAngle }).ToList(),
+            IsMyTurn             = game.CurrentPlayerIndex == playerIndex || (game.Status == GameStatus.WaitingForWd4Challenge && game.Wd4ChallengerIndex == playerIndex),
+            Status               = game.Status.ToString(),
+            Direction            = game.GameDirection,
+            IsGameOver           = game.Status == GameStatus.GameOver,
+            WinnerIndex          = game.Winner != null ? game.Players.IndexOf(game.Winner) : null,
+            PendingDraw          = game.PendingDrawCount,
+            NotificationBanner   = game.ActiveNotificationBanner,
+            Wd4ChallengerIndex   = game.Wd4ChallengerIndex,
+            MatchTimestamp       = game.MatchTimestamp?.ToString("o") ?? "",
+            TotalScores          = game.Players.Select(p => p.TotalScore).ToArray(),
+            RoundScores          = game.Players.Select(p => p.RoundScore).ToArray(),
+            PlayerStatuses       = game.Players.Select(p => p.CurrentStatus).ToArray(),
+            DiscardHistory       = game.DiscardHistory.Select(c => new CardDto { Id = c.Id.ToString(), Color = c.Color.ToString(), Value = c.Value.ToString(), RotationAngle = c.RotationAngle }).ToList(),
+            GameLog              = game.GameLog.TakeLast(60).ToList(),
+            AnimationTrigger     = _pendingAnimTrigger,
+            DrawnCardId          = playerIndex == 0 ? _spDrawnCardId : null,
+            RoundNumber          = game.RoundNumber,
+            LastPlayerIndex      = game.LastPlayerIndex,
+            CanCallUno           = (game.CurrentPlayerIndex == playerIndex && game.Players[playerIndex].Hand.Count == 2 && !game.IsUnoCalled && game.Status == GameStatus.Playing) || (game.Status == GameStatus.WaitingForUnoCall && game.PlayerAtRisk == game.Players[playerIndex]),
+            CanCatchUno          = game.Status == GameStatus.WaitingForUnoCall && game.PlayerAtRisk != null && game.PlayerAtRisk != game.Players[playerIndex],
+            JumpInTimerSeconds   = game.Settings.JumpInTimerSeconds,
+            ForcedPlay           = game.Settings.ForcedPlay,
+            Wd4BluffCards        = game.Wd4BluffRevealCards?.Select(c => new CardDto { Id = c.Id.ToString(), Color = c.Color.ToString(), Value = c.Value.ToString() }).ToList() ?? new(),
+            Wd4BluffPlayerIndex  = game.Wd4BluffPlayer != null ? game.Players.IndexOf(game.Wd4BluffPlayer) : -1,
+            MyPlayerIndex        = playerIndex,
         };
     }
 
@@ -3177,30 +3194,155 @@
         var game = _game!;
         return new GameStateDto
         {
-            CurrentPlayerIndex = game.CurrentPlayerIndex,
-            TopCard = game.TopCard != null ? new CardDto
-            {
-                Id = game.TopCard.Id.ToString(),
-                Color = game.TopCard.Color.ToString(),
-                Value = game.TopCard.Value.ToString()
-            } : null,
-            ActiveColor = game.LastValidColor.ToString(),
-            HandCounts = game.Players.Select(p => p.Hand.Count).ToArray(),
-            PlayerNames = game.Players.Select(p => p.Name).ToArray(),
-            MyHand = new List<CardDto>(),
-            IsMyTurn = false,
-            Status = game.Status.ToString(),
-            Direction = game.GameDirection,
-            IsGameOver = game.Status == GameStatus.GameOver,
-            WinnerIndex = game.Winner != null ? game.Players.IndexOf(game.Winner) : null,
-            PendingDraw = game.PendingDrawCount,
-            NotificationBanner = game.ActiveNotificationBanner,
-            Wd4ChallengerIndex = game.Wd4ChallengerIndex,
-            MatchTimestamp = game.MatchTimestamp?.ToString("o") ?? "",
-            TotalScores = game.Players.Select(p => p.TotalScore).ToArray(),
-            RoundScores = game.Players.Select(p => p.RoundScore).ToArray(),
-            PlayerStatuses = game.Players.Select(p => p.CurrentStatus).ToArray()
+            CurrentPlayerIndex  = game.CurrentPlayerIndex,
+            TopCard             = game.TopCard != null ? new CardDto { Id = game.TopCard.Id.ToString(), Color = game.TopCard.Color.ToString(), Value = game.TopCard.Value.ToString(), RotationAngle = game.TopCard.RotationAngle } : null,
+            ActiveColor         = game.LastValidColor.ToString(),
+            HandCounts          = game.Players.Select(p => p.Hand.Count).ToArray(),
+            PlayerNames         = game.Players.Select(p => p.Name).ToArray(),
+            MyHand              = new List<CardDto>(),
+            IsMyTurn            = false,
+            Status              = game.Status.ToString(),
+            Direction           = game.GameDirection,
+            IsGameOver          = game.Status == GameStatus.GameOver,
+            WinnerIndex         = game.Winner != null ? game.Players.IndexOf(game.Winner) : null,
+            PendingDraw         = game.PendingDrawCount,
+            NotificationBanner  = game.ActiveNotificationBanner,
+            Wd4ChallengerIndex  = game.Wd4ChallengerIndex,
+            MatchTimestamp      = game.MatchTimestamp?.ToString("o") ?? "",
+            TotalScores         = game.Players.Select(p => p.TotalScore).ToArray(),
+            RoundScores         = game.Players.Select(p => p.RoundScore).ToArray(),
+            PlayerStatuses      = game.Players.Select(p => p.CurrentStatus).ToArray(),
+            DiscardHistory      = game.DiscardHistory.Select(c => new CardDto { Id = c.Id.ToString(), Color = c.Color.ToString(), Value = c.Value.ToString(), RotationAngle = c.RotationAngle }).ToList(),
+            GameLog             = game.GameLog.TakeLast(60).ToList(),
+            AnimationTrigger    = _pendingAnimTrigger,
+            RoundNumber         = game.RoundNumber,
+            LastPlayerIndex     = game.LastPlayerIndex,
+            JumpInTimerSeconds  = game.Settings.JumpInTimerSeconds,
+            MyPlayerIndex       = -1,
         };
+    }
+
+    private GameStateDto BuildSpState()
+    {
+        if (_game == null) return new GameStateDto();
+        var dto = BuildStateForPlayer(0);
+        dto.DrawnCardId = _spDrawnCardId;
+        return dto;
+    }
+
+    private async Task HandleSpMove(MoveDto move)
+    {
+        if (_game == null) return;
+        var player = _game.Players[0];
+
+        switch (move.Type)
+        {
+            case "play":
+                var playCard = player.Hand.FirstOrDefault(c => c.Id.ToString() == move.CardId);
+                if (playCard != null)
+                {
+                    CardColor? declaredColor = null;
+                    if (!string.IsNullOrEmpty(move.Color) && Enum.TryParse<CardColor>(move.Color, out var wc))
+                        declaredColor = wc;
+                    await _game.PlayCardAsync(player, playCard, declaredColor);
+                }
+                break;
+
+            case "play-drawn":
+                if (_spDrawnCardId != null)
+                {
+                    var drawnCard = player.Hand.FirstOrDefault(c => c.Id.ToString() == _spDrawnCardId);
+                    _spDrawnCardId = null;
+                    if (drawnCard != null) await _game.PlayCardAsync(player, drawnCard);
+                }
+                break;
+
+            case "keep-drawn":
+                _spDrawnCardId = null;
+                _game.LogAction($"{player.Name} drew and kept the card.");
+                await _game.PassTurnAfterDraw();
+                break;
+
+            case "draw":
+                if (_game.PendingDrawCount > 0)
+                {
+                    await _game.HandlePendingDrawAsync();
+                }
+                else
+                {
+                    var drawn = await _game.DrawCardAsync(player);
+                    if (drawn == null)
+                    {
+                        _game.ActiveNotificationBanner = "YOU MUST PLAY A CARD!";
+                        _spState = BuildSpState();
+                        await InvokeAsync(StateHasChanged);
+                    }
+                    else if (!_game.CanPlayCard(drawn))
+                    {
+                        _game.LogAction($"{player.Name} drew and passed.");
+                        await Task.Delay(600);
+                        await _game.PassTurnAfterDraw();
+                    }
+                    else
+                    {
+                        _game.LogAction($"{player.Name} drew a playable card.");
+                        _spDrawnCardId = drawn.Id.ToString();
+                        _spState = BuildSpState();
+                        await InvokeAsync(StateHasChanged);
+                    }
+                }
+                break;
+
+            case "color":
+                if (Enum.TryParse<CardColor>(move.Color, out var c))
+                    await _game.SetWildColorAsync(c);
+                break;
+
+            case "challenge":
+                await _game.ResolveChallengeAsync(true);
+                break;
+
+            case "accept":
+                await _game.ResolveChallengeAsync(false);
+                break;
+
+            case "uno":
+                if (_game.Status == GameStatus.WaitingForUnoCall)
+                    await _game.AttemptUnoCallAsync(player);
+                else
+                {
+                    _game.IsUnoCalled = true;
+                    _game.LogAction("PLAYER proactively declared UNO!");
+                    _game.ActiveNotificationBanner = "YOU DECLARED UNO!";
+                    _spState = BuildSpState();
+                    await InvokeAsync(StateHasChanged);
+                }
+                break;
+
+            case "catch":
+                await _game.AttemptUnoCallAsync(player);
+                break;
+
+            case "swap":
+                if (move.TargetIndex.HasValue && _game.PendingCard != null)
+                {
+                    var swapTarget = _game.Players[move.TargetIndex.Value];
+                    await _game.PlayCardAsync(player, _game.PendingCard, null, swapTarget);
+                }
+                break;
+        }
+    }
+
+    private async Task HandleAnimMidpoint(string signal)
+    {
+        if (_game == null) return;
+        if (signal == "resolve-vortex")
+        {
+            var activePlayer = _game.Players[_game.LastPlayerIndex];
+            _game.ResolveVortex(activePlayer);
+            _spState = BuildSpState();
+            await InvokeAsync(StateHasChanged);
+        }
     }
 
     private void OpenRulesModal()
@@ -3332,6 +3474,8 @@
 
     private async Task StartMatch()
     {
+        _spDrawnCardId = null;
+        _pendingAnimTrigger = "";
         var players = new List<Player>
         {
             new Player { Id = Guid.NewGuid(), Name = string.IsNullOrWhiteSpace(_playerName) ? "PLAYER" : _playerName.ToUpper(), IsHuman = true }
@@ -3345,6 +3489,12 @@
         // Pass the settings of the active selected preset directly to the game session!
         _game = new UnoGame(players, _selectedPreset.Settings);
         _leaderboardUpdated = false;
+        _game.OnBoardAnimation += async (anim) =>
+        {
+            _pendingAnimTrigger = anim;
+            if (_gameViewRef != null) await _gameViewRef.TriggerAnimation(anim);
+            _pendingAnimTrigger = "";
+        };
         _game.OnStateChanged += async () =>
         {
             ManageAfkTimer();
@@ -3353,11 +3503,13 @@
                 UpdateLeaderboard();
                 _leaderboardUpdated = true;
             }
+            _spState = BuildSpState();
             await InvokeAsync(StateHasChanged);
         };
 
         _isGameStarted = true;
         await _game.DealStartingCardsAsync();
+        _spState = BuildSpState();
         await _game.StartTurnAsync();
     }
 
@@ -3367,6 +3519,9 @@
         _leaderboardUpdated = false;
         _isGameStarted = false;
         _game = null;
+        _spState = null;
+        _spDrawnCardId = null;
+        _pendingAnimTrigger = "";
         if (_isMultiplayerHost)
         {
             LobbyService.MoveReceived -= OnRemoteMoveReceived;
@@ -3420,6 +3575,13 @@
             for (int i = 1; i < humanCount; i++)
                 _game.RemotePlayerIndices.Add(i);
             _game.GetRemoteHumanMove = GetRemoteMoveAsync;
+            _game.OnBoardAnimation += async (anim) =>
+            {
+                _pendingAnimTrigger = anim;
+                if (_gameViewRef != null) await _gameViewRef.TriggerAnimation(anim);
+                await BroadcastStateAsync();
+                _pendingAnimTrigger = "";
+            };
             _game.OnStateChanged += async () =>
             {
                 ManageAfkTimer();
@@ -3428,14 +3590,22 @@
                     UpdateLeaderboard();
                     _leaderboardUpdated = true;
                 }
+                _spState = BuildStateForPlayer(0);
                 await BroadcastStateAsync();
                 await InvokeAsync(StateHasChanged);
             };
             await _game.DealStartingCardsAsync();
+            _spState = BuildStateForPlayer(0);
             await BroadcastStateAsync();
         }
         else
         {
+            _game.OnBoardAnimation += async (anim) =>
+            {
+                _pendingAnimTrigger = anim;
+                if (_gameViewRef != null) await _gameViewRef.TriggerAnimation(anim);
+                _pendingAnimTrigger = "";
+            };
             _game.OnStateChanged += async () =>
             {
                 ManageAfkTimer();
@@ -3444,9 +3614,11 @@
                     UpdateLeaderboard();
                     _leaderboardUpdated = true;
                 }
+                _spState = BuildSpState();
                 await InvokeAsync(StateHasChanged);
             };
             await _game.DealStartingCardsAsync();
+            _spState = BuildSpState();
         }
 
         await _game.StartTurnAsync();
