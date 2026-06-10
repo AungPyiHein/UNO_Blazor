@@ -62,6 +62,13 @@
                 @if (_lobbyMode == "entry")
                 {
                     <div class="inline-lobby-entry">
+                        @if (_wasKicked)
+                        {
+                            <div class="lobby-kicked-notice">
+                                ⛔ You were removed from the room by the host.
+                                <button class="lobby-kicked-dismiss" @onclick="() => _wasKicked = false">✕</button>
+                            </div>
+                        }
                         <div class="lobby-entry-heading">
                             <span class="lobby-entry-icon">🌐</span>
                             <h1 class="lobby-entry-title">MULTIPLAYER</h1>
@@ -173,11 +180,17 @@
                         <div class="lobby-players">
                             @foreach (var (player, idx) in _lobbyPlayers.Select((p, i) => (p, i)))
                             {
+                                var playerName = player;
                                 <div class="lobby-player @(player == _lobbyPlayerName.Trim() ? "lobby-player-me" : "")">
                                     <span class="lobby-player-avatar">@(player.Length > 0 ? player[0].ToString().ToUpper() : "?")</span>
                                     <span class="lobby-player-name">@player</span>
                                     @if (idx == 0) { <span class="lobby-badge">HOST</span> }
                                     @if (player == _lobbyPlayerName.Trim()) { <span class="lobby-badge lobby-badge-you">YOU</span> }
+                                    @if (_lobbyIsHost && idx != 0)
+                                    {
+                                        <button class="lobby-kick-btn" title="Kick @player"
+                                                @onclick="async () => await LobbyKickPlayer(playerName)">✕</button>
+                                    }
                                 </div>
                             }
                             @if (_lobbyIsHost)
@@ -210,12 +223,12 @@
                             </div>
                         }
 
-                        @if (_lobbyIsHost)
+                        @if (_lobbyIsHost && _presets.Any(p => p.Name != "Custom"))
                         {
                             <div class="lobby-preset-switcher">
                                 <span class="lobby-preset-switcher-label">Rules Preset</span>
                                 <div class="lobby-preset-switcher-row">
-                                    @foreach (var preset in _presets)
+                                    @foreach (var preset in _presets.Where(p => p.Name != "Custom"))
                                     {
                                         var p = preset;
                                         <button class="lobby-preset-pill @(_selectedPreset.Name == p.Name ? "pill-active" : "")"
@@ -1859,6 +1872,58 @@
     .lobby-badge-you { background: rgba(34,197,94,0.2); color: #22c55e; }
     .lobby-badge-cpu { background: rgba(99,102,241,0.2); color: #a5b4fc; }
 
+    /* ── KICK BUTTON & KICKED NOTICE ── */
+    .lobby-kick-btn {
+        margin-left: auto;
+        background: rgba(239,68,68,0.08);
+        border: 1px solid rgba(239,68,68,0.2);
+        color: rgba(239,68,68,0.55);
+        font-size: 0.7rem;
+        font-weight: 800;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        transition: all 0.15s ease;
+        padding: 0;
+        line-height: 1;
+    }
+    .lobby-kick-btn:hover {
+        background: rgba(239,68,68,0.18);
+        border-color: rgba(239,68,68,0.5);
+        color: #f87171;
+    }
+    .lobby-kicked-notice {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: rgba(239,68,68,0.08);
+        border: 1px solid rgba(239,68,68,0.22);
+        border-radius: 12px;
+        padding: 10px 14px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #fca5a5;
+        width: 100%;
+        max-width: 420px;
+        margin-bottom: 4px;
+    }
+    .lobby-kicked-dismiss {
+        margin-left: auto;
+        background: transparent;
+        border: none;
+        color: rgba(252,165,165,0.6);
+        cursor: pointer;
+        font-size: 0.9rem;
+        padding: 0 2px;
+        line-height: 1;
+    }
+    .lobby-kicked-dismiss:hover { color: #fca5a5; }
+
     /* ── PRESET SWITCHER in waiting room (host only) ── */
     .lobby-preset-switcher {
         display: flex;
@@ -1992,6 +2057,7 @@
     private bool _lobbyIsHost = false;
     private bool _lobbyConnecting = false;
     private string _lobbyError = "";
+    private bool _wasKicked = false;
     private List<string> _lobbyPlayers = new();
     private int _lobbyCpuCount = 1;
     private int _lobbyTotalPlayers = 4;
@@ -2200,6 +2266,7 @@
         LobbyService.GameStarted   += LobbyOnGameStarted;
         LobbyService.RoomClosed    += LobbyOnRoomClosed;
         LobbyService.RulesUpdated  += LobbyOnRulesUpdated;
+        LobbyService.PlayerKicked  += LobbyOnPlayerKicked;
 
         // Initialize Presets
         var classicPreset = new RulePresetProfile
@@ -2447,6 +2514,20 @@
         _lobbyMode = "entry";
         _lobbyPlayers.Clear();
         InvokeAsync(StateHasChanged);
+    }
+
+    private void LobbyOnPlayerKicked()
+    {
+        _wasKicked = true;
+        _lobbyMode = "entry";
+        _lobbyPlayers.Clear();
+        _lobbyRules = null;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task LobbyKickPlayer(string playerName)
+    {
+        await LobbyService.KickPlayerAsync(playerName);
     }
 
     private async Task StartMultiplayerGame()
@@ -2738,6 +2819,7 @@
         LobbyService.GameStarted   -= LobbyOnGameStarted;
         LobbyService.RoomClosed    -= LobbyOnRoomClosed;
         LobbyService.RulesUpdated  -= LobbyOnRulesUpdated;
+        LobbyService.PlayerKicked  -= LobbyOnPlayerKicked;
 
         if (_isMultiplayerHost)
         {

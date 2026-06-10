@@ -50,6 +50,33 @@ public class GameHub : Hub
         await RemovePlayerFromRoom(info.RoomCode, info.PlayerName);
     }
 
+    public async Task KickPlayer(string roomCode, string playerName)
+    {
+        roomCode   = roomCode.Trim().ToUpperInvariant();
+        playerName = playerName.Trim();
+
+        if (!_rooms.TryGetValue(roomCode, out var players)) return;
+
+        List<string> snapshot;
+        lock (players) { snapshot = players.ToList(); }
+
+        // Only the host (index 0) may kick
+        if (!_connections.TryGetValue(Context.ConnectionId, out var callerInfo)) return;
+        if (snapshot.Count == 0 || snapshot[0] != callerInfo.PlayerName) return;
+
+        // Find the kicked player's connection
+        var kickedConnId = _connections
+            .FirstOrDefault(kv => kv.Value.RoomCode == roomCode && kv.Value.PlayerName == playerName)
+            .Key;
+
+        if (kickedConnId == null) return;
+
+        await Clients.Client(kickedConnId).SendAsync("PlayerKicked");
+        await Groups.RemoveFromGroupAsync(kickedConnId, roomCode);
+        _connections.TryRemove(kickedConnId, out _);
+        await RemovePlayerFromRoom(roomCode, playerName);
+    }
+
     public async Task StartGame(string roomCode, int cpuCount)
     {
         roomCode = roomCode.Trim().ToUpperInvariant();
