@@ -411,7 +411,10 @@
 
         InvokeAsync(() =>
         {
-            Nav.NavigateTo("/");
+            if (idx == 0)
+                Nav.NavigateTo("/");               // host runs the engine on Home
+            else
+                Nav.NavigateTo("/multiplayer-game"); // guests use thin client
         });
     }
 
