@@ -50,6 +50,14 @@ public class GameHub : Hub
         await RemovePlayerFromRoom(info.RoomCode, info.PlayerName);
     }
 
+    public async Task SendChatMessage(string roomCode, string playerName, string message)
+    {
+        roomCode = roomCode.Trim().ToUpperInvariant();
+        message  = message.Trim();
+        if (string.IsNullOrEmpty(message) || message.Length > 200) return;
+        await Clients.Group(roomCode).SendAsync("ChatMessage", playerName, message);
+    }
+
     public async Task KickPlayer(string roomCode, string playerName)
     {
         roomCode   = roomCode.Trim().ToUpperInvariant();
