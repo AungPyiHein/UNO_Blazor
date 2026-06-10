@@ -3,7 +3,12 @@
 @using UnoEngine.Models
 @using UnoApp.Components
 @using UnoApp.Services
+@using UnoApp.Multiplayer
+@using System.Text.Json
 @inject NavigationState NavigationState
+@inject LobbyService LobbyService
+@inject NavigationManager Nav
+@implements IAsyncDisposable
 
 <div class="menu-screen @(_isGameStarted ? "game-active" : "")">
     @if (!_isGameStarted)
@@ -22,6 +27,7 @@
         <!-- Middle Tier: The Power Center -->
         <div class="center-stage">
             <button class="mega-start-btn" @onclick="StartMatch">START MATCH</button>
+            <button class="mega-start-btn mega-start-btn-mp" @onclick="GoToLobby">🌐 MULTIPLAYER</button>
         </div>
 
         <!-- Bottom Tier: Player Identity & Setup -->
@@ -772,7 +778,7 @@
 
     /* Middle Tier: Center Stage */
     .center-stage {
-        display: flex; justify-content: center; align-items: center; height: 100vh;
+        display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; gap: 20px;
     }
     .mega-start-btn {
         background: transparent; border: 4px solid #22c55e; color: #22c55e;
@@ -787,6 +793,17 @@
         background: rgba(34, 197, 94, 0.1);
         box-shadow: 0 0 50px rgba(34, 197, 94, 0.4);
         border-color: #4ade80; color: #4ade80;
+    }
+    .mega-start-btn-mp {
+        border-color: #6366f1; color: #a5b4fc;
+        font-size: 1.6rem; padding: 14px 50px; letter-spacing: 3px;
+        box-shadow: 0 0 20px rgba(99,102,241,0.2);
+        text-shadow: 0 0 10px rgba(99,102,241,0.4);
+    }
+    .mega-start-btn-mp:hover {
+        background: rgba(99,102,241,0.1);
+        box-shadow: 0 0 40px rgba(99,102,241,0.4);
+        border-color: #818cf8; color: #c7d2fe;
     }
 
     /* Bottom Tier: Identity & Player Count Setup */
@@ -1346,6 +1363,11 @@
     private int _playerCount = 4;
     private UnoGame? _game;
 
+    // Multiplayer host state
+    private bool _isMultiplayerHost = false;
+    private Dictionary<int, TaskCompletionSource<MoveDto?>> _pendingRemoteMoves = new();
+    private static readonly JsonSerializerOptions _mpJsonOpts = new() { PropertyNameCaseInsensitive = true };
+
     private bool _showRulesModal = false;
     private bool _showRuleBookModal = false;
 
@@ -1528,7 +1550,7 @@
         };
     }
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         NavigationState.IsArenaMode = true;
         InitializeRuleItems();
@@ -1603,6 +1625,138 @@
 
         // Set default preset
         _selectedPreset = classicPreset;
+
+        // Multiplayer host: returning from lobby after game started
+        if (LobbyService.IsGameStarted && LobbyService.IsHost)
+        {
+            await StartMultiplayerGame();
+        }
+    }
+
+    private void GoToLobby()
+    {
+        Nav.NavigateTo("/lobby");
+    }
+
+    private async Task StartMultiplayerGame()
+    {
+        var humanNames = LobbyService.AllPlayerNames;
+        int cpuCount = LobbyService.CpuCount;
+
+        var players = new List<Player>();
+        for (int i = 0; i < humanNames.Length; i++)
+        {
+            players.Add(new Player
+            {
+                Id = Guid.NewGuid(),
+                Name = humanNames[i],
+                IsHuman = true
+            });
+        }
+        for (int i = 0; i < cpuCount; i++)
+        {
+            players.Add(new Player
+            {
+                Id = Guid.NewGuid(),
+                Name = $"CPU {i + 1}",
+                IsHuman = false
+            });
+        }
+
+        _game = new UnoGame(players, _selectedPreset.Settings);
+
+        for (int i = 1; i < humanNames.Length; i++)
+            _game.RemotePlayerIndices.Add(i);
+
+        _game.GetRemoteHumanMove = GetRemoteMoveAsync;
+        _game.OnStateChanged += async () =>
+        {
+            await BroadcastStateAsync();
+            await InvokeAsync(StateHasChanged);
+        };
+
+        LobbyService.MoveReceived += OnRemoteMoveReceived;
+
+        _isMultiplayerHost = true;
+        _isGameStarted = true;
+
+        await _game.DealStartingCardsAsync();
+        await BroadcastStateAsync();
+        await _game.StartTurnAsync();
+    }
+
+    private void OnRemoteMoveReceived(string json)
+    {
+        try
+        {
+            var move = JsonSerializer.Deserialize<MoveDto>(json, _mpJsonOpts);
+            if (move != null && _pendingRemoteMoves.TryGetValue(move.PlayerIndex, out var tcs))
+            {
+                _pendingRemoteMoves.Remove(move.PlayerIndex);
+                tcs.TrySetResult(move);
+            }
+        }
+        catch { }
+    }
+
+    private async Task<MoveDto?> GetRemoteMoveAsync(int playerIndex)
+    {
+        var tcs = new TaskCompletionSource<MoveDto?>();
+        _pendingRemoteMoves[playerIndex] = tcs;
+        await BroadcastStateAsync();
+        return await tcs.Task;
+    }
+
+    private async Task BroadcastStateAsync()
+    {
+        if (_game == null || !_isMultiplayerHost) return;
+        int humanCount = LobbyService.AllPlayerNames.Length;
+        for (int i = 1; i < humanCount; i++)
+        {
+            try
+            {
+                var dto = BuildStateForPlayer(i);
+                var json = JsonSerializer.Serialize(dto);
+                await LobbyService.SendStateToPlayerAsync(i, json);
+            }
+            catch { }
+        }
+    }
+
+    private GameStateDto BuildStateForPlayer(int playerIndex)
+    {
+        var game = _game!;
+        var player = game.Players[playerIndex];
+        var topCard = game.TopCard;
+
+        return new GameStateDto
+        {
+            CurrentPlayerIndex = game.CurrentPlayerIndex,
+            TopCard = topCard != null ? new CardDto
+            {
+                Id = topCard.Id.ToString(),
+                Color = topCard.Color.ToString(),
+                Value = topCard.Value.ToString()
+            } : null,
+            ActiveColor = game.LastValidColor.ToString(),
+            HandCounts = game.Players.Select(p => p.Hand.Count).ToArray(),
+            PlayerNames = game.Players.Select(p => p.Name).ToArray(),
+            MyHand = player.Hand.Select(c => new CardDto
+            {
+                Id = c.Id.ToString(),
+                Color = c.Color.ToString(),
+                Value = c.Value.ToString(),
+                IsPlayable = game.CurrentPlayerIndex == playerIndex && game.CanPlayCard(c)
+            }).ToList(),
+            IsMyTurn = game.CurrentPlayerIndex == playerIndex,
+            Status = game.Status.ToString(),
+            Direction = game.GameDirection,
+            IsGameOver = game.Status == GameStatus.GameOver,
+            WinnerIndex = game.Winner != null ? game.Players.IndexOf(game.Winner) : null,
+            PendingDraw = game.PendingDrawCount,
+            NotificationBanner = game.ActiveNotificationBanner,
+            Wd4ChallengerIndex = game.Wd4ChallengerIndex
+        };
     }
 
     private void OpenRulesModal()
@@ -1757,6 +1911,24 @@
     {
         _isGameStarted = false;
         _game = null;
+        if (_isMultiplayerHost)
+        {
+            LobbyService.MoveReceived -= OnRemoteMoveReceived;
+            _isMultiplayerHost = false;
+            LobbyService.ResetGame();
+            foreach (var tcs in _pendingRemoteMoves.Values) tcs.TrySetResult(null);
+            _pendingRemoteMoves.Clear();
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_isMultiplayerHost)
+        {
+            LobbyService.MoveReceived -= OnRemoteMoveReceived;
+            foreach (var tcs in _pendingRemoteMoves.Values) tcs.TrySetResult(null);
+        }
+        await Task.CompletedTask;
     }
 
     private async Task HandleNextRound()

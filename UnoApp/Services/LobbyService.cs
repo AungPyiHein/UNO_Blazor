@@ -9,7 +9,7 @@ public class LobbyService : IAsyncDisposable
     private HubConnection? _hub;
 
     public event Action<string, List<string>>? PlayersUpdated;
-    public event Action<string[]>? GameStarted;
+    public event Action<string[], int>? GameStarted;
     public event Action? RoomClosed;
     public event Action<string>? StateUpdated;
     public event Action<string>? MoveReceived;
@@ -21,6 +21,7 @@ public class LobbyService : IAsyncDisposable
     public bool IsHost => MyPlayerIndex == 0;
     public bool IsGameStarted { get; private set; }
     public string[] AllPlayerNames { get; private set; } = Array.Empty<string>();
+    public int CpuCount { get; private set; }
 
     public async Task ConnectAsync(string baseUri)
     {
@@ -40,8 +41,8 @@ public class LobbyService : IAsyncDisposable
         _hub.On<string, List<string>>("PlayersUpdated", (room, players) =>
             PlayersUpdated?.Invoke(room, players));
 
-        _hub.On<string[]>("GameStarted", players =>
-            GameStarted?.Invoke(players));
+        _hub.On<string[], int>("GameStarted", (players, cpuCount) =>
+            GameStarted?.Invoke(players, cpuCount));
 
         _hub.On("RoomClosed", () =>
             RoomClosed?.Invoke());
@@ -63,10 +64,10 @@ public class LobbyService : IAsyncDisposable
         await _hub.InvokeAsync("JoinRoom", MyRoomCode, MyPlayerName);
     }
 
-    public async Task StartGameAsync()
+    public async Task StartGameAsync(int cpuCount = 0)
     {
         if (_hub == null || MyRoomCode == null) return;
-        await _hub.InvokeAsync("StartGame", MyRoomCode);
+        await _hub.InvokeAsync("StartGame", MyRoomCode, cpuCount);
     }
 
     public async Task SendMoveAsync(MoveDto move)
@@ -82,10 +83,11 @@ public class LobbyService : IAsyncDisposable
         await _hub.InvokeAsync("SendStateToPlayer", MyRoomCode, playerIndex, stateJson);
     }
 
-    public void SetPlayerInfo(int myIndex, string[] allPlayerNames)
+    public void SetPlayerInfo(int myIndex, string[] allPlayerNames, int cpuCount = 0)
     {
         MyPlayerIndex = myIndex;
         AllPlayerNames = allPlayerNames;
+        CpuCount = cpuCount;
         IsGameStarted = true;
     }
 
@@ -94,6 +96,7 @@ public class LobbyService : IAsyncDisposable
         IsGameStarted = false;
         MyPlayerIndex = -1;
         AllPlayerNames = Array.Empty<string>();
+        CpuCount = 0;
     }
 
     public async ValueTask DisposeAsync()

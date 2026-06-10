@@ -4,19 +4,78 @@
 @implements IDisposable
 
 <div class="lobby-wrap">
-    @if (!_joined)
+    @if (_mode == "entry")
+    {
+        <div class="lobby-card lobby-entry-card">
+            <div class="lobby-logo">🃏</div>
+            <h1 class="lobby-title">Multiplayer</h1>
+            <p class="lobby-sub">Play with friends — add CPUs to fill any empty seats.</p>
+
+            <button class="lobby-btn lobby-btn-create" @onclick='() => _mode = "create"'>
+                ➕ Create Room
+            </button>
+            <button class="lobby-btn lobby-btn-join" @onclick='() => _mode = "join"'>
+                🔗 Join Room
+            </button>
+            <button class="lobby-btn lobby-btn-back" @onclick="GoHome">← Back</button>
+        </div>
+    }
+    else if (_mode == "create")
     {
         <div class="lobby-card">
-            <h1 class="lobby-title">🃏 Local Multiplayer</h1>
-            <p class="lobby-sub">Open this page in multiple browser tabs on the same device.</p>
+            <h1 class="lobby-title" style="font-size:1.5rem">Create Room</h1>
 
             <div class="lobby-field">
                 <label>Your Name</label>
                 <input class="lobby-input" @bind="_playerName" placeholder="e.g. Alice" maxlength="20" />
             </div>
+
             <div class="lobby-field">
                 <label>Room Code</label>
-                <input class="lobby-input lobby-input-code" @bind="_roomCode" placeholder="e.g. GAME01" maxlength="10" @oninput="UpperRoomCode" />
+                <div class="room-code-row">
+                    <input class="lobby-input lobby-input-code" @bind="_roomCode" placeholder="AUTO-GENERATED" maxlength="8" @oninput="UpperRoomCode" />
+                    <button class="gen-btn" @onclick="GenerateRoomCode">🎲</button>
+                </div>
+            </div>
+
+            <div class="lobby-field">
+                <label>CPU Players (fill empty seats)</label>
+                <div class="cpu-selector">
+                    @for (int i = 0; i <= 4; i++)
+                    {
+                        var count = i;
+                        <button type="button"
+                                class="cpu-btn @(_cpuCount == count ? "active" : "")"
+                                @onclick="() => _cpuCount = count">
+                            @(count == 0 ? "None" : $"{count} CPU{(count > 1 ? "s" : "")}")
+                        </button>
+                    }
+                </div>
+            </div>
+
+            @if (!string.IsNullOrEmpty(_error))
+            {
+                <p class="lobby-error">@_error</p>
+            }
+
+            <button class="lobby-btn lobby-btn-create" @onclick="CreateRoom" disabled="@_connecting">
+                @(_connecting ? "Creating…" : "Create Room")
+            </button>
+            <button class="lobby-btn lobby-btn-back" @onclick='() => _mode = "entry"'>← Back</button>
+        </div>
+    }
+    else if (_mode == "join")
+    {
+        <div class="lobby-card">
+            <h1 class="lobby-title" style="font-size:1.5rem">Join Room</h1>
+
+            <div class="lobby-field">
+                <label>Your Name</label>
+                <input class="lobby-input" @bind="_playerName" placeholder="e.g. Bob" maxlength="20" />
+            </div>
+            <div class="lobby-field">
+                <label>Room Code</label>
+                <input class="lobby-input lobby-input-code" @bind="_roomCode" placeholder="e.g. GAME01" maxlength="8" @oninput="UpperRoomCode" />
             </div>
 
             @if (!string.IsNullOrEmpty(_error))
@@ -25,11 +84,12 @@
             }
 
             <button class="lobby-btn" @onclick="JoinRoom" disabled="@_connecting">
-                @(_connecting ? "Connecting…" : "Join Room")
+                @(_connecting ? "Joining…" : "Join Room")
             </button>
+            <button class="lobby-btn lobby-btn-back" @onclick='() => _mode = "entry"'>← Back</button>
         </div>
     }
-    else
+    else if (_mode == "waiting")
     {
         <div class="lobby-card lobby-room">
             <h2 class="lobby-room-code">Room <span>@_roomCode.ToUpperInvariant()</span></h2>
@@ -38,23 +98,53 @@
                 @foreach (var (player, idx) in _players.Select((p, i) => (p, i)))
                 {
                     <div class="lobby-player @(player == _playerName.Trim() ? "lobby-player-me" : "")">
-                        <span class="lobby-player-avatar">@(player.Length > 0 ? player[0].ToString().ToUpper() : "?") </span>
+                        <span class="lobby-player-avatar">@(player.Length > 0 ? player[0].ToString().ToUpper() : "?")</span>
                         <span class="lobby-player-name">@player</span>
                         @if (idx == 0) { <span class="lobby-badge">HOST</span> }
                         @if (player == _playerName.Trim()) { <span class="lobby-badge lobby-badge-you">YOU</span> }
                     </div>
                 }
+
+                @if (_isHost)
+                {
+                    @for (int i = 0; i < _cpuCount; i++)
+                    {
+                        var cpuNum = i + 1;
+                        <div class="lobby-player lobby-player-cpu">
+                            <span class="lobby-player-avatar" style="background:#6366f1;">🤖</span>
+                            <span class="lobby-player-name">CPU @cpuNum</span>
+                            <span class="lobby-badge lobby-badge-cpu">AI</span>
+                        </div>
+                    }
+                }
             </div>
 
             @if (_isHost)
             {
-                @if (_players.Count < 2)
+                <div class="lobby-field" style="margin-top:8px;">
+                    <label>CPU Players</label>
+                    <div class="cpu-selector">
+                        @for (int i = 0; i <= 4; i++)
+                        {
+                            var count = i;
+                            <button type="button"
+                                    class="cpu-btn @(_cpuCount == count ? "active" : "")"
+                                    @onclick="() => _cpuCount = count">
+                                @(count == 0 ? "None" : $"{count}")
+                            </button>
+                        }
+                    </div>
+                </div>
+
+                @if (_players.Count + _cpuCount < 2)
                 {
-                    <p class="lobby-waiting">Waiting for at least one more player to join…</p>
+                    <p class="lobby-waiting">Need at least 2 players total to start…</p>
                 }
                 else
                 {
-                    <button class="lobby-btn lobby-btn-start" @onclick="StartGame">▶ Start Game (@_players.Count players)</button>
+                    <button class="lobby-btn lobby-btn-start" @onclick="StartGame">
+                        ▶ Start Game (@(_players.Count + _cpuCount) players)
+                    </button>
                 }
             }
             else
@@ -87,6 +177,8 @@
     flex-direction: column;
     gap: 20px;
 }
+.lobby-entry-card { text-align: center; align-items: center; }
+.lobby-logo { font-size: 3.5rem; line-height: 1; }
 .lobby-title { font-size: 2rem; font-weight: 900; color: #22c55e; margin: 0; text-align: center; }
 .lobby-sub { color: rgba(255,255,255,0.5); font-size: 0.9rem; text-align: center; margin: 0; }
 .lobby-field { display: flex; flex-direction: column; gap: 6px; }
@@ -100,9 +192,43 @@
     font-size: 1rem;
     outline: none;
     transition: border-color 0.2s;
+    flex: 1;
 }
 .lobby-input:focus { border-color: #22c55e; }
 .lobby-input-code { text-transform: uppercase; letter-spacing: 2px; font-weight: 700; }
+.room-code-row { display: flex; gap: 8px; }
+.gen-btn {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 12px;
+    color: #fff;
+    font-size: 1.1rem;
+    padding: 0 14px;
+    cursor: pointer;
+    transition: background 0.2s;
+    flex-shrink: 0;
+}
+.gen-btn:hover { background: rgba(255,255,255,0.14); }
+
+.cpu-selector { display: flex; gap: 6px; flex-wrap: wrap; }
+.cpu-btn {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px;
+    color: rgba(255,255,255,0.7);
+    padding: 8px 14px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+.cpu-btn.active {
+    background: rgba(99,102,241,0.25);
+    border-color: #6366f1;
+    color: #a5b4fc;
+}
+.cpu-btn:hover:not(.active) { background: rgba(255,255,255,0.1); }
+
 .lobby-error { color: #ef4444; font-size: 0.9rem; margin: 0; text-align: center; }
 .lobby-btn {
     background: #22c55e;
@@ -115,12 +241,17 @@
     cursor: pointer;
     transition: opacity 0.2s, transform 0.1s;
     letter-spacing: 0.5px;
+    width: 100%;
 }
 .lobby-btn:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
 .lobby-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.lobby-btn-create { background: #22c55e; }
+.lobby-btn-join { background: rgba(99,102,241,0.8); color: #fff; }
 .lobby-btn-start { background: #22c55e; font-size: 1.1rem; }
-.lobby-btn-leave { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); margin-top: 4px; font-size: 0.9rem; }
+.lobby-btn-leave { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); font-size: 0.9rem; }
 .lobby-btn-leave:hover { background: rgba(239,68,68,0.2); color: #ef4444; }
+.lobby-btn-back { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.5); font-size: 0.9rem; }
+.lobby-btn-back:hover { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.8); }
 
 .lobby-room-code { font-size: 1.4rem; font-weight: 800; color: rgba(255,255,255,0.8); text-align: center; margin: 0; }
 .lobby-room-code span { color: #22c55e; font-size: 1.8rem; letter-spacing: 3px; display: block; margin-top: 4px; }
@@ -135,6 +266,7 @@
     padding: 10px 14px;
 }
 .lobby-player-me { border-color: #22c55e; background: rgba(34,197,94,0.08); }
+.lobby-player-cpu { border-color: rgba(99,102,241,0.3); background: rgba(99,102,241,0.06); }
 .lobby-player-avatar {
     width: 36px; height: 36px;
     border-radius: 50%;
@@ -142,6 +274,7 @@
     color: #000;
     display: flex; align-items: center; justify-content: center;
     font-weight: 900; font-size: 1rem;
+    flex-shrink: 0;
 }
 .lobby-player-name { flex: 1; color: #fff; font-weight: 600; }
 .lobby-badge {
@@ -155,17 +288,19 @@
     text-transform: uppercase;
 }
 .lobby-badge-you { background: rgba(34,197,94,0.2); color: #22c55e; }
+.lobby-badge-cpu { background: rgba(99,102,241,0.2); color: #a5b4fc; }
 .lobby-waiting { color: rgba(255,255,255,0.5); font-size: 0.9rem; text-align: center; margin: 0; }
 </style>
 
 @code {
+    private string _mode = "entry";
     private string _playerName = "";
     private string _roomCode = "";
-    private bool _joined = false;
     private bool _isHost = false;
     private bool _connecting = false;
     private string _error = "";
     private List<string> _players = new();
+    private int _cpuCount = 1;
 
     protected override async Task OnInitializedAsync()
     {
@@ -175,20 +310,48 @@
 
         if (!LobbyService.IsConnected)
         {
-            try
-            {
-                await LobbyService.ConnectAsync(Nav.BaseUri);
-            }
-            catch (Exception ex)
-            {
-                _error = $"Could not connect: {ex.Message}";
-            }
+            try { await LobbyService.ConnectAsync(Nav.BaseUri); }
+            catch (Exception ex) { _error = $"Could not connect: {ex.Message}"; }
         }
+
+        GenerateRoomCode();
+    }
+
+    private void GenerateRoomCode()
+    {
+        const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        var rng = new Random();
+        _roomCode = new string(Enumerable.Range(0, 6).Select(_ => chars[rng.Next(chars.Length)]).ToArray());
     }
 
     private void UpperRoomCode(ChangeEventArgs e)
     {
         _roomCode = (e.Value?.ToString() ?? "").ToUpperInvariant();
+    }
+
+    private async Task CreateRoom()
+    {
+        _error = "";
+        if (string.IsNullOrWhiteSpace(_playerName)) { _error = "Enter your name."; return; }
+        if (string.IsNullOrWhiteSpace(_roomCode))   { GenerateRoomCode(); }
+
+        _connecting = true;
+        try
+        {
+            if (!LobbyService.IsConnected)
+                await LobbyService.ConnectAsync(Nav.BaseUri);
+            await LobbyService.JoinRoomAsync(_roomCode, _playerName);
+            _isHost = true;
+            _mode = "waiting";
+        }
+        catch (Exception ex)
+        {
+            _error = $"Failed to create room: {ex.Message}";
+        }
+        finally
+        {
+            _connecting = false;
+        }
     }
 
     private async Task JoinRoom()
@@ -203,7 +366,7 @@
             if (!LobbyService.IsConnected)
                 await LobbyService.ConnectAsync(Nav.BaseUri);
             await LobbyService.JoinRoomAsync(_roomCode, _playerName);
-            _joined = true;
+            _mode = "waiting";
         }
         catch (Exception ex)
         {
@@ -217,41 +380,44 @@
 
     private async Task StartGame()
     {
-        await LobbyService.StartGameAsync();
+        await LobbyService.StartGameAsync(_cpuCount);
     }
 
     private async Task LeaveRoom()
     {
-        _joined = false;
+        _mode = "entry";
         _players.Clear();
         LobbyService.ResetGame();
         await Task.CompletedTask;
     }
 
+    private void GoHome()
+    {
+        Nav.NavigateTo("/");
+    }
+
     private void OnPlayersUpdated(string roomCode, List<string> players)
     {
         _players = players;
-        _isHost  = players.Count > 0 && players[0] == _playerName.Trim();
+        if (!_isHost)
+            _isHost = players.Count > 0 && players[0] == _playerName.Trim();
         InvokeAsync(StateHasChanged);
     }
 
-    private void OnGameStarted(string[] players)
+    private void OnGameStarted(string[] players, int cpuCount)
     {
         int idx = Array.IndexOf(players, _playerName.Trim());
-        LobbyService.SetPlayerInfo(idx, players);
+        LobbyService.SetPlayerInfo(idx, players, cpuCount);
 
         InvokeAsync(() =>
         {
-            if (idx == 0)
-                Nav.NavigateTo("/");          // host → home page starts the game
-            else
-                Nav.NavigateTo("/multiplayer-game");
+            Nav.NavigateTo("/");
         });
     }
 
     private void OnRoomClosed()
     {
-        _joined  = false;
+        _mode = "entry";
         _players.Clear();
         InvokeAsync(StateHasChanged);
     }

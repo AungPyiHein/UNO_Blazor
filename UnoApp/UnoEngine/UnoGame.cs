@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using UnoEngine.Models;
+using UnoApp.Multiplayer;
 
 namespace UnoEngine
 {
@@ -55,6 +56,9 @@ namespace UnoEngine
         public int LastUnoViolatorIndex { get; set; } = -1;
         public string ActiveNotificationBanner { get; set; } = "";
         public CardColor LastValidColor { get; set; }
+
+        public List<int> RemotePlayerIndices { get; set; } = new();
+        public Func<int, Task<MoveDto?>>? GetRemoteHumanMove;
 
         private Random _random = new();
         private System.Threading.SemaphoreSlim _actionLock = new(1, 1);
@@ -250,6 +254,21 @@ namespace UnoEngine
             foreach (var p in Players) p.CurrentStatus = p == currentPlayer ? "Thinking..." : "";
             OnStateChanged?.Invoke();
 
+            int capturedIdx = CurrentPlayerIndex;
+
+            // Remote human player (multiplayer guest) — wait for SignalR move
+            if (currentPlayer.IsHuman && RemotePlayerIndices.Contains(capturedIdx) && GetRemoteHumanMove != null)
+            {
+                var moveGetter = GetRemoteHumanMove;
+                SafeFireAndForget(async () =>
+                {
+                    var move = await moveGetter(capturedIdx);
+                    if (move != null && CurrentPlayerIndex == capturedIdx && Status != GameStatus.GameOver)
+                        await ApplyRemoteMoveAsync(move);
+                });
+                return;
+            }
+
             if (!currentPlayer.IsHuman)
             {
                 int cpuThinkDelay = Settings.CpuDifficulty switch
@@ -265,6 +284,63 @@ namespace UnoEngine
                     await ExecuteCpuTurn(currentPlayer);
                 }
             }
+        }
+
+        public async Task ApplyRemoteMoveAsync(MoveDto move)
+        {
+            if (move.PlayerIndex < 0 || move.PlayerIndex >= Players.Count) return;
+            var player = Players[move.PlayerIndex];
+
+            switch (move.Type)
+            {
+                case "play":
+                    if (Guid.TryParse(move.CardId, out var cardId))
+                    {
+                        var card = player.Hand.FirstOrDefault(c => c.Id == cardId);
+                        if (card != null)
+                        {
+                            CardColor? color = null;
+                            if (move.Color != null && Enum.TryParse<CardColor>(move.Color, out var pc)) color = pc;
+                            Player? target = move.TargetIndex.HasValue && move.TargetIndex.Value >= 0 && move.TargetIndex.Value < Players.Count
+                                ? Players[move.TargetIndex.Value] : null;
+                            await PlayCardAsync(player, card, color, target);
+                        }
+                    }
+                    break;
+                case "draw":
+                    var drawn = await DrawCardAsync(player);
+                    if (drawn != null && !CanPlayCard(drawn))
+                        await PassTurnAfterDraw();
+                    break;
+                case "color":
+                    if (move.Color != null && Enum.TryParse<CardColor>(move.Color, out var wildColor))
+                        await SetWildColorForRemoteAsync(wildColor, player);
+                    break;
+                case "challenge":
+                    await ResolveChallengeAsync(true);
+                    break;
+                case "accept":
+                    await ResolveChallengeAsync(false);
+                    break;
+                case "uno":
+                    await AttemptUnoCallAsync(player);
+                    break;
+            }
+        }
+
+        public async Task SetWildColorForRemoteAsync(CardColor color, Player player)
+        {
+            await _actionLock.WaitAsync();
+            try
+            {
+                if (Status != GameStatus.WaitingForColorSelection || PendingColorSelector != player) return;
+                await InternalFinalizeWildColor(color, player);
+            }
+            finally
+            {
+                _actionLock.Release();
+            }
+            OnStateChanged?.Invoke();
         }
 
         private async Task ExecuteCpuTurn(Player cpu)
