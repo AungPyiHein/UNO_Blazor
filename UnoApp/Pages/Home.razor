@@ -210,6 +210,23 @@
                             </div>
                         }
 
+                        @if (_lobbyIsHost)
+                        {
+                            <div class="lobby-preset-switcher">
+                                <span class="lobby-preset-switcher-label">Rules Preset</span>
+                                <div class="lobby-preset-switcher-row">
+                                    @foreach (var preset in _presets)
+                                    {
+                                        var p = preset;
+                                        <button class="lobby-preset-pill @(_selectedPreset.Name == p.Name ? "pill-active" : "")"
+                                                @onclick="async () => await LobbySelectPreset(p)">
+                                            @p.Name
+                                        </button>
+                                    }
+                                </div>
+                            </div>
+                        }
+
                         @if (_lobbyRules != null)
                         {
                             <div class="lobby-rules-panel">
@@ -1842,6 +1859,48 @@
     .lobby-badge-you { background: rgba(34,197,94,0.2); color: #22c55e; }
     .lobby-badge-cpu { background: rgba(99,102,241,0.2); color: #a5b4fc; }
 
+    /* ── PRESET SWITCHER in waiting room (host only) ── */
+    .lobby-preset-switcher {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .lobby-preset-switcher-label {
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: rgba(255,255,255,0.4);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .lobby-preset-switcher-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+    .lobby-preset-pill {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.10);
+        color: rgba(255,255,255,0.5);
+        font-size: 0.78rem;
+        font-weight: 700;
+        padding: 5px 14px;
+        border-radius: 20px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        letter-spacing: 0.2px;
+    }
+    .lobby-preset-pill:hover {
+        background: rgba(255,255,255,0.09);
+        color: rgba(255,255,255,0.8);
+        border-color: rgba(255,255,255,0.22);
+    }
+    .lobby-preset-pill.pill-active {
+        background: rgba(34,197,94,0.15);
+        border-color: rgba(34,197,94,0.45);
+        color: #4ade80;
+        box-shadow: 0 0 8px rgba(34,197,94,0.15);
+    }
+
     /* ── RULES PANEL in waiting room ── */
     .lobby-rules-panel {
         background: rgba(255,255,255,0.03);
@@ -2300,6 +2359,13 @@
         );
         var json = JsonSerializer.Serialize(dto);
         await LobbyService.SetRoomRulesAsync(json);
+    }
+
+    private async Task LobbySelectPreset(RulePresetProfile preset)
+    {
+        _selectedPreset = preset;
+        await BroadcastLobbyRules();
+        StateHasChanged();
     }
 
     private void LobbyOnRulesUpdated(string json)
