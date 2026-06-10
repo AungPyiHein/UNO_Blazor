@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "aE0ZovZN5Uv6UtLNad6UY"
+uri = "file://UnoApp.zip"
+type = "unspecified"
+title = "UnoApp Source Code"
