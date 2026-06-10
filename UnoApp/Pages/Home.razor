@@ -309,6 +309,7 @@
                                     <span>🃏 Hand: @_lobbyRules.StartingHandSize cards</span>
                                     <span>🔔 UNO penalty: @_lobbyRules.UnoFailurePenaltyCards cards</span>
                                     <span>🤖 AI: @_lobbyRules.CpuDifficulty</span>
+                                    <span>⏰ AFK penalty: @(_lobbyRules.AfkEnabled ? $"{_lobbyRules.AfkPenaltyCards} cards" : "Off")</span>
                                 </div>
                             </div>
                         }
@@ -753,20 +754,22 @@
                                 }
 
                                 <!-- AFK Penalty -->
-                                <div class="rule-row">
-                                    <div class="rule-meta">
-                                        <span class="rule-icon">⏰</span>
-                                        <div class="rule-text">
-                                            <span class="rule-title">AFK Penalty</span>
-                                            <span class="rule-desc">Auto-draw cards if a human player idles too long.</span>
-                                        </div>
-                                    </div>
-                                    <label class="toggle-switch">
-                                        <input type="checkbox" checked="@_editingSettings.AfkEnabled"
-                                               @onchange="e => _editingSettings.AfkEnabled = (bool)(e.Value ?? false)" />
-                                        <span class="toggle-track"><span class="toggle-thumb"></span></span>
-                                    </label>
-                                </div>
+            <div class="rule-card @(_editingSettings.AfkEnabled ? "active" : "")">
+                <div class="rule-meta">
+                    <span class="rule-icon">⏰</span>
+                    <div class="rule-text">
+                        <span class="rule-title">AFK Penalty</span>
+                        <span class="rule-desc">Auto-draw cards if a human player idles too long.</span>
+                    </div>
+                </div>
+                <div class="rule-control">
+                    <label class="switch">
+                        <input type="checkbox" checked="@_editingSettings.AfkEnabled"
+                               @onchange="e => _editingSettings.AfkEnabled = (bool)(e.Value ?? false)" />
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
                                 @if (_editingSettings.AfkEnabled)
                                 {
                                     <div class="timer-config-card">
@@ -2407,7 +2410,9 @@
         bool EnableVortex,
         bool EnableWildDraw4Challenge,
         int UnoFailurePenaltyCards,
-        string CpuDifficulty
+        string CpuDifficulty,
+        bool AfkEnabled,
+        int AfkPenaltyCards
     );
 
     private List<RulePresetProfile> _presets = new();
@@ -2585,6 +2590,37 @@
                 },
                 GetSelectValue = s => s.CpuDifficulty,
                 SetSelectValue = (s, v) => s.CpuDifficulty = (AiDifficulty)v
+            },
+            new RuleItem
+            {
+                Title = "AFK Auto-Penalty",
+                Description = "Automatically draw cards for idle players who don't act in time.",
+                Icon = "⏰",
+                Type = RuleType.Toggle,
+                GetBoolValue = s => s.AfkEnabled,
+                SetBoolValue = (s, v) => s.AfkEnabled = v
+            },
+            new RuleItem
+            {
+                Title = "AFK Timeout",
+                Description = "Seconds of inactivity before the AFK penalty triggers.",
+                Icon = "⌛",
+                Type = RuleType.Slider,
+                Min = 5, Max = 30, Step = 1, Unit = "s", Format = "0",
+                GetNumberValue = s => s.AfkTimeoutSeconds,
+                SetNumberValue = (s, v) => s.AfkTimeoutSeconds = (int)v,
+                IsVisible = s => s.AfkEnabled
+            },
+            new RuleItem
+            {
+                Title = "AFK Penalty Cards",
+                Description = "Cards drawn when the AFK penalty triggers. Classic = 2, Chaos = 5.",
+                Icon = "🃏",
+                Type = RuleType.Slider,
+                Min = 1, Max = 10, Step = 1, Unit = "Cards", Format = "0",
+                GetNumberValue = s => s.AfkPenaltyCards,
+                SetNumberValue = (s, v) => s.AfkPenaltyCards = (int)v,
+                IsVisible = s => s.AfkEnabled
             }
         };
     }
@@ -2762,7 +2798,9 @@
             s.EnableVortex,
             s.EnableWildDraw4Challenge,
             s.UnoFailurePenaltyCards,
-            s.CpuDifficulty.ToString()
+            s.CpuDifficulty.ToString(),
+            s.AfkEnabled,
+            s.AfkPenaltyCards
         );
         var json = JsonSerializer.Serialize(dto);
         await LobbyService.SetRoomRulesAsync(json);
