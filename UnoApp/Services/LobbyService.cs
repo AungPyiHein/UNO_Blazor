@@ -13,6 +13,9 @@ public class LobbyService : IAsyncDisposable
     public event Action? RoomClosed;
     public event Action<string>? StateUpdated;
     public event Action<string>? MoveReceived;
+    public event Action<string>? RulesUpdated;
+
+    public string? CurrentRulesJson { get; private set; }
 
     public bool IsConnected => _hub?.State == HubConnectionState.Connected;
     public string? MyRoomCode { get; private set; }
@@ -53,7 +56,19 @@ public class LobbyService : IAsyncDisposable
         _hub.On<string>("MoveReceived", json =>
             MoveReceived?.Invoke(json));
 
+        _hub.On<string>("RulesUpdated", json => {
+            CurrentRulesJson = json;
+            RulesUpdated?.Invoke(json);
+        });
+
         await _hub.StartAsync();
+    }
+
+    public async Task SetRoomRulesAsync(string rulesJson)
+    {
+        if (_hub == null || MyRoomCode == null) return;
+        CurrentRulesJson = rulesJson;
+        await _hub.InvokeAsync("SetRoomRules", MyRoomCode, rulesJson);
     }
 
     public async Task JoinRoomAsync(string roomCode, string playerName)

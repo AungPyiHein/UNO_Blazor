@@ -169,6 +169,7 @@
                 {
                     <div class="inline-lobby-card lobby-room-card">
                         <h2 class="lobby-room-code">Room <span>@_lobbyRoomCode.ToUpperInvariant()</span></h2>
+
                         <div class="lobby-players">
                             @foreach (var (player, idx) in _lobbyPlayers.Select((p, i) => (p, i)))
                             {
@@ -192,9 +193,10 @@
                                 }
                             }
                         </div>
+
                         @if (_lobbyIsHost)
                         {
-                            <div class="lobby-field" style="margin-top:8px;">
+                            <div class="lobby-field" style="margin-top:4px;">
                                 <label>CPU Players</label>
                                 <div class="cpu-selector">
                                     @for (int i = 0; i <= 4; i++)
@@ -206,6 +208,41 @@
                                     }
                                 </div>
                             </div>
+                        }
+
+                        @if (_lobbyRules != null)
+                        {
+                            <div class="lobby-rules-panel">
+                                <div class="lobby-rules-header">
+                                    <span class="lobby-rules-title">⚙️ Active Rules</span>
+                                    <span class="lobby-rules-preset-badge">@_lobbyRules.PresetName</span>
+                                </div>
+                                <div class="lobby-rules-grid">
+                                    <div class="lobby-rule-chip @(_lobbyRules.Stacking ? "chip-on" : "chip-off")">🔥 Stacking</div>
+                                    <div class="lobby-rule-chip @(_lobbyRules.SevenSwap ? "chip-on" : "chip-off")">🃏 7-Swap</div>
+                                    <div class="lobby-rule-chip @(_lobbyRules.ZeroRotate ? "chip-on" : "chip-off")">🔄 0-Rotate</div>
+                                    <div class="lobby-rule-chip @(_lobbyRules.JumpInRule ? "chip-on" : "chip-off")">⚡ Jump-In</div>
+                                    <div class="lobby-rule-chip @(_lobbyRules.EnableVortex ? "chip-on" : "chip-off")">🌀 Vortex</div>
+                                    <div class="lobby-rule-chip @(_lobbyRules.DrawUntilPlayable ? "chip-on" : "chip-off")">📥 Draw Until Playable</div>
+                                    <div class="lobby-rule-chip @(_lobbyRules.EnableWildDraw4Challenge ? "chip-on" : "chip-off")">⚔️ WD4 Challenge</div>
+                                    <div class="lobby-rule-chip @(_lobbyRules.ForcedPlay ? "chip-on" : "chip-off")">🔒 Forced Play</div>
+                                </div>
+                                <div class="lobby-rules-meta">
+                                    <span>🃏 Hand: @_lobbyRules.StartingHandSize cards</span>
+                                    <span>🔔 UNO penalty: @_lobbyRules.UnoFailurePenaltyCards cards</span>
+                                    <span>🤖 AI: @_lobbyRules.CpuDifficulty</span>
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="lobby-rules-panel" style="opacity:0.4; text-align:center; font-size:0.85rem; color:rgba(255,255,255,0.5); padding:12px;">
+                                ⏳ Waiting for host to set rules…
+                            </div>
+                        }
+
+                        @if (_lobbyIsHost)
+                        {
                             @if (_lobbyPlayers.Count + _lobbyCpuCount < 2)
                             {
                                 <p class="lobby-waiting">Need at least 2 players total to start…</p>
@@ -1532,15 +1569,22 @@
 
     /* ── INLINE LOBBY ── */
     .inline-lobby {
+        position: absolute;
+        inset: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 90px 20px 40px;
         display: flex;
         flex-direction: column;
         align-items: center;
-        justify-content: center;
-        flex: 1;
-        width: 100%;
-        padding: 20px;
+        justify-content: flex-start;
         animation: fadeIn 0.25s ease;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(255,255,255,0.15) transparent;
     }
+    .inline-lobby::-webkit-scrollbar { width: 5px; }
+    .inline-lobby::-webkit-scrollbar-track { background: transparent; }
+    .inline-lobby::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 99px; }
 
     /* ── ENTRY SCREEN ── */
     .inline-lobby-entry {
@@ -1797,6 +1841,74 @@
     }
     .lobby-badge-you { background: rgba(34,197,94,0.2); color: #22c55e; }
     .lobby-badge-cpu { background: rgba(99,102,241,0.2); color: #a5b4fc; }
+
+    /* ── RULES PANEL in waiting room ── */
+    .lobby-rules-panel {
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255,255,255,0.09);
+        border-radius: 16px;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    .lobby-rules-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+    }
+    .lobby-rules-title {
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: rgba(255,255,255,0.6);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .lobby-rules-preset-badge {
+        background: rgba(34,197,94,0.15);
+        border: 1px solid rgba(34,197,94,0.35);
+        color: #4ade80;
+        font-size: 0.75rem;
+        font-weight: 800;
+        padding: 3px 10px;
+        border-radius: 20px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .lobby-rules-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+    .lobby-rule-chip {
+        font-size: 0.75rem;
+        font-weight: 700;
+        padding: 4px 10px;
+        border-radius: 20px;
+        letter-spacing: 0.2px;
+    }
+    .chip-on {
+        background: rgba(34,197,94,0.12);
+        border: 1px solid rgba(34,197,94,0.3);
+        color: #4ade80;
+    }
+    .chip-off {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.08);
+        color: rgba(255,255,255,0.25);
+        text-decoration: line-through;
+    }
+    .lobby-rules-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        border-top: 1px solid rgba(255,255,255,0.07);
+        padding-top: 10px;
+        font-size: 0.78rem;
+        color: rgba(255,255,255,0.45);
+        font-weight: 600;
+    }
 </style>
 
 @code {
@@ -1824,6 +1936,22 @@
     private List<string> _lobbyPlayers = new();
     private int _lobbyCpuCount = 1;
     private int _lobbyTotalPlayers = 4;
+    private LobbyRulesDto? _lobbyRules;
+
+    private record LobbyRulesDto(
+        string PresetName,
+        int StartingHandSize,
+        bool Stacking,
+        bool DrawUntilPlayable,
+        bool ForcedPlay,
+        bool SevenSwap,
+        bool ZeroRotate,
+        bool JumpInRule,
+        bool EnableVortex,
+        bool EnableWildDraw4Challenge,
+        int UnoFailurePenaltyCards,
+        string CpuDifficulty
+    );
 
     private List<RulePresetProfile> _presets = new();
     private RulePresetProfile _selectedPreset = null!;
@@ -2012,6 +2140,7 @@
         LobbyService.PlayersUpdated += LobbyOnPlayersUpdated;
         LobbyService.GameStarted   += LobbyOnGameStarted;
         LobbyService.RoomClosed    += LobbyOnRoomClosed;
+        LobbyService.RulesUpdated  += LobbyOnRulesUpdated;
 
         // Initialize Presets
         var classicPreset = new RulePresetProfile
@@ -2140,6 +2269,7 @@
             await LobbyService.JoinRoomAsync(_lobbyRoomCode, _lobbyPlayerName);
             _lobbyIsHost = true;
             _lobbyMode = "waiting";
+            await BroadcastLobbyRules();
         }
         catch (Exception ex)
         {
@@ -2149,6 +2279,37 @@
         {
             _lobbyConnecting = false;
         }
+    }
+
+    private async Task BroadcastLobbyRules()
+    {
+        var s = _selectedPreset.Settings;
+        var dto = new LobbyRulesDto(
+            _selectedPreset.Name,
+            s.StartingHandSize,
+            s.Stacking,
+            s.DrawUntilPlayable,
+            s.ForcedPlay,
+            s.SevenSwap,
+            s.ZeroRotate,
+            s.JumpInRule,
+            s.EnableVortex,
+            s.EnableWildDraw4Challenge,
+            s.UnoFailurePenaltyCards,
+            s.CpuDifficulty.ToString()
+        );
+        var json = JsonSerializer.Serialize(dto);
+        await LobbyService.SetRoomRulesAsync(json);
+    }
+
+    private void LobbyOnRulesUpdated(string json)
+    {
+        try
+        {
+            _lobbyRules = JsonSerializer.Deserialize<LobbyRulesDto>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            InvokeAsync(StateHasChanged);
+        }
+        catch { }
     }
 
     private async Task LobbyJoinRoom()
@@ -2510,6 +2671,7 @@
         LobbyService.PlayersUpdated -= LobbyOnPlayersUpdated;
         LobbyService.GameStarted   -= LobbyOnGameStarted;
         LobbyService.RoomClosed    -= LobbyOnRoomClosed;
+        LobbyService.RulesUpdated  -= LobbyOnRulesUpdated;
 
         if (_isMultiplayerHost)
         {

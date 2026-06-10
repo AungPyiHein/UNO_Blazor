@@ -8,6 +8,7 @@ public class GameHub : Hub
     private static readonly ConcurrentDictionary<string, List<string>> _rooms = new();
     private static readonly ConcurrentDictionary<string, int> _roomCpuCount = new();
     private static readonly ConcurrentDictionary<string, (string RoomCode, string PlayerName)> _connections = new();
+    private static readonly ConcurrentDictionary<string, string> _roomRules = new();
 
     public async Task JoinRoom(string roomCode, string playerName)
     {
@@ -28,6 +29,17 @@ public class GameHub : Hub
         }
 
         await BroadcastPlayers(roomCode, players);
+
+        // Send existing rules to the newly joined player
+        if (_roomRules.TryGetValue(roomCode, out var existingRules))
+            await Clients.Caller.SendAsync("RulesUpdated", existingRules);
+    }
+
+    public async Task SetRoomRules(string roomCode, string rulesJson)
+    {
+        roomCode = roomCode.Trim().ToUpperInvariant();
+        _roomRules[roomCode] = rulesJson;
+        await Clients.Group(roomCode).SendAsync("RulesUpdated", rulesJson);
     }
 
     public async Task LeaveRoom()
