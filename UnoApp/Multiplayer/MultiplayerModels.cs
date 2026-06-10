@@ -33,4 +33,8 @@ public class GameStateDto
     public int PendingDraw { get; set; }
     public string NotificationBanner { get; set; } = "";
     public int Wd4ChallengerIndex { get; set; } = -1;
+    public string MatchTimestamp { get; set; } = "";
+    public int[] TotalScores { get; set; } = Array.Empty<int>();
+    public int[] RoundScores { get; set; } = Array.Empty<int>();
+    public string[] PlayerStatuses { get; set; } = Array.Empty<string>();
 }

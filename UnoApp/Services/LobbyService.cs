@@ -16,6 +16,7 @@ public class LobbyService : IAsyncDisposable
     public event Action<string>? StateUpdated;
     public event Action<string>? MoveReceived;
     public event Action<string>? RulesUpdated;
+    public event Action<string, int>? SpectatorJoined;
 
     public string? CurrentRulesJson { get; private set; }
 
@@ -25,6 +26,8 @@ public class LobbyService : IAsyncDisposable
     public int MyPlayerIndex { get; private set; } = -1;
     public bool IsHost => MyPlayerIndex == 0;
     public bool IsGameStarted { get; private set; }
+    public bool IsSpectator { get; private set; }
+    public int SpectatorCount { get; private set; }
     public string[] AllPlayerNames { get; private set; } = Array.Empty<string>();
     public int CpuCount { get; private set; }
 
@@ -69,6 +72,11 @@ public class LobbyService : IAsyncDisposable
             RulesUpdated?.Invoke(json);
         });
 
+        _hub.On<string, int>("SpectatorJoined", (name, count) => {
+            SpectatorCount = count;
+            SpectatorJoined?.Invoke(name, count);
+        });
+
         await _hub.StartAsync();
     }
 
@@ -96,7 +104,17 @@ public class LobbyService : IAsyncDisposable
         if (_hub == null) return;
         MyRoomCode = roomCode.Trim().ToUpperInvariant();
         MyPlayerName = playerName.Trim();
+        IsSpectator = false;
         await _hub.InvokeAsync("JoinRoom", MyRoomCode, MyPlayerName);
+    }
+
+    public async Task JoinAsSpectatorAsync(string roomCode, string spectatorName)
+    {
+        if (_hub == null) return;
+        MyRoomCode = roomCode.Trim().ToUpperInvariant();
+        MyPlayerName = spectatorName.Trim();
+        IsSpectator = true;
+        await _hub.InvokeAsync("JoinAsSpectator", MyRoomCode, MyPlayerName);
     }
 
     public async Task StartGameAsync(int cpuCount = 0)
@@ -118,6 +136,12 @@ public class LobbyService : IAsyncDisposable
         await _hub.InvokeAsync("SendStateToPlayer", MyRoomCode, playerIndex, stateJson);
     }
 
+    public async Task SendStateToSpectatorsAsync(string stateJson)
+    {
+        if (_hub == null || MyRoomCode == null) return;
+        await _hub.InvokeAsync("SendStateToSpectators", MyRoomCode, stateJson);
+    }
+
     public void SetPlayerInfo(int myIndex, string[] allPlayerNames, int cpuCount = 0)
     {
         MyPlayerIndex = myIndex;
@@ -129,9 +153,11 @@ public class LobbyService : IAsyncDisposable
     public void ResetGame()
     {
         IsGameStarted = false;
+        IsSpectator = false;
         MyPlayerIndex = -1;
         AllPlayerNames = Array.Empty<string>();
         CpuCount = 0;
+        SpectatorCount = 0;
     }
 
     public async ValueTask DisposeAsync()

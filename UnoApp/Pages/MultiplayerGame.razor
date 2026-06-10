@@ -20,6 +20,13 @@
     {
         <div class="tabletop-3d"></div>
 
+        @if (LobbyService.IsSpectator)
+        {
+            <div class="spectator-banner">
+                <span>👁️ SPECTATING</span>
+            </div>
+        }
+
         @for (int j = 0; j < Opponents.Count; j++)
         {
             int jc       = j;
@@ -246,10 +253,32 @@
                 <div class="glass-panel game-over-panel">
                     <div class="round-label">GAME OVER</div>
                     <h1 class="winner-title">
-                        @(_state.WinnerIndex.HasValue
+                        🏆 @(_state.WinnerIndex.HasValue
                             ? _state.PlayerNames[_state.WinnerIndex.Value] + " WINS!"
                             : "GAME OVER!")
                     </h1>
+
+                    <div class="result-player-list">
+                        @for (int pi = 0; pi < _state.PlayerNames.Length; pi++)
+                        {
+                            int pidx = pi;
+                            bool isWinner = _state.WinnerIndex == pidx;
+                            int cardCount  = _state.HandCounts.Length > pidx ? _state.HandCounts[pidx] : 0;
+                            int totalScore = _state.TotalScores != null && _state.TotalScores.Length > pidx ? _state.TotalScores[pidx] : 0;
+                            int roundScore = _state.RoundScores != null && _state.RoundScores.Length > pidx ? _state.RoundScores[pidx] : 0;
+                            <div class="result-player-row @(isWinner ? "result-winner" : "result-loser")">
+                                <span class="result-badge">@(isWinner ? "WIN" : "LOSE")</span>
+                                <span class="result-name">@_state.PlayerNames[pidx]</span>
+                                <span class="result-score">+@roundScore this round</span>
+                                <span class="result-total">@totalScore total</span>
+                                @if (!isWinner && cardCount > 0)
+                                {
+                                    <span class="result-cards">🃏 @cardCount left</span>
+                                }
+                            </div>
+                        }
+                    </div>
+
                     <div class="game-over-btns">
                         <button class="new-game-btn" @onclick="BackToLobby">← BACK TO LOBBY</button>
                     </div>
@@ -368,6 +397,7 @@
 
 .round-label { font-size: 0.95rem; letter-spacing: 3px; text-transform: uppercase; color: rgba(255,255,255,0.5); font-weight: 700; }
 .game-over-btns { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
+.winner-title { font-size: 2.2rem; font-weight: 900; background: linear-gradient(to right,#fbbf24,#f59e0b); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 8px 0; }
 </style>
 
 @code {

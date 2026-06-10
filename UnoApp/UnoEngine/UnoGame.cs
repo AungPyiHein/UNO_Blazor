@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -59,6 +60,7 @@ namespace UnoEngine
 
         public List<int> RemotePlayerIndices { get; set; } = new();
         public Func<int, Task<MoveDto?>>? GetRemoteHumanMove;
+        public DateTime? MatchTimestamp { get; private set; }
 
         private Random _random = new();
         private System.Threading.SemaphoreSlim _actionLock = new(1, 1);
@@ -311,6 +313,22 @@ namespace UnoEngine
                     var drawn = await DrawCardAsync(player);
                     if (drawn != null && !CanPlayCard(drawn))
                         await PassTurnAfterDraw();
+                    break;
+                case "afk":
+                    var afkPlayer = Players[move.PlayerIndex];
+                    int afkPenalty = Settings.AfkPenaltyCards;
+                    afkPlayer.CurrentStatus = $"⏰ AFK — drawing {afkPenalty} card{(afkPenalty != 1 ? "s" : "")}…";
+                    OnStateChanged?.Invoke();
+                    await Task.Delay(800);
+                    for (int ai = 0; ai < afkPenalty; ai++)
+                        await DrawCardAsync(afkPlayer);
+                    afkPlayer.CurrentStatus = "";
+                    LogAction($"⏰ {afkPlayer.Name} was AFK and drew {afkPenalty} card{(afkPenalty != 1 ? "s" : "")}.");
+                    if (Status != GameStatus.GameOver)
+                    {
+                        MoveToNextTurn();
+                        await StartTurnAsync();
+                    }
                     break;
                 case "color":
                     if (move.Color != null && Enum.TryParse<CardColor>(move.Color, out var wildColor))
@@ -600,6 +618,23 @@ namespace UnoEngine
             DiscardPile.Add(playedCard);
             Status = GameStatus.Playing;
 
+            // ── In-game action bonus ───────────────────────────────────────────
+            int actionBonus = playedCard.Value switch
+            {
+                CardValue.Skip      => 5,
+                CardValue.Reverse   => 5,
+                CardValue.Draw2     => 10,
+                CardValue.Wild      => 15,
+                CardValue.WildDraw4 => 20,
+                CardValue.Vortex    => 20,
+                _                   => 0
+            };
+            if (actionBonus > 0)
+            {
+                player.Score      += actionBonus;
+                player.TotalScore += actionBonus;
+            }
+
             if (OnSoundEffect != null)
             {
                 string snd = playedCard.Value switch
@@ -645,10 +680,11 @@ namespace UnoEngine
             {
                 Status = GameStatus.GameOver;
                 Winner = player;
+                MatchTimestamp = DateTime.UtcNow;
                 player.CurrentStatus = "WINNER!";
-                WinnerScore = CalculateWinnerScore();
-                player.TotalScore += WinnerScore;
-                LogAction($"{player.Name} WINS with {WinnerScore} points!");
+                ApplyRoundEndScores();
+                WinnerScore = player.RoundScore;
+                LogAction($"{player.Name} WINS! Round scores applied.");
                 if (OnSoundEffect != null) await OnSoundEffect("win");
                 return;
             }
@@ -918,27 +954,15 @@ namespace UnoEngine
             return Task.CompletedTask;
         }
 
-        private int CalculateWinnerScore()
+        private void ApplyRoundEndScores()
         {
-            int total = 0;
-            foreach (var player in Players)
+            foreach (var p in Players)
             {
-                foreach (var card in player.Hand)
-                {
-                    total += card.Value switch
-                    {
-                        _ when (int)card.Value <= 9 => (int)card.Value,
-                        CardValue.Skip => 20,
-                        CardValue.Reverse => 20,
-                        CardValue.Draw2 => 20,
-                        CardValue.Wild => 50,
-                        CardValue.WildDraw4 => 50,
-                        CardValue.Vortex => 50,
-                        _ => 0
-                    };
-                }
+                int cards = p.Hand.Count;
+                int roundPoints = Math.Max(5, 60 - (cards * 5));
+                p.RoundScore  = roundPoints;
+                p.TotalScore += roundPoints;
             }
-            return total;
         }
 
         private async Task TriggerCpuJumpInCheck(UnoCard? lastPlayed)
@@ -1419,5 +1443,27 @@ namespace UnoEngine
         }
 
         public Player GetCurrentPlayer() => Players[CurrentPlayerIndex];
+
+        public async Task ApplyAfkPenaltyAsync()
+        {
+            if (Status == GameStatus.GameOver) return;
+            var currentPlayer = GetCurrentPlayer();
+            if (!currentPlayer.IsHuman) return;
+
+            int penaltyCount = Settings.AfkPenaltyCards;
+            currentPlayer.CurrentStatus = $"⏰ AFK — drawing {penaltyCount} card{(penaltyCount != 1 ? "s" : "")}…";
+            OnStateChanged?.Invoke();
+            await Task.Delay(800);
+            for (int i = 0; i < penaltyCount; i++)
+                await DrawCardAsync(currentPlayer);
+            currentPlayer.CurrentStatus = "";
+            LogAction($"⏰ {currentPlayer.Name} was AFK and drew {penaltyCount} card{(penaltyCount != 1 ? "s" : "")}.");
+            OnStateChanged?.Invoke();
+            if (Status != GameStatus.GameOver)
+            {
+                MoveToNextTurn();
+                await StartTurnAsync();
+            }
+        }
     }
 }

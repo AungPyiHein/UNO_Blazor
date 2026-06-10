@@ -22,6 +22,14 @@
                 <span class="icon">⚙️</span> Manage Rules
                 <span class="active-preset-badge">@_selectedPreset.Name</span>
             </button>
+            @if (_leaderboard.Count > 0)
+            {
+                <button class="glass-btn leaderboard-trigger @(_leaderboardUpdated ? "leaderboard-updated" : "")"
+                        @onclick="() => { _showLeaderboard = true; _leaderboardUpdated = false; }">
+                    <span class="icon">🏆</span> Leaderboard
+                    @if (_leaderboardUpdated) { <span class="lb-dot"></span> }
+                </button>
+            }
         </div>
 
         @if (!_showLobby)
@@ -85,6 +93,11 @@
                                 <span class="lmb-icon">🔗</span>
                                 <span class="lmb-label">Join Room</span>
                                 <span class="lmb-desc">Enter a code and jump in</span>
+                            </button>
+                            <button class="lobby-mode-box lobby-mode-spectate" @onclick='() => _lobbyMode = "spectate"'>
+                                <span class="lmb-icon">👁️</span>
+                                <span class="lmb-label">Spectate</span>
+                                <span class="lmb-desc">Watch a game without playing</span>
                             </button>
                         </div>
 
@@ -170,6 +183,41 @@
                             @(_lobbyConnecting ? "Joining…" : "Join Room")
                         </button>
                         <button class="lobby-btn lobby-btn-back" @onclick='() => _lobbyMode = "entry"'>← Back</button>
+                    </div>
+                }
+                else if (_lobbyMode == "spectate")
+                {
+                    <div class="inline-lobby-card">
+                        <h1 class="lobby-title" style="font-size:1.5rem">👁️ Spectate</h1>
+                        <div class="lobby-field">
+                            <label>Your Name</label>
+                            <input class="lobby-input" @bind="_lobbyPlayerName" placeholder="e.g. Watcher" maxlength="20" />
+                        </div>
+                        <div class="lobby-field">
+                            <label>Room Code</label>
+                            <input class="lobby-input lobby-input-code" @bind="_lobbyRoomCode" placeholder="e.g. GAME01" maxlength="8" @oninput="LobbyUpperRoomCode" />
+                        </div>
+                        @if (!string.IsNullOrEmpty(_lobbyError))
+                        {
+                            <p class="lobby-error">@_lobbyError</p>
+                        }
+                        <button class="lobby-btn" @onclick='async () => await LobbyJoinAsSpectator(_lobbyRoomCode, _lobbyPlayerName)' disabled="@_lobbyConnecting">
+                            @(_lobbyConnecting ? "Joining…" : "Watch Game")
+                        </button>
+                        <button class="lobby-btn lobby-btn-back" @onclick='() => _lobbyMode = "entry"'>← Back</button>
+                    </div>
+                }
+                else if (_lobbyMode == "spectating")
+                {
+                    <div class="inline-lobby-card">
+                        <div class="spectating-banner">
+                            <span class="spectating-icon">👁️</span>
+                            <div>
+                                <div class="spectating-title">Watching Room <strong>@_lobbyRoomCode.ToUpperInvariant()</strong></div>
+                                <div class="spectating-sub">Waiting for the host to start the game…</div>
+                            </div>
+                        </div>
+                        <button class="lobby-btn lobby-btn-back" @onclick="CloseLobby">← Leave</button>
                     </div>
                 }
                 else if (_lobbyMode == "waiting")
@@ -703,12 +751,96 @@
                                         </div>
                                     </div>
                                 }
+
+                                <!-- AFK Penalty -->
+                                <div class="rule-row">
+                                    <div class="rule-meta">
+                                        <span class="rule-icon">⏰</span>
+                                        <div class="rule-text">
+                                            <span class="rule-title">AFK Penalty</span>
+                                            <span class="rule-desc">Auto-draw cards if a human player idles too long.</span>
+                                        </div>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input type="checkbox" checked="@_editingSettings.AfkEnabled"
+                                               @onchange="e => _editingSettings.AfkEnabled = (bool)(e.Value ?? false)" />
+                                        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                                    </label>
+                                </div>
+                                @if (_editingSettings.AfkEnabled)
+                                {
+                                    <div class="timer-config-card">
+                                        <div class="timer-meta">
+                                            <span class="rule-icon">⏳</span>
+                                            <div class="rule-text">
+                                                <span class="rule-title">AFK Timeout</span>
+                                                <span class="rule-desc">Seconds before AFK penalty triggers.</span>
+                                            </div>
+                                        </div>
+                                        <div class="timer-slider-control">
+                                            <span class="timer-val">@_editingSettings.AfkTimeoutSeconds s</span>
+                                            <input type="range" min="5" max="60" step="5"
+                                                   value="@_editingSettings.AfkTimeoutSeconds"
+                                                   @onchange="e => _editingSettings.AfkTimeoutSeconds = int.Parse(e.Value!.ToString()!)" />
+                                        </div>
+                                    </div>
+                                    <div class="timer-config-card">
+                                        <div class="timer-meta">
+                                            <span class="rule-icon">🃏</span>
+                                            <div class="rule-text">
+                                                <span class="rule-title">AFK Penalty Cards</span>
+                                                <span class="rule-desc">Cards drawn as punishment for going AFK.</span>
+                                            </div>
+                                        </div>
+                                        <div class="timer-slider-control">
+                                            <span class="timer-val">@_editingSettings.AfkPenaltyCards</span>
+                                            <input type="range" min="1" max="10" step="1"
+                                                   value="@_editingSettings.AfkPenaltyCards"
+                                                   @onchange="e => _editingSettings.AfkPenaltyCards = int.Parse(e.Value!.ToString()!)" />
+                                        </div>
+                                    </div>
+                                }
                             </div>
                         }
                     </div>
 
                     <div class="modal-footer">
                         <button class="confirm-rules-btn" @onclick="SaveAndApplyRules">Save & Apply</button>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- MODAL: Leaderboard -->
+        @if (_showLeaderboard)
+        {
+            <div class="modal-backdrop" @onclick="() => _showLeaderboard = false">
+                <div class="modal-card leaderboard-modal" @onclick:stopPropagation>
+                    <div class="modal-header">
+                        <h2>🏆 Session Leaderboard</h2>
+                        <button class="close-btn" @onclick="() => _showLeaderboard = false">×</button>
+                    </div>
+                    <div class="leaderboard-body">
+                        <table class="lb-table">
+                            <thead>
+                                <tr><th>#</th><th>Player</th><th>W</th><th>L</th><th>Games</th><th>Last Played</th></tr>
+                            </thead>
+                            <tbody>
+                                @for (int ri = 0; ri < _leaderboard.Count; ri++)
+                                {
+                                    var e = _leaderboard[ri];
+                                    int rank = ri + 1;
+                                    <tr class="@(rank == 1 ? "lb-top" : "")">
+                                        <td>@(rank == 1 ? "🥇" : rank == 2 ? "🥈" : rank == 3 ? "🥉" : rank.ToString())</td>
+                                        <td>@e.Name</td>
+                                        <td class="lb-win">@e.Wins</td>
+                                        <td class="lb-lose">@e.Losses</td>
+                                        <td>@e.GamesPlayed</td>
+                                        <td class="lb-date">@e.LastPlayed.ToString("HH:mm")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -858,19 +990,42 @@
                                     </div>
 
                                     <div class="rb-section">
-                                        <h4>🏆 Round Scoring</h4>
-                                        <p>When a player empties their hand, they score points from every card remaining in opponents' hands:</p>
+                                        <h4>⚡ In-Game Action Bonuses</h4>
+                                        <p>Playing certain cards earns you instant points <em>added immediately</em> to your score — no need to wait until the round ends.</p>
                                         <table class="rb-score-table">
-                                            <thead>
-                                                <tr><th>Card Type</th><th>Points</th></tr>
-                                            </thead>
+                                            <thead><tr><th>Card played</th><th>Instant bonus</th></tr></thead>
                                             <tbody>
-                                                <tr><td>Number cards (0–9)</td><td>Face value (0–9)</td></tr>
-                                                <tr><td>Skip / Reverse / Draw Two</td><td>20 pts each</td></tr>
-                                                <tr><td>Wild / Wild Draw Four</td><td>50 pts each</td></tr>
-                                                <tr><td>Vortex</td><td>50 pts</td></tr>
+                                                <tr><td>Skip</td><td>+5 pts</td></tr>
+                                                <tr><td>Reverse</td><td>+5 pts</td></tr>
+                                                <tr><td>Draw Two</td><td>+10 pts</td></tr>
+                                                <tr><td>Wild</td><td>+15 pts</td></tr>
+                                                <tr><td>Wild Draw Four</td><td>+20 pts</td></tr>
+                                                <tr><td>Vortex</td><td>+20 pts</td></tr>
                                             </tbody>
                                         </table>
+                                    </div>
+
+                                    <div class="rb-section">
+                                        <h4>🏆 Round-End Scoring</h4>
+                                        <p><strong>Every player</strong> — winner and losers alike — earns points at the end of a round based on how few cards they have left. Fewer cards = bigger reward.</p>
+                                        <table class="rb-score-table">
+                                            <thead><tr><th>Cards left</th><th>Round-end pts</th></tr></thead>
+                                            <tbody>
+                                                <tr><td>0 (winner!)</td><td>60 pts</td></tr>
+                                                <tr><td>1</td><td>55 pts</td></tr>
+                                                <tr><td>2</td><td>50 pts</td></tr>
+                                                <tr><td>3</td><td>45 pts</td></tr>
+                                                <tr><td>4</td><td>40 pts</td></tr>
+                                                <tr><td>5</td><td>35 pts</td></tr>
+                                                <tr><td>6</td><td>30 pts</td></tr>
+                                                <tr><td>7</td><td>25 pts</td></tr>
+                                                <tr><td>8</td><td>20 pts</td></tr>
+                                                <tr><td>9</td><td>15 pts</td></tr>
+                                                <tr><td>10</td><td>10 pts</td></tr>
+                                                <tr><td>11+</td><td>5 pts (floor)</td></tr>
+                                            </tbody>
+                                        </table>
+                                        <div class="rb-info-box rb-info-tip">Formula: <strong>max(5, 60 − cards × 5)</strong>. The winner always earns 60. Even a loser holding 2 cards earns 50 — being close matters!</div>
                                     </div>
 
                                     <div class="rb-section">
@@ -928,6 +1083,16 @@
                                         <h4>🔄 Draw Until Playable</h4>
                                         <p>Instead of drawing one card and passing, you <strong>keep drawing</strong> until you pull a card you can legally play — then you must play it immediately.</p>
                                         <div class="rb-info-box rb-info-warn">Enabling this automatically enables Forced Play as well.</div>
+                                    </div>
+
+                                    <div class="rb-section">
+                                        <h4>⏰ AFK Penalty</h4>
+                                        <p>If a human player doesn't take their turn within the timeout window, the game automatically draws penalty cards for them and advances the turn.</p>
+                                        <ul>
+                                            <li><strong>Timeout</strong> — configurable from 5 to 60 seconds (default: 10 s).</li>
+                                            <li><strong>Penalty</strong> — configurable from 1 to 10 cards drawn (default: 2).</li>
+                                        </ul>
+                                        <div class="rb-info-box rb-info-tip">AFK is only tracked for human players. CPU players are never penalised. In multiplayer, the host enforces AFK on remote human players as well.</div>
                                     </div>
                                 </div>
                             }
@@ -1752,7 +1917,35 @@
         color: #fff;
     }
     .lobby-mode-create .lmb-label { color: #4ade80; text-shadow: 0 0 12px rgba(34,197,94,0.5); }
-    .lobby-mode-join   .lmb-label { color: #818cf8; text-shadow: 0 0 12px rgba(99,102,241,0.5); }
+    .lobby-mode-join     .lmb-label { color: #818cf8; text-shadow: 0 0 12px rgba(99,102,241,0.5); }
+    .lobby-mode-spectate .lmb-label { color: #c4b5fd; text-shadow: 0 0 12px rgba(168,85,247,0.5); }
+
+    .lobby-mode-spectate {
+        border-color: rgba(168,85,247,0.35);
+    }
+    .lobby-mode-spectate::before {
+        background: radial-gradient(ellipse at 50% 0%, rgba(168,85,247,0.14) 0%, transparent 70%);
+    }
+    .lobby-mode-spectate:hover {
+        border-color: #a855f7;
+        box-shadow: 0 0 32px rgba(168,85,247,0.4), inset 0 0 20px rgba(168,85,247,0.07);
+        background: rgba(168,85,247,0.07);
+    }
+
+    /* ── SPECTATING WAITING STATE ── */
+    .spectating-banner {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        background: rgba(168,85,247,0.12);
+        border: 1.5px solid rgba(168,85,247,0.4);
+        border-radius: 16px;
+        padding: 20px 24px;
+        margin-bottom: 16px;
+    }
+    .spectating-icon { font-size: 2rem; }
+    .spectating-title { font-size: 1rem; font-weight: 700; color: #e2e8f0; }
+    .spectating-sub   { font-size: 0.85rem; color: rgba(255,255,255,0.45); margin-top: 4px; }
 
     .lmb-desc {
         font-size: 0.82rem;
@@ -2166,6 +2359,26 @@
     private bool _showRulesModal = false;
     private bool _showRuleBookModal = false;
 
+    // AFK timer
+    private CancellationTokenSource? _afkCts;
+    private int _afkTimerPlayerIndex = -1;
+
+    // Leaderboard
+    private class LeaderboardEntry
+    {
+        public string Name { get; set; } = "";
+        public int Wins { get; set; }
+        public int Losses { get; set; }
+        public int GamesPlayed => Wins + Losses;
+        public DateTime LastPlayed { get; set; }
+    }
+    private List<LeaderboardEntry> _leaderboard = new();
+    private bool _showLeaderboard = false;
+    private bool _leaderboardUpdated = false;
+
+    // Spectator
+    private int _spectatorCount = 0;
+
     // ── Inline lobby state ──
     private bool _showLobby = false;
     private string _lobbyMode = "entry";
@@ -2387,6 +2600,7 @@
         LobbyService.RulesUpdated  += LobbyOnRulesUpdated;
         LobbyService.PlayerKicked        += LobbyOnPlayerKicked;
         LobbyService.ChatMessageReceived += LobbyOnChatMessage;
+        LobbyService.SpectatorJoined     += LobbyOnSpectatorJoined;
 
         // Initialize Presets
         var classicPreset = new RulePresetProfile
@@ -2405,7 +2619,10 @@
                 JumpInRule = false,
                 EnableVortex = false,
                 UnoFailurePenaltyCards = 2,
-                CpuDifficulty = AiDifficulty.Normal
+                CpuDifficulty = AiDifficulty.Normal,
+                AfkEnabled = true,
+                AfkTimeoutSeconds = 10,
+                AfkPenaltyCards = 2
             }
         };
 
@@ -2427,7 +2644,10 @@
                 JumpInTimerSeconds = 1.0, // 1 second QTE timer for ultimate speed/chaos
                 EnableVortex = true,
                 UnoFailurePenaltyCards = 5, // Max draw penalty
-                CpuDifficulty = AiDifficulty.Hard
+                CpuDifficulty = AiDifficulty.Hard,
+                AfkEnabled = true,
+                AfkTimeoutSeconds = 10,
+                AfkPenaltyCards = 5
             }
         };
 
@@ -2612,6 +2832,18 @@
 
     private void LobbyOnGameStarted(string[] players, int cpuCount)
     {
+        // If we joined as spectator, just navigate to the game page
+        if (LobbyService.IsSpectator)
+        {
+            InvokeAsync(() =>
+            {
+                _showLobby = false;
+                Nav.NavigateTo("/multiplayer-game");
+                return Task.CompletedTask;
+            });
+            return;
+        }
+
         int idx = Array.IndexOf(players, _lobbyPlayerName.Trim());
         LobbyService.SetPlayerInfo(idx, players, cpuCount);
 
@@ -2627,6 +2859,12 @@
                 Nav.NavigateTo("/multiplayer-game");
             }
         });
+    }
+
+    private void LobbyOnSpectatorJoined(string name, int count)
+    {
+        _spectatorCount = count;
+        InvokeAsync(StateHasChanged);
     }
 
     private void LobbyOnRoomClosed()
@@ -2666,6 +2904,89 @@
         await LobbyService.SendChatMessageAsync(msg);
     }
 
+    private async Task LobbyJoinAsSpectator(string roomCode, string name)
+    {
+        if (string.IsNullOrWhiteSpace(roomCode) || string.IsNullOrWhiteSpace(name)) return;
+        try
+        {
+            await LobbyService.JoinAsSpectatorAsync(roomCode, name);
+            _lobbyMode = "spectating";
+            StateHasChanged();
+        }
+        catch { }
+    }
+
+    // ── AFK Timer ─────────────────────────────────────────────────────────────
+    private void ManageAfkTimer()
+    {
+        if (_game == null || _game.Status == GameStatus.GameOver) { CancelAfkTimer(); return; }
+        if (!_game.Settings.AfkEnabled) { CancelAfkTimer(); return; }
+
+        var curIdx = _game.CurrentPlayerIndex;
+        var curPlayer = _game.Players[curIdx];
+        if (!curPlayer.IsHuman || _game.RemotePlayerIndices.Contains(curIdx))
+        {
+            CancelAfkTimer();
+            return;
+        }
+
+        // Same player still their turn — timer already running
+        if (_afkTimerPlayerIndex == curIdx && _afkCts != null) return;
+
+        // New turn for local human player — restart timer
+        CancelAfkTimer();
+        _afkTimerPlayerIndex = curIdx;
+        _afkCts = new CancellationTokenSource();
+        var token = _afkCts.Token;
+        var timeoutMs = (int)(_game.Settings.AfkTimeoutSeconds * 1000);
+
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(timeoutMs, token);
+            if (token.IsCancellationRequested) return;
+            if (_game != null && _game.CurrentPlayerIndex == curIdx && _game.Status != GameStatus.GameOver)
+            {
+                if (_isMultiplayerHost && _game.RemotePlayerIndices.Contains(curIdx))
+                {
+                    if (_pendingRemoteMoves.TryGetValue(curIdx, out var tcs))
+                        tcs.TrySetResult(new MoveDto { Type = "afk" });
+                }
+                else
+                {
+                    await InvokeAsync(async () => await _game.ApplyAfkPenaltyAsync());
+                }
+            }
+        }, token);
+    }
+
+    private void CancelAfkTimer()
+    {
+        _afkCts?.Cancel();
+        _afkCts = null;
+        _afkTimerPlayerIndex = -1;
+    }
+
+    // ── Leaderboard ────────────────────────────────────────────────────────────
+    private void UpdateLeaderboard()
+    {
+        if (_game == null) return;
+        var winner = _game.Winner;
+        foreach (var player in _game.Players)
+        {
+            if (!player.IsHuman) continue;
+            var entry = _leaderboard.FirstOrDefault(e => e.Name == player.Name);
+            if (entry == null)
+            {
+                entry = new LeaderboardEntry { Name = player.Name };
+                _leaderboard.Add(entry);
+            }
+            if (player == winner) entry.Wins++;
+            else entry.Losses++;
+            entry.LastPlayed = DateTime.Now;
+        }
+        _leaderboard = _leaderboard.OrderByDescending(e => e.Wins).ThenBy(e => e.Losses).ToList();
+    }
+
     private async Task LobbyChatKeyDown(KeyboardEventArgs e)
     {
         if (e.Key == "Enter") await LobbySendChat();
@@ -2702,8 +3023,15 @@
             _game.RemotePlayerIndices.Add(i);
 
         _game.GetRemoteHumanMove = GetRemoteMoveAsync;
+        _leaderboardUpdated = false;
         _game.OnStateChanged += async () =>
         {
+            ManageAfkTimer();
+            if (_game.Status == GameStatus.GameOver && !_leaderboardUpdated)
+            {
+                UpdateLeaderboard();
+                _leaderboardUpdated = true;
+            }
             await BroadcastStateAsync();
             await InvokeAsync(StateHasChanged);
         };
@@ -2754,6 +3082,16 @@
             }
             catch { }
         }
+        if (LobbyService.SpectatorCount > 0)
+        {
+            try
+            {
+                var spectatorDto = BuildSpectatorState();
+                var spectatorJson = JsonSerializer.Serialize(spectatorDto);
+                await LobbyService.SendStateToSpectatorsAsync(spectatorJson);
+            }
+            catch { }
+        }
     }
 
     private GameStateDto BuildStateForPlayer(int playerIndex)
@@ -2788,7 +3126,42 @@
             WinnerIndex = game.Winner != null ? game.Players.IndexOf(game.Winner) : null,
             PendingDraw = game.PendingDrawCount,
             NotificationBanner = game.ActiveNotificationBanner,
-            Wd4ChallengerIndex = game.Wd4ChallengerIndex
+            Wd4ChallengerIndex = game.Wd4ChallengerIndex,
+            MatchTimestamp = game.MatchTimestamp?.ToString("o") ?? "",
+            TotalScores = game.Players.Select(p => p.TotalScore).ToArray(),
+            RoundScores = game.Players.Select(p => p.RoundScore).ToArray(),
+            PlayerStatuses = game.Players.Select(p => p.CurrentStatus).ToArray()
+        };
+    }
+
+    private GameStateDto BuildSpectatorState()
+    {
+        var game = _game!;
+        return new GameStateDto
+        {
+            CurrentPlayerIndex = game.CurrentPlayerIndex,
+            TopCard = game.TopCard != null ? new CardDto
+            {
+                Id = game.TopCard.Id.ToString(),
+                Color = game.TopCard.Color.ToString(),
+                Value = game.TopCard.Value.ToString()
+            } : null,
+            ActiveColor = game.LastValidColor.ToString(),
+            HandCounts = game.Players.Select(p => p.Hand.Count).ToArray(),
+            PlayerNames = game.Players.Select(p => p.Name).ToArray(),
+            MyHand = new List<CardDto>(),
+            IsMyTurn = false,
+            Status = game.Status.ToString(),
+            Direction = game.GameDirection,
+            IsGameOver = game.Status == GameStatus.GameOver,
+            WinnerIndex = game.Winner != null ? game.Players.IndexOf(game.Winner) : null,
+            PendingDraw = game.PendingDrawCount,
+            NotificationBanner = game.ActiveNotificationBanner,
+            Wd4ChallengerIndex = game.Wd4ChallengerIndex,
+            MatchTimestamp = game.MatchTimestamp?.ToString("o") ?? "",
+            TotalScores = game.Players.Select(p => p.TotalScore).ToArray(),
+            RoundScores = game.Players.Select(p => p.RoundScore).ToArray(),
+            PlayerStatuses = game.Players.Select(p => p.CurrentStatus).ToArray()
         };
     }
 
@@ -2933,8 +3306,18 @@
 
         // Pass the settings of the active selected preset directly to the game session!
         _game = new UnoGame(players, _selectedPreset.Settings);
-        _game.OnStateChanged += () => InvokeAsync(StateHasChanged);
-        
+        _leaderboardUpdated = false;
+        _game.OnStateChanged += async () =>
+        {
+            ManageAfkTimer();
+            if (_game.Status == GameStatus.GameOver && !_leaderboardUpdated)
+            {
+                UpdateLeaderboard();
+                _leaderboardUpdated = true;
+            }
+            await InvokeAsync(StateHasChanged);
+        };
+
         _isGameStarted = true;
         await _game.DealStartingCardsAsync();
         await _game.StartTurnAsync();
@@ -2942,6 +3325,8 @@
 
     private void ResetGame()
     {
+        CancelAfkTimer();
+        _leaderboardUpdated = false;
         _isGameStarted = false;
         _game = null;
         if (_isMultiplayerHost)
@@ -2956,12 +3341,14 @@
 
     public async ValueTask DisposeAsync()
     {
+        CancelAfkTimer();
         LobbyService.PlayersUpdated -= LobbyOnPlayersUpdated;
         LobbyService.GameStarted   -= LobbyOnGameStarted;
         LobbyService.RoomClosed    -= LobbyOnRoomClosed;
         LobbyService.RulesUpdated  -= LobbyOnRulesUpdated;
         LobbyService.PlayerKicked        -= LobbyOnPlayerKicked;
         LobbyService.ChatMessageReceived -= LobbyOnChatMessage;
+        LobbyService.SpectatorJoined     -= LobbyOnSpectatorJoined;
 
         if (_isMultiplayerHost)
         {
@@ -2974,6 +3361,7 @@
     private async Task HandleNextRound()
     {
         if (_game == null) return;
+        _leaderboardUpdated = false;
 
         var prevPlayers = _game.Players.Select(p => new UnoEngine.Models.Player
         {
@@ -2987,9 +3375,42 @@
 
         _game = new UnoGame(prevPlayers, settings);
         _game.RoundNumber = nextRound;
-        _game.OnStateChanged += () => InvokeAsync(StateHasChanged);
 
-        await _game.DealStartingCardsAsync();
+        if (_isMultiplayerHost)
+        {
+            int humanCount = LobbyService.AllPlayerNames.Length;
+            for (int i = 1; i < humanCount; i++)
+                _game.RemotePlayerIndices.Add(i);
+            _game.GetRemoteHumanMove = GetRemoteMoveAsync;
+            _game.OnStateChanged += async () =>
+            {
+                ManageAfkTimer();
+                if (_game.Status == GameStatus.GameOver && !_leaderboardUpdated)
+                {
+                    UpdateLeaderboard();
+                    _leaderboardUpdated = true;
+                }
+                await BroadcastStateAsync();
+                await InvokeAsync(StateHasChanged);
+            };
+            await _game.DealStartingCardsAsync();
+            await BroadcastStateAsync();
+        }
+        else
+        {
+            _game.OnStateChanged += async () =>
+            {
+                ManageAfkTimer();
+                if (_game.Status == GameStatus.GameOver && !_leaderboardUpdated)
+                {
+                    UpdateLeaderboard();
+                    _leaderboardUpdated = true;
+                }
+                await InvokeAsync(StateHasChanged);
+            };
+            await _game.DealStartingCardsAsync();
+        }
+
         await _game.StartTurnAsync();
         StateHasChanged();
     }

@@ -366,20 +366,26 @@
         <div class="modal-overlay glass-modal">
             <div class="glass-panel game-over-panel">
                 <div class="round-label">ROUND @Game.RoundNumber COMPLETE</div>
-                <h1 class="winner-title">WINNER: @Game.Winner?.Name</h1>
+                <h1 class="winner-title">🏆 @Game.Winner?.Name WINS!</h1>
                 <p class="winner-score">+@Game.WinnerScore pts this round</p>
-                <table class="total-scores-table">
-                    <thead><tr><th>Player</th><th>Total Score</th></tr></thead>
-                    <tbody>
-                        @foreach (var p in Game.Players.OrderByDescending(p => p.TotalScore))
-                        {
-                            <tr class="@(p == Game.Winner ? "score-winner-row" : "")">
-                                <td>@p.Name</td>
-                                <td>@p.TotalScore</td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
+
+                <div class="result-player-list">
+                    @foreach (var p in Game.Players.OrderByDescending(p => p.TotalScore))
+                    {
+                        bool isWinner = p == Game.Winner;
+                        <div class="result-player-row @(isWinner ? "result-winner" : "result-loser")">
+                            <span class="result-badge">@(isWinner ? "WIN" : "LOSE")</span>
+                            <span class="result-name">@p.Name</span>
+                            <span class="result-score">+@p.RoundScore this round</span>
+                            <span class="result-total">@p.TotalScore total</span>
+                            @if (!isWinner && p.Hand.Count > 0)
+                            {
+                                <span class="result-cards">🃏 @p.Hand.Count left</span>
+                            }
+                        </div>
+                    }
+                </div>
+
                 <div class="game-over-btns">
                     <button class="next-round-btn" @onclick="() => OnNextRound.InvokeAsync()">NEXT ROUND</button>
                     <button class="new-game-btn" @onclick="() => OnStartGame.InvokeAsync()">NEW GAME</button>

@@ -10,6 +10,10 @@ public class GameHub : Hub
     private static readonly ConcurrentDictionary<string, (string RoomCode, string PlayerName)> _connections = new();
     private static readonly ConcurrentDictionary<string, string> _roomRules = new();
 
+    // Spectator tracking
+    private static readonly ConcurrentDictionary<string, (string RoomCode, string Name)> _spectatorConnections = new();
+    private static readonly ConcurrentDictionary<string, List<string>> _spectators = new();
+
     public async Task JoinRoom(string roomCode, string playerName)
     {
         roomCode   = roomCode.Trim().ToUpperInvariant();
@@ -31,6 +35,31 @@ public class GameHub : Hub
         await BroadcastPlayers(roomCode, players);
 
         // Send existing rules to the newly joined player
+        if (_roomRules.TryGetValue(roomCode, out var existingRules))
+            await Clients.Caller.SendAsync("RulesUpdated", existingRules);
+    }
+
+    public async Task JoinAsSpectator(string roomCode, string spectatorName)
+    {
+        roomCode = roomCode.Trim().ToUpperInvariant();
+        spectatorName = spectatorName.Trim();
+
+        if (string.IsNullOrWhiteSpace(roomCode) || string.IsNullOrWhiteSpace(spectatorName)) return;
+
+        _spectatorConnections[Context.ConnectionId] = (roomCode, spectatorName);
+        await Groups.AddToGroupAsync(Context.ConnectionId, roomCode);
+
+        var specs = _spectators.GetOrAdd(roomCode, _ => new List<string>());
+        int count;
+        lock (specs)
+        {
+            if (!specs.Contains(spectatorName))
+                specs.Add(spectatorName);
+            count = specs.Count;
+        }
+
+        await Clients.Group(roomCode).SendAsync("SpectatorJoined", spectatorName, count);
+
         if (_roomRules.TryGetValue(roomCode, out var existingRules))
             await Clients.Caller.SendAsync("RulesUpdated", existingRules);
     }
@@ -137,8 +166,33 @@ public class GameHub : Hub
             await Clients.Client(targetConnectionId).SendAsync("StateUpdated", stateJson);
     }
 
+    public async Task SendStateToSpectators(string roomCode, string stateJson)
+    {
+        roomCode = roomCode.Trim().ToUpperInvariant();
+        foreach (var kv in _spectatorConnections)
+        {
+            if (kv.Value.RoomCode == roomCode)
+                await Clients.Client(kv.Key).SendAsync("StateUpdated", stateJson);
+        }
+    }
+
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
+        // Handle spectator disconnection
+        if (_spectatorConnections.TryRemove(Context.ConnectionId, out var specInfo))
+        {
+            if (_spectators.TryGetValue(specInfo.RoomCode, out var specs))
+            {
+                int remaining;
+                lock (specs)
+                {
+                    specs.Remove(specInfo.Name);
+                    remaining = specs.Count;
+                    if (remaining == 0) _spectators.TryRemove(specInfo.RoomCode, out _);
+                }
+            }
+        }
+
         if (_connections.TryRemove(Context.ConnectionId, out var info))
             await RemovePlayerFromRoom(info.RoomCode, info.PlayerName);
 

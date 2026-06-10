@@ -2555,3 +2555,91 @@ body {
         opacity: 0;
     }
 }
+
+/* ── RESULT PLAYER LIST (game-over overlay) ── */
+.result-player-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 18px 0;
+    width: 100%;
+    max-width: 420px;
+}
+.result-player-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 700;
+}
+.result-winner {
+    background: rgba(251,191,36,0.15);
+    border: 1.5px solid rgba(251,191,36,0.45);
+}
+.result-loser {
+    background: rgba(255,255,255,0.05);
+    border: 1.5px solid rgba(255,255,255,0.1);
+}
+.result-badge {
+    font-size: 0.7rem;
+    font-weight: 900;
+    letter-spacing: 1.5px;
+    padding: 3px 9px;
+    border-radius: 8px;
+    text-transform: uppercase;
+    flex-shrink: 0;
+}
+.result-winner .result-badge {
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+    color: #1a1000;
+}
+.result-loser .result-badge {
+    background: rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.5);
+}
+.result-name {
+    flex: 1;
+    color: #e2e8f0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.result-winner .result-name { color: #fbbf24; }
+.result-score {
+    color: rgba(255,255,255,0.6);
+    font-size: 0.9rem;
+    flex-shrink: 0;
+}
+.result-winner .result-score { color: #fbbf24; font-weight: 900; }
+.result-total {
+    font-size: 0.78rem;
+    color: rgba(255,255,255,0.38);
+    flex-shrink: 0;
+}
+.result-winner .result-total { color: rgba(251,191,36,0.6); }
+.result-cards {
+    font-size: 0.82rem;
+    color: rgba(255,100,100,0.8);
+    flex-shrink: 0;
+}
+
+/* ── SPECTATOR BANNER (in-game overlay) ── */
+.spectator-banner {
+    position: absolute;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(168,85,247,0.25);
+    border: 1.5px solid rgba(168,85,247,0.55);
+    color: #e9d5ff;
+    font-size: 0.82rem;
+    font-weight: 900;
+    letter-spacing: 2.5px;
+    padding: 6px 18px;
+    border-radius: 20px;
+    z-index: 200;
+    backdrop-filter: blur(8px);
+    pointer-events: none;
+}

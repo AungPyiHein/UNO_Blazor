@@ -89,6 +89,21 @@ namespace UnoEngine.Models
         /// </summary>
         public int Wd4WrongChallengePenalty { get; set; } = 6;
 
+        /// <summary>
+        /// If true, players who don't act within AfkTimeoutSeconds have cards auto-drawn for them.
+        /// </summary>
+        public bool AfkEnabled { get; set; } = true;
+
+        /// <summary>
+        /// Seconds of inactivity before the AFK penalty triggers. Default 10.
+        /// </summary>
+        public int AfkTimeoutSeconds { get; set; } = 10;
+
+        /// <summary>
+        /// Number of cards drawn when the AFK penalty triggers. Default 2 (Classic). Chaos uses 5.
+        /// </summary>
+        public int AfkPenaltyCards { get; set; } = 2;
+
         public GameSettings Clone()
         {
             return new GameSettings
@@ -106,7 +121,10 @@ namespace UnoEngine.Models
                 EnableWildDraw4Challenge = this.EnableWildDraw4Challenge,
                 UnoFailurePenaltyCards = this.UnoFailurePenaltyCards,
                 CpuDifficulty = this.CpuDifficulty,
-                Wd4WrongChallengePenalty = this.Wd4WrongChallengePenalty
+                Wd4WrongChallengePenalty = this.Wd4WrongChallengePenalty,
+                AfkEnabled = this.AfkEnabled,
+                AfkTimeoutSeconds = this.AfkTimeoutSeconds,
+                AfkPenaltyCards = this.AfkPenaltyCards
             };
         }
     }
