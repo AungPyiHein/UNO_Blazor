@@ -15,7 +15,6 @@
 else
 {
     <div class="game-container @_animClass">
-        <div class="tabletop-3d"></div>
 
         @for (int j = 0; j < Opponents.Count; j++)
         {
@@ -90,7 +89,7 @@ else
                         double offset = ci - oppMid;
                         <div class="hand-card-wrapper @(_isSwallowingCards ? "vortex-ingest" : "") @(_isSpittingCards ? "vortex-eject" : "")"
                              style="--card-rot:@((offset * oppAng).ToString("0.00", IC))deg; --card-ty:@((Math.Pow(offset, 2) * oppTyF).ToString("0.00", IC))px; z-index:@ci; @GetVortexDelayStyle(ci)">
-                            <UnoCardComponent IsBack="true" />
+                            <UnoCardComponent IsBack="true" SizeClass="w-16 h-24" />
                         </div>
                     }
                 </div>
@@ -308,7 +307,6 @@ else
         {
             <div class="color-picker-overlay">
                 <div class="color-picker-diamond @(State.IsMyTurn || _pendingWildCardId != null ? "interactive" : "")">
-                    <div class="color-picker-center-logo">UNO</div>
                     <button class="color-btn color-btn-red    @(_highlightedColor == CardColor.Red    ? "cpu-pick" : "")" @onclick='() => PickColor("Red")'><span class="btn-shine"></span></button>
                     <button class="color-btn color-btn-yellow @(_highlightedColor == CardColor.Yellow ? "cpu-pick" : "")" @onclick='() => PickColor("Yellow")'><span class="btn-shine"></span></button>
                     <button class="color-btn color-btn-green  @(_highlightedColor == CardColor.Green  ? "cpu-pick" : "")" @onclick='() => PickColor("Green")'><span class="btn-shine"></span></button>
@@ -348,24 +346,36 @@ else
             </div>
         }
 
-        @if (State.Status == "RevealingWd4Bluff" && State.Wd4BluffCards.Count > 0)
+        @if (State.Status == "RevealingWd4Bluff")
         {
-            <div class="bluff-reveal-above-hand">
-                <div class="result-section">
-                    <span class="result-mark success">✓</span>
-                    <span class="result-message">BLUFF CAUGHT!</span>
+            @if (State.Wd4BluffCards.Count > 0)
+            {
+                <div class="bluff-reveal-above-hand">
+                    <div class="result-section">
+                        <span class="result-mark success">✓</span>
+                        <span class="result-message">BLUFF CAUGHT!</span>
+                    </div>
+                    <div class="bluff-cards-floating-above-hand">
+                        @for (int bi = 0; bi < State.Wd4BluffCards.Count; bi++)
+                        {
+                            var bc = State.Wd4BluffCards[bi];
+                            int delay = bi;
+                            <div class="floating-card-small" style="--delay:@(delay * 0.15)s;">
+                                <UnoCardView Color="@ParseColor(bc.Color)" Value="@ParseValue(bc.Value)" SizeClass="w-16 h-24" />
+                            </div>
+                        }
+                    </div>
                 </div>
-                <div class="bluff-cards-floating-above-hand">
-                    @for (int bi = 0; bi < State.Wd4BluffCards.Count; bi++)
-                    {
-                        var bc = State.Wd4BluffCards[bi];
-                        int delay = bi;
-                        <div class="floating-card-small" style="--delay:@(delay * 0.15)s;">
-                            <UnoCardView Color="@ParseColor(bc.Color)" Value="@ParseValue(bc.Value)" SizeClass="w-20 h-30" />
-                        </div>
-                    }
+            }
+            else
+            {
+                <div class="bluff-reveal-above-hand">
+                    <div class="result-section">
+                        <span class="result-mark failure">✗</span>
+                        <span class="result-message">WRONG CALL! DRAW +6</span>
+                    </div>
                 </div>
-            </div>
+            }
         }
 
         <div class="hud-action-container">
