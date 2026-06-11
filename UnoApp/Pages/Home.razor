@@ -3323,6 +3323,12 @@
                 await _game.AttemptUnoCallAsync(player);
                 break;
 
+            case "jump-in":
+                var jumpCard = player.Hand.FirstOrDefault(c => c.Id.ToString() == move.CardId);
+                if (jumpCard != null)
+                    await _game.JumpInAsync(player, jumpCard);
+                break;
+
             case "swap":
                 if (move.TargetIndex.HasValue && _game.PendingCard != null)
                 {

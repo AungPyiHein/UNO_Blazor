@@ -268,7 +268,14 @@ else
                     var card = i < sortedHand.Count ? sortedHand[i] : null;
                     double off = i - hMid;
                     bool isDrawnCard = card != null && card.Id == State.DrawnCardId;
-                    bool canJumpIn = false;
+                    bool canJumpIn = card != null
+                                     && State.Status == "WaitingForJumpIn"
+                                     && !State.IsMyTurn
+                                     && State.TopCard != null
+                                     && card.Color == State.TopCard.Color
+                                     && card.Value == State.TopCard.Value
+                                     && card.Color != "Wild"
+                                     && !_isProcessingAction && !_isAnimating;
                     bool canPlay = card != null && State.IsMyTurn && card.IsPlayable
                                    && State.Status != "WaitingForColorSelection"
                                    && State.Status != "WaitingForWd4Challenge"
@@ -674,6 +681,19 @@ else
     private void OnCardClickedAsync(CardDto card)
     {
         if (State == null || _isProcessingAction || _isAnimating) return;
+
+        // Jump-in: human plays out-of-turn during the QTE window
+        if (State.Status == "WaitingForJumpIn"
+            && !State.IsMyTurn
+            && State.TopCard != null
+            && card.Color == State.TopCard.Color
+            && card.Value == State.TopCard.Value
+            && card.Color != "Wild")
+        {
+            _ = EmitMove(new MoveDto { PlayerIndex = State.MyPlayerIndex, Type = "jump-in", CardId = card.Id });
+            return;
+        }
+
         if (!State.IsMyTurn || !card.IsPlayable) return;
         if (card.Color == "Wild")
         {
