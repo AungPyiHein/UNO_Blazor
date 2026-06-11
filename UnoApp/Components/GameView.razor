@@ -31,24 +31,29 @@ else
                  style="@GetOpponentStyle(jc, Opponents.Count)"
                  @onclick="() => { if (oSwap) _ = SendSwap(oi); }">
 
+                @{ int oHandCount = State.HandCounts.Length > oi ? State.HandCounts[oi] : 0; }
                 <div class="cpu-badge" style="position:relative">
-                    <div class="mpg-pp @(oActive ? "mpg-pp-active" : "") @(oUno ? "mpg-pp-uno" : "")">
-                        <div class="mpg-pp-ring"></div>
-                        <div class="mpg-pp-circle"
+                    <div class="player-profile-container @(oActive ? "active" : "") @(oHandCount == 1 ? "uno-warning" : "")">
+                        <div class="avatar-ring"></div>
+                        <div class="avatar-circle"
                              style="background:linear-gradient(135deg,@PlayerColor(oName),@PlayerColorDark(oName))">
-                            <span class="mpg-pp-initials">@PlayerInitials(oName)</span>
-                            <div class="mpg-pp-card-badge">
-                                <div class="mpg-pp-tiny-card"></div>
-                                <span class="mpg-pp-count">@(State.HandCounts.Length > oi ? State.HandCounts[oi] : 0)</span>
+                            <span class="initials">@PlayerInitials(oName)</span>
+                            <div class="card-badge">
+                                <div class="tiny-card"></div>
+                                <span class="count" @key="oHandCount">@oHandCount</span>
                             </div>
-                            @if (oUno) { <div class="mpg-pp-uno-badge">UNO!</div> }
+                            @if (oHandCount == 1) { <div class="uno-circular-badge">UNO!</div> }
                         </div>
-                        <div class="mpg-pp-info @(oActive ? "mpg-pp-info-active" : "")">
-                            <div class="mpg-pp-name">@oName</div>
-                            <div class="mpg-pp-status @(oActive ? "active-thinking" : "")"
-                                 style="@(oActive ? "" : "visibility:hidden")">
-                                @(oActive ? "THINKING…" : "\u00a0")
-                            </div>
+                        <div class="profile-info">
+                            <div class="player-name">@oName</div>
+                            @if (oActive)
+                            {
+                                <div class="player-status-text active-thinking">THINKING…</div>
+                            }
+                            else
+                            {
+                                <div class="player-status-text" style="visibility:hidden">&nbsp;</div>
+                            }
                         </div>
                     </div>
                     @if (_penaltyBadges.TryGetValue(oi, out int oppBadge))
@@ -94,12 +99,6 @@ else
 
         <div class="draw-pile" @onclick="HandleDraw">
             <UnoCardComponent IsBack="true" />
-            @if (_drawFlyTarget >= 0)
-            {
-                <div class="cpu-draw-fly" style="@_drawFlyStyle">
-                    <UnoCardComponent IsBack="true" />
-                </div>
-            }
         </div>
 
         @if (_swapP1 >= 0 && _swapP2 >= 0)
@@ -194,6 +193,13 @@ else
                     <img src="/images/image_144935.png" alt="Vortex Swirl" class="vortex-swirl-graphic" />
                 </div>
             }
+
+            @if (_drawFlyTarget >= 0)
+            {
+                <div class="cpu-draw-fly" style="@_drawFlyStyle">
+                    <UnoCardComponent IsBack="true" />
+                </div>
+            }
         </div>
 
         @{
@@ -202,25 +208,29 @@ else
             bool humanCpuTarget = _sevenOverlayActive && _sevenCpuTargetIndex == State.MyPlayerIndex;
         }
         <div class="player-slot slot-human @(humanCpuTarget ? "cpu-swap-target" : "")"
-             style="--overlap:@myOverlap px; --draw-origin-x:-14vw; --draw-origin-y:-48vh;">
+             style="--overlap:@(myOverlap)px; --draw-origin-x:-14vw; --draw-origin-y:-48vh;">
             <div class="human-profile-wrapper" style="position:relative">
-                <div class="mpg-pp @(State.IsMyTurn ? "mpg-pp-active" : "") @(State.CanCallUno ? "mpg-pp-uno" : "")">
-                    <div class="mpg-pp-ring"></div>
-                    <div class="mpg-pp-circle"
+                <div class="player-profile-container @(State.IsMyTurn ? "active" : "") @(myCount == 1 ? "uno-warning" : "")">
+                    <div class="avatar-ring"></div>
+                    <div class="avatar-circle"
                          style="background:linear-gradient(135deg,@PlayerColor(MyName),@PlayerColorDark(MyName))">
-                        <span class="mpg-pp-initials">@PlayerInitials(MyName)</span>
-                        <div class="mpg-pp-card-badge">
-                            <div class="mpg-pp-tiny-card"></div>
-                            <span class="mpg-pp-count">@(State.HandCounts.Length > State.MyPlayerIndex ? State.HandCounts[State.MyPlayerIndex] : 0)</span>
+                        <span class="initials">@PlayerInitials(MyName)</span>
+                        <div class="card-badge">
+                            <div class="tiny-card"></div>
+                            <span class="count" @key="myCount">@myCount</span>
                         </div>
-                        @if (State.CanCallUno) { <div class="mpg-pp-uno-badge">UNO!</div> }
+                        @if (myCount == 1) { <div class="uno-circular-badge">UNO!</div> }
                     </div>
-                    <div class="mpg-pp-info @(State.IsMyTurn ? "mpg-pp-info-active" : "")">
-                        <div class="mpg-pp-name">@MyName</div>
-                        <div class="mpg-pp-status @(State.IsMyTurn ? "active-thinking" : "")"
-                             style="@(State.IsMyTurn ? "" : "visibility:hidden")">
-                            @(State.IsMyTurn ? "YOUR TURN" : "\u00a0")
-                        </div>
+                    <div class="profile-info">
+                        <div class="player-name">@MyName</div>
+                        @if (State.IsMyTurn)
+                        {
+                            <div class="player-status-text active-thinking">YOUR TURN</div>
+                        }
+                        else
+                        {
+                            <div class="player-status-text" style="visibility:hidden">&nbsp;</div>
+                        }
                     </div>
                 </div>
                 @if (_penaltyBadges.TryGetValue(State.MyPlayerIndex, out int myBadge))
@@ -267,14 +277,13 @@ else
                                    && !_isProcessingAction && !_isAnimating;
 
                     <div @key="@(card != null ? card.Id : $"ghost-{i}")"
-                         class="hand-card-wrapper @(_isSwallowingCards ? "vortex-ingest" : "") @(_isSpittingCards ? "vortex-eject" : "") @(isDrawnCard ? "drawn-card-highlight" : "") @(canJumpIn ? "jump-in-highlight" : "") @(canPlay ? "mpg-playable" : "")"
+                         class="hand-card-wrapper @(_isSwallowingCards ? "vortex-ingest" : "") @(_isSpittingCards ? "vortex-eject" : "") @(isDrawnCard ? "drawn-card-highlight" : "") @(canJumpIn ? "jump-in-highlight" : "")"
                          style="--card-rot:@((off * hAng).ToString("0.00", IC))deg; --card-ty:@((Math.Pow(off, 2) * hTyF).ToString("0.00", IC))px; z-index:@(isDrawnCard ? 1000 : i); @GetVortexDelayStyle(i)"
                          @onclick="() => { if (card != null) OnCardClickedAsync(card); }">
                         @if (card != null && !_isSwallowingCards && !_zeroRotateActive)
                         {
                             <UnoCardView Color="@ParseColor(card.Color)" Value="@ParseValue(card.Value)"
-                                         SizeClass="w-16 h-24"
-                                         Style="@((!State.IsMyTurn || !card.IsPlayable) && !isDrawnCard ? "opacity:0.45;" : "")" />
+                                         SizeClass="w-16 h-24" />
                             @if (isDrawnCard)
                             {
                                 <div class="drawn-card-bubble">
@@ -747,10 +756,35 @@ else
         return $" --vortex-delay:{(cardIndex * 0.07).ToString("0.00", IC)}s;";
     }
 
-    private static (double x, double y) GetPlayerArrowPosition(int playerIndex)
+    private (double x, double y) GetPlayerArrowPosition(int playerIndex)
     {
-        if (playerIndex == 0) return (50.0, 88.0);
-        return (50.0, 15.0);
+        if (State != null && playerIndex == State.MyPlayerIndex) return (50.0, 88.0);
+
+        int totalOpponents = (State?.PlayerNames.Length ?? 2) - 1;
+        int j = playerIndex - 1; // works when MyPlayerIndex == 0 (SP + MP host)
+
+        double x = 50, y = 15;
+        if      (totalOpponents == 1) { x = 50; y = 15; }
+        else if (totalOpponents == 2) { x = (j == 0) ? 10 : 90; y = 45; }
+        else if (totalOpponents == 3) {
+            if      (j == 0) { x = 10; y = 45; }
+            else if (j == 1) { x = 50; y = 15; }
+            else             { x = 90; y = 45; }
+        }
+        else if (totalOpponents == 4) {
+            if      (j == 0) { x = 10; y = 45; }
+            else if (j == 1) { x = 35; y = 15; }
+            else if (j == 2) { x = 65; y = 15; }
+            else             { x = 90; y = 45; }
+        }
+        else {
+            if      (j == 0) { x = 10; y = 45; }
+            else if (j == 1) { x = 25; y = 15; }
+            else if (j == 2) { x = 50; y = 15; }
+            else if (j == 3) { x = 75; y = 15; }
+            else             { x = 90; y = 45; }
+        }
+        return (x, y);
     }
 
     private static string GetOpponentStyle(int j, int total)
