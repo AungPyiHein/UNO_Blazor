@@ -22,7 +22,6 @@ else
             int oi = Opponents[j].idx;
             string oName = Opponents[j].name;
             bool oActive = oi == State.CurrentPlayerIndex;
-            bool oUno = State.HandCounts.Length > oi && State.HandCounts[oi] == 1;
             bool oSwap = State.IsMyTurn && State.Status == "WaitingForSwapTarget";
             bool oCpuTarget = _sevenOverlayActive && _sevenCpuTargetIndex == oi;
 
@@ -303,7 +302,7 @@ else
                         }
                         else
                         {
-                            <UnoCardComponent IsBack="true" />
+                            <UnoCardComponent IsBack="true" SizeClass="w-16 h-24" />
                         }
                     </div>
                 }
