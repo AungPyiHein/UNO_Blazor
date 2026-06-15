@@ -53,8 +53,9 @@ namespace UnoEngine
         public bool IsUnoCalled { get; set; } = false;
         public bool IsClockwise => GameDirection == 1;
         public bool CanChallengeUno => Status == GameStatus.WaitingForUnoCall && PlayerAtRisk != null && PlayerAtRisk != Players[0];
-        public bool CanCallUno => (CurrentPlayerIndex == 0 && Players[0].Hand.Count == 2 && !IsUnoCalled && Status == GameStatus.Playing) || (Status == GameStatus.WaitingForUnoCall && PlayerAtRisk == Players[0]);
+        public bool CanCallUno => Status == GameStatus.WaitingForUnoCall && PlayerAtRisk == Players[0];
         public int LastUnoViolatorIndex { get; set; } = -1;
+        public int LastPlayerAtRiskIndex { get; private set; } = -1;
         public string ActiveNotificationBanner { get; set; } = "";
         public CardColor LastValidColor { get; set; }
 
@@ -661,20 +662,26 @@ namespace UnoEngine
 
         private async Task EndPlayCardSequence(Player player)
         {
-            // Scan ALL players — 7-swap and 0-rotate can leave any player at 1 card
-            Player? unoRisk = Players.FirstOrDefault(p => p.Hand.Count == 1);
-            if (unoRisk != null)
+            // Only trigger UNO catch if the player who just played now has 1 card
+            if (player.Hand.Count == 1)
             {
-                if (IsUnoCalled && unoRisk == player)
+                if (IsUnoCalled)
                 {
                     IsUnoCalled = false; // Player pre-declared UNO, safe
                     PlayerAtRisk = null;
+                    LastPlayerAtRiskIndex = -1;
                 }
                 else
                 {
-                    PlayerAtRisk = unoRisk;
-                    SafeFireAndForget(() => RunUnoTimerAsync(unoRisk));
-                    return; // Turn sequence will resume after UNO QTE
+                    // Prevent the same player from being set at risk twice consecutively
+                    int playerIndex = Players.IndexOf(player);
+                    if (playerIndex != LastPlayerAtRiskIndex)
+                    {
+                        PlayerAtRisk = player;
+                        LastPlayerAtRiskIndex = playerIndex;
+                        SafeFireAndForget(() => RunUnoTimerAsync(player));
+                        return; // Turn sequence will resume after UNO QTE
+                    }
                 }
             }
 
@@ -854,6 +861,7 @@ namespace UnoEngine
                         await Task.Delay(80);
                     }
                     PlayerAtRisk = null;
+                    LastPlayerAtRiskIndex = -1;
                     Status = GameStatus.Playing;
                     
                     MoveToNextTurn();
@@ -911,6 +919,7 @@ namespace UnoEngine
                 }
 
                 PlayerAtRisk = null;
+                LastPlayerAtRiskIndex = -1;
                 Status = GameStatus.Playing;
 
                 MoveToNextTurn();
