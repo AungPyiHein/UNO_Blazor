@@ -792,7 +792,12 @@ else
         if (State != null && playerIndex == State.MyPlayerIndex) return (50.0, 88.0);
 
         int totalOpponents = (State?.PlayerNames.Length ?? 2) - 1;
-        int j = playerIndex - 1; // works when MyPlayerIndex == 0 (SP + MP host)
+
+        // Build opponent index list in the same order used by the UI
+        var opps = Enumerable.Range(0, State?.PlayerNames.Length ?? 0)
+                             .Where(i => i != (State?.MyPlayerIndex ?? 0))
+                             .ToArray();
+        int j = Array.IndexOf(opps, playerIndex);
 
         double x = 50, y = 15;
         if      (totalOpponents == 1) { x = 50; y = 15; }
@@ -854,8 +859,9 @@ else
         if (lastPlayerIndex < 0) return "";
         if (lastPlayerIndex == State!.MyPlayerIndex)
             return "animation: play-from-human 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);";
-
-        int j = lastPlayerIndex > State.MyPlayerIndex ? lastPlayerIndex - 1 : lastPlayerIndex;
+        // Map lastPlayerIndex into opponent visual slot index (consistent with other helpers)
+        var opps = Enumerable.Range(0, State.PlayerNames.Length).Where(i => i != State.MyPlayerIndex).ToArray();
+        int j = Array.IndexOf(opps, lastPlayerIndex);
         int total = opponentCount;
         double x = 50, y = 15;
         if      (total == 1) { x = 50; y = 15; }
