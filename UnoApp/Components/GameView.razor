@@ -169,7 +169,7 @@ else
                     {
                         string animStyle = GetDiscardAnimStyle(State.LastPlayerIndex, Opponents.Count);
                         <div @key="dc.Id" class="discard-active-card" style="@messyStyle @animStyle">
-                            <UnoCardView Color="@ParseColor(State.ActiveColor ?? dc.Color)" Value="@ParseValue(dc.Value)" SizeClass="w-16 h-24" />
+                            <UnoCardView Color="@ParseColor(dc.Color)" Value="@ParseValue(dc.Value)" SizeClass="w-16 h-24" />
                         </div>
                     }
                     else
