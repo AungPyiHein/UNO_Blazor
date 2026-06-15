@@ -202,7 +202,7 @@ else
 
         @{
             int myCount = State.MyHand.Count;
-            int myOverlap = myCount > 20 ? -55 : myCount > 12 ? -45 : -35;
+            int myOverlap = myCount > 20 ? -48 : myCount > 12 ? -38 : -28;
             bool humanCpuTarget = _sevenOverlayActive && _sevenCpuTargetIndex == State.MyPlayerIndex;
         }
         <div class="player-slot slot-human @(humanCpuTarget ? "cpu-swap-target" : "")"
@@ -258,8 +258,8 @@ else
                 int hCount = sortedHand.Count;
                 int snapshotCount = _vortexHandSnapshot != null ? _vortexHandSnapshot[State.MyPlayerIndex] : hCount;
                 double hMid = (snapshotCount - 1) / 2.0;
-                double hAng = hCount <= 7 ? 5.0 : hCount <= 12 ? 3.5 : hCount <= 18 ? 2.5 : hCount <= 25 ? 1.5 : 1.0;
-                double hTyF = hCount <= 7 ? 1.5 : hCount <= 14 ? 0.8 : hCount <= 20 ? 0.4 : 0.2;
+                double hAng = hCount <= 5 ? 4.0 : hCount <= 9 ? 3.0 : hCount <= 14 ? 2.0 : hCount <= 20 ? 1.2 : 0.8;
+                double hTyF = hCount <= 5 ? 1.0 : hCount <= 10 ? 0.6 : hCount <= 16 ? 0.3 : hCount <= 22 ? 0.15 : 0.08;
             }
             <div class="hand @(IsSwapPartner(State.MyPlayerIndex) ? "swap-anim" : "") @_rotateAnim">
                 @for (int i = 0; i < snapshotCount; i++)
@@ -545,6 +545,7 @@ else
 
         if (animType.StartsWith("skip-") && int.TryParse(animType.Split('-')[1], out int skipIdx))
         {
+            await Task.Delay(600); // Wait for card fly-in animation to land before showing skip
             _skipKey++;
             _skippedPlayerIndex = skipIdx;
             await InvokeAsync(StateHasChanged);
@@ -607,7 +608,7 @@ else
             _drawFlyStyle = $"--fly-to-x:{tx.ToString("0.0", IC)}%; --fly-to-y:{ty.ToString("0.0", IC)}%;";
             _drawFlyTarget = drawTarget;
             await InvokeAsync(StateHasChanged);
-            await Task.Delay(420);
+            await Task.Delay(650);
             _drawFlyTarget = -1;
             await InvokeAsync(StateHasChanged);
             return;

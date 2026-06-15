@@ -616,7 +616,9 @@ namespace UnoEngine
             playedCard.RotationAngle = (float)(_random.NextDouble() * 30.0 - 15.0); // -15 to 15
             
             DiscardPile.Add(playedCard);
+            LastValidColor = playedCard.Color; // Update to the actual played card color before broadcasting
             Status = GameStatus.Playing;
+            OnStateChanged?.Invoke(); // Render the card on the discard pile before any overlay fires
 
             // ── In-game action bonus ───────────────────────────────────────────
             int actionBonus = playedCard.Value switch
