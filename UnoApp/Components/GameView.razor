@@ -99,6 +99,13 @@ else
             <UnoCardComponent IsBack="true" />
         </div>
 
+        @if (_drawFlyTarget >= 0)
+        {
+            <div class="cpu-draw-fly" style="@_drawFlyStyle">
+                <UnoCardComponent IsBack="true" />
+            </div>
+        }
+
         @if (_swapP1 >= 0 && _swapP2 >= 0)
         {
             <div class="swap-fly-stack fly-@(_swapP1)-@(_swapP2)"></div>
@@ -192,12 +199,6 @@ else
                 </div>
             }
 
-            @if (_drawFlyTarget >= 0)
-            {
-                <div class="cpu-draw-fly" style="@_drawFlyStyle">
-                    <UnoCardComponent IsBack="true" />
-                </div>
-            }
         </div>
 
         @{
