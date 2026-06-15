@@ -1,5 +1,6 @@
 @page "/multiplayer-game"
 @inject UnoApp.Services.LobbyService LobbyService
+@inject UnoApp.Services.NavigationState NavigationState
 @inject NavigationManager Nav
 @implements IDisposable
 @using UnoApp.Multiplayer
@@ -17,6 +18,7 @@
 
     protected override void OnInitialized()
     {
+        NavigationState.IsArenaMode = true;
         LobbyService.StateUpdated += OnStateUpdated;
     }
 
@@ -46,5 +48,9 @@
         await LobbyService.SendMoveAsync(move);
     }
 
-    public void Dispose() => LobbyService.StateUpdated -= OnStateUpdated;
+    public void Dispose()
+    {
+        NavigationState.IsArenaMode = false;
+        LobbyService.StateUpdated -= OnStateUpdated;
+    }
 }
