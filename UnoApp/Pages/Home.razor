@@ -2970,7 +2970,15 @@
 
         var curIdx = _game.CurrentPlayerIndex;
         var curPlayer = _game.Players[curIdx];
-        if (!curPlayer.IsHuman || _game.RemotePlayerIndices.Contains(curIdx))
+        // Ignore non-human players always
+        if (!curPlayer.IsHuman)
+        {
+            CancelAfkTimer();
+            return;
+        }
+
+        // If the current player is a remote human and we're NOT the host, do not start a timer here.
+        if (_game.RemotePlayerIndices.Contains(curIdx) && !_isMultiplayerHost)
         {
             CancelAfkTimer();
             return;
