@@ -2371,6 +2371,7 @@
     // AFK timer
     private CancellationTokenSource? _afkCts;
     private int _afkTimerPlayerIndex = -1;
+    private GameStatus? _afkTimerStatus;
 
     // Leaderboard
     private class LeaderboardEntry
@@ -2975,12 +2976,13 @@
             return;
         }
 
-        // Same player still their turn — timer already running
-        if (_afkTimerPlayerIndex == curIdx && _afkCts != null) return;
+        // Same player still their turn and same status — timer already running
+        if (_afkTimerPlayerIndex == curIdx && _afkCts != null && _afkTimerStatus == _game.Status) return;
 
-        // New turn for local human player — restart timer
+        // New turn or meaningful local action/status change for the same player — restart timer
         CancelAfkTimer();
         _afkTimerPlayerIndex = curIdx;
+        _afkTimerStatus = _game.Status;
         _afkCts = new CancellationTokenSource();
         var token = _afkCts.Token;
         var timeoutMs = (int)(_game.Settings.AfkTimeoutSeconds * 1000);
@@ -3009,6 +3011,7 @@
         _afkCts?.Cancel();
         _afkCts = null;
         _afkTimerPlayerIndex = -1;
+        _afkTimerStatus = null;
     }
 
     // ── Leaderboard ────────────────────────────────────────────────────────────
