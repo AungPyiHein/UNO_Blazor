@@ -69,6 +69,10 @@ else
                     {
                         <div class="penalty-badge" @key="@($"pb-{oi}-{oppBadge}")">+@oppBadge cards</div>
                     }
+                    @if (State.PlayerStatuses.Length > oi && State.PlayerStatuses[oi].Contains("AFK"))
+                    {
+                        <div class="afk-alert-badge">!</div>
+                    }
                     @if (oSwap || oCpuTarget)
                     {
                         <div class="swap-card-count-badge">@(State.HandCounts.Length > oi ? State.HandCounts[oi] : 0) cards</div>
@@ -246,6 +250,11 @@ else
                 @if (_penaltyBadges.TryGetValue(State.MyPlayerIndex, out int myBadge))
                 {
                     <div class="penalty-badge" @key="@($"pb-me-{myBadge}")">+@myBadge cards</div>
+                }
+                @{ var myStatus = State.PlayerStatuses.Length > State.MyPlayerIndex ? State.PlayerStatuses[State.MyPlayerIndex] : ""; }
+                @if (myStatus.Contains("AFK"))
+                {
+                    <div class="afk-alert-badge">!</div>
                 }
                 @if (humanCpuTarget)
                 {

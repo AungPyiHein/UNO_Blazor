@@ -2521,6 +2521,31 @@ body {
     animation: penalty-badge-pop 1.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
 
+.afk-alert-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #f59e0b;
+    color: #000;
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    font-size: 13px;
+    font-weight: 900;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 9000;
+    box-shadow: 0 2px 8px rgba(245,158,11,0.7);
+    animation: afk-badge-pulse 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes afk-badge-pulse {
+    from { transform: scale(1);   opacity: 1; }
+    to   { transform: scale(1.25); opacity: 0.85; }
+}
+
 @keyframes penalty-badge-pop {
     0%   { opacity: 0; transform: translateX(-50%) scale(0.5) translateY(8px); }
     15%  { opacity: 1; transform: translateX(-50%) scale(1.15) translateY(-4px); }
