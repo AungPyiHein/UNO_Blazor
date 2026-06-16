@@ -2644,6 +2644,7 @@
         LobbyService.PlayerKicked        += LobbyOnPlayerKicked;
         LobbyService.ChatMessageReceived += LobbyOnChatMessage;
         LobbyService.SpectatorJoined     += LobbyOnSpectatorJoined;
+        LobbyService.NextRoundRequested  += LobbyOnNextRoundRequested;
 
         // Initialize Presets
         var classicPreset = new RulePresetProfile
@@ -3597,6 +3598,7 @@
         LobbyService.PlayerKicked        -= LobbyOnPlayerKicked;
         LobbyService.ChatMessageReceived -= LobbyOnChatMessage;
         LobbyService.SpectatorJoined     -= LobbyOnSpectatorJoined;
+        LobbyService.NextRoundRequested  -= LobbyOnNextRoundRequested;
 
         if (_isMultiplayerHost)
         {
@@ -3604,6 +3606,24 @@
             foreach (var tcs in _pendingRemoteMoves.Values) tcs.TrySetResult(null);
         }
         await Task.CompletedTask;
+    }
+
+    private bool _nextRoundInProgress = false;
+
+    private async void LobbyOnNextRoundRequested()
+    {
+        if (!_isMultiplayerHost || _nextRoundInProgress) return;
+        if (_game?.Status != GameStatus.GameOver) return;
+        _nextRoundInProgress = true;
+        try
+        {
+            await InvokeAsync(async () =>
+            {
+                await HandleNextRound();
+                StateHasChanged();
+            });
+        }
+        finally { _nextRoundInProgress = false; }
     }
 
     private async Task HandleNextRound()

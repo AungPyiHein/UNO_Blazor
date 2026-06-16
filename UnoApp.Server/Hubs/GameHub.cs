@@ -147,6 +147,24 @@ public class GameHub : Hub
             await Clients.Client(hostConnectionId).SendAsync("MoveReceived", moveJson);
     }
 
+    public async Task RequestNextRound(string roomCode)
+    {
+        roomCode = roomCode.Trim().ToUpperInvariant();
+        if (!_rooms.TryGetValue(roomCode, out var players)) return;
+
+        List<string> snapshot;
+        lock (players) { snapshot = players.ToList(); }
+
+        if (snapshot.Count == 0) return;
+
+        var hostConnectionId = _connections
+            .FirstOrDefault(kv => kv.Value.RoomCode == roomCode && kv.Value.PlayerName == snapshot[0])
+            .Key;
+
+        if (hostConnectionId != null)
+            await Clients.Client(hostConnectionId).SendAsync("NextRoundRequested");
+    }
+
     public async Task SendStateToPlayer(string roomCode, int playerIndex, string stateJson)
     {
         roomCode = roomCode.Trim().ToUpperInvariant();

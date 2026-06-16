@@ -17,6 +17,7 @@ public class LobbyService : IAsyncDisposable
     public event Action<string>? MoveReceived;
     public event Action<string>? RulesUpdated;
     public event Action<string, int>? SpectatorJoined;
+    public event Action? NextRoundRequested;
 
     public string? CurrentRulesJson { get; private set; }
 
@@ -77,6 +78,9 @@ public class LobbyService : IAsyncDisposable
             SpectatorJoined?.Invoke(name, count);
         });
 
+        _hub.On("NextRoundRequested", () =>
+            NextRoundRequested?.Invoke());
+
         await _hub.StartAsync();
     }
 
@@ -121,6 +125,12 @@ public class LobbyService : IAsyncDisposable
     {
         if (_hub == null || MyRoomCode == null) return;
         await _hub.InvokeAsync("StartGame", MyRoomCode, cpuCount);
+    }
+
+    public async Task SendNextRoundRequestAsync()
+    {
+        if (_hub == null || MyRoomCode == null) return;
+        await _hub.InvokeAsync("RequestNextRound", MyRoomCode);
     }
 
     public async Task SendMoveAsync(MoveDto move)

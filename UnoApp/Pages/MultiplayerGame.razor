@@ -10,13 +10,26 @@
 <div style="position:fixed;inset:0;z-index:100;">
     <GameView State="@_state"
               OnMove="OnGuestMove"
-              OnNextRound="EventCallback.Empty"
-              OnStartGame="EventCallback.Empty"
+              OnNextRound="OnGuestNextRound"
+              OnStartGame="OnGuestLeave"
               ShowPauseButton="false" />
+
+    @if (_rematchRequested)
+    {
+        <div style="position:absolute;inset:0;z-index:200;background:rgba(0,0,0,0.72);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.2rem;">
+            <div style="font-size:2.2rem;color:#fff;font-weight:700;letter-spacing:.04em;">⏳ Waiting for host…</div>
+            <div style="font-size:1rem;color:rgba(255,255,255,.65);">Next round will start automatically when the host is ready.</div>
+            <button @onclick="OnGuestLeave"
+                    style="margin-top:.5rem;padding:.55rem 1.8rem;border-radius:999px;border:none;background:#ef4444;color:#fff;font-size:1rem;font-weight:700;cursor:pointer;">
+                Leave Game
+            </button>
+        </div>
+    }
 </div>
 
 @code {
     private GameStateDto? _state;
+    private bool _rematchRequested = false;
     private static readonly JsonSerializerOptions _jsonOpts = new() { PropertyNameCaseInsensitive = true };
 
     protected override void OnInitialized()
@@ -30,7 +43,12 @@
         try
         {
             _state = JsonSerializer.Deserialize<GameStateDto>(json, _jsonOpts);
-            if (_state != null) _state.MyPlayerIndex = LobbyService.MyPlayerIndex;
+            if (_state != null)
+            {
+                _state.MyPlayerIndex = LobbyService.MyPlayerIndex;
+                if (!_state.IsGameOver)
+                    _rematchRequested = false;
+            }
             InvokeAsync(StateHasChanged);
         }
         catch { }
@@ -49,6 +67,20 @@
         }
 
         await LobbyService.SendMoveAsync(move);
+    }
+
+    private async Task OnGuestNextRound()
+    {
+        if (_rematchRequested) return;
+        _rematchRequested = true;
+        await LobbyService.SendNextRoundRequestAsync();
+        StateHasChanged();
+    }
+
+    private void OnGuestLeave()
+    {
+        LobbyService.ResetGame();
+        Nav.NavigateTo("/lobby");
     }
 
     public void Dispose()
