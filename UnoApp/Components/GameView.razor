@@ -16,6 +16,17 @@ else
 {
     <div class="game-container @_animClass">
 
+        @if (ShowPauseButton)
+        {
+            <button class="pause-btn" @onclick="TogglePause" title="@(_isPaused ? "Resume game" : "Pause game")">
+                @(_isPaused ? "▶" : "⏸")
+            </button>
+        }
+        @if (_isPaused)
+        {
+            <div class="pause-overlay">PAUSED</div>
+        }
+
         @for (int j = 0; j < Opponents.Count; j++)
         {
             int jc = j;
@@ -477,6 +488,15 @@ else
     [Parameter] public EventCallback          OnNextRound        { get; set; }
     [Parameter] public EventCallback          OnStartGame        { get; set; }
     [Parameter] public Func<string, Task>?    OnAnimationMidpoint { get; set; }
+    [Parameter] public bool                    ShowPauseButton    { get; set; }
+
+    private bool _isPaused = false;
+
+    private void TogglePause()
+    {
+        _isPaused = !_isPaused;
+        StateHasChanged();
+    }
 
     private string MyName => State != null && State.PlayerNames.Length > State.MyPlayerIndex
         ? State.PlayerNames[State.MyPlayerIndex] : "";
@@ -755,7 +775,7 @@ else
 
     private async Task EmitMove(MoveDto move)
     {
-        if (_isProcessingAction) return;
+        if (_isProcessingAction || _isPaused) return;
         _isProcessingAction = true;
         try { await OnMove.InvokeAsync(move); }
         finally { _isProcessingAction = false; }
@@ -893,6 +913,48 @@ else
 
 <style>
     /* ── Player profile ─────────────────────────────────────────────────── */
+    .pause-btn {
+        position: absolute;
+        top: 12px;
+        left: 12px;
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        border: 1px solid rgba(255,255,255,0.25);
+        background: rgba(15,23,42,0.75);
+        color: #f8fafc;
+        font-size: 1rem;
+        line-height: 1;
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+        z-index: 30;
+        opacity: 0.08;
+        transition: opacity 0.2s ease, transform 0.15s ease, background 0.15s ease;
+    }
+    .pause-btn:hover {
+        opacity: 1;
+        transform: scale(1.05);
+        background: rgba(15,23,42,0.95);
+    }
+    .pause-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(15,23,42,0.72);
+        color: #f8fafc;
+        display: grid;
+        place-items: center;
+        font-size: 0.95rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        z-index: 20;
+        pointer-events: none;
+    }
+
     .player-profile-container {
         display: flex;
         flex-direction: column;

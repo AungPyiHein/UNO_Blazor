@@ -10,7 +10,8 @@
 <GameView State="@_state"
           OnMove="OnGuestMove"
           OnNextRound="EventCallback.Empty"
-          OnStartGame="EventCallback.Empty" />
+          OnStartGame="EventCallback.Empty"
+          ShowPauseButton="false" />
 
 @code {
     private GameStateDto? _state;

@@ -1159,7 +1159,7 @@
     }
     else
     {
-        <GameView @ref="_gameViewRef" State="@_spState" OnMove="HandleSpMove" OnNextRound="HandleNextRound" OnStartGame="ResetGame" OnAnimationMidpoint="HandleAnimMidpoint" />
+        <GameView @ref="_gameViewRef" State="@_spState" OnMove="HandleSpMove" OnNextRound="HandleNextRound" OnStartGame="ResetGame" OnAnimationMidpoint="HandleAnimMidpoint" ShowPauseButton="true" />
     }
 </div>
 
@@ -3004,7 +3004,7 @@
                 if (_isMultiplayerHost && _game.RemotePlayerIndices.Contains(curIdx))
                 {
                     if (_pendingRemoteMoves.TryGetValue(curIdx, out var tcs))
-                        tcs.TrySetResult(new MoveDto { Type = "afk" });
+                        tcs.TrySetResult(new MoveDto { PlayerIndex = curIdx, Type = "afk" });
                 }
                 else
                 {
