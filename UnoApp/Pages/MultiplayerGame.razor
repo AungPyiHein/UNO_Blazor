@@ -7,11 +7,13 @@
 @using UnoApp.Components
 @using System.Text.Json
 
-<GameView State="@_state"
-          OnMove="OnGuestMove"
-          OnNextRound="EventCallback.Empty"
-          OnStartGame="EventCallback.Empty"
-          ShowPauseButton="false" />
+<div style="position:fixed;inset:0;z-index:100;">
+    <GameView State="@_state"
+              OnMove="OnGuestMove"
+              OnNextRound="EventCallback.Empty"
+              OnStartGame="EventCallback.Empty"
+              ShowPauseButton="false" />
+</div>
 
 @code {
     private GameStateDto? _state;
