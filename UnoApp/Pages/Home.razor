@@ -66,7 +66,7 @@
         else
         {
             <!-- Inline Multiplayer Lobby -->
-            <div class="inline-lobby">
+            <div class="inline-lobby @(_lobbyMode == "waiting" ? "lobby-in-waiting" : "")">
                 @if (_lobbyMode == "entry")
                 {
                     <div class="inline-lobby-entry">
@@ -222,147 +222,154 @@
                 }
                 else if (_lobbyMode == "waiting")
                 {
-                    <div class="inline-lobby-card lobby-room-card">
-                        <h2 class="lobby-room-code">Room <span>@_lobbyRoomCode.ToUpperInvariant()</span></h2>
+                    <div class="lobby-room-layout">
+                        <!-- LEFT: players, rules, start -->
+                        <div class="lobby-room-left">
+                            <h2 class="lobby-room-code">Room <span>@_lobbyRoomCode.ToUpperInvariant()</span></h2>
 
-                        <div class="lobby-players">
-                            @foreach (var (player, idx) in _lobbyPlayers.Select((p, i) => (p, i)))
-                            {
-                                var playerName = player;
-                                <div class="lobby-player @(player == _lobbyPlayerName.Trim() ? "lobby-player-me" : "")">
-                                    <span class="lobby-player-avatar">@(player.Length > 0 ? player[0].ToString().ToUpper() : "?")</span>
-                                    <span class="lobby-player-name">@player</span>
-                                    @if (idx == 0) { <span class="lobby-badge">HOST</span> }
-                                    @if (player == _lobbyPlayerName.Trim()) { <span class="lobby-badge lobby-badge-you">YOU</span> }
-                                    @if (_lobbyIsHost && idx != 0)
-                                    {
-                                        <button class="lobby-kick-btn" title="Kick @player"
-                                                @onclick="async () => await LobbyKickPlayer(playerName)">✕</button>
-                                    }
-                                </div>
-                            }
-                            @if (_lobbyIsHost)
-                            {
-                                @for (int i = 0; i < _lobbyCpuCount; i++)
+                            <div class="lobby-players">
+                                @foreach (var (player, idx) in _lobbyPlayers.Select((p, i) => (p, i)))
                                 {
-                                    var cpuNum = i + 1;
-                                    <div class="lobby-player lobby-player-cpu">
-                                        <span class="lobby-player-avatar" style="background:#6366f1;">🤖</span>
-                                        <span class="lobby-player-name">CPU @cpuNum</span>
-                                        <span class="lobby-badge lobby-badge-cpu">AI</span>
+                                    var playerName = player;
+                                    <div class="lobby-player @(player == _lobbyPlayerName.Trim() ? "lobby-player-me" : "")">
+                                        <span class="lobby-player-avatar">@(player.Length > 0 ? player[0].ToString().ToUpper() : "?")</span>
+                                        <span class="lobby-player-name">@player</span>
+                                        @if (idx == 0) { <span class="lobby-badge">HOST</span> }
+                                        @if (player == _lobbyPlayerName.Trim()) { <span class="lobby-badge lobby-badge-you">YOU</span> }
+                                        @if (_lobbyIsHost && idx != 0)
+                                        {
+                                            <button class="lobby-kick-btn" title="Kick @player"
+                                                    @onclick="async () => await LobbyKickPlayer(playerName)">✕</button>
+                                        }
                                     </div>
                                 }
-                            }
-                        </div>
-
-                        @if (_lobbyIsHost)
-                        {
-                            <div class="lobby-field" style="margin-top:4px;">
-                                <label>CPU Players</label>
-                                <div class="cpu-selector">
-                                    @for (int i = 0; i <= 4; i++)
+                                @if (_lobbyIsHost)
+                                {
+                                    @for (int i = 0; i < _lobbyCpuCount; i++)
                                     {
-                                        var count = i;
-                                        <button type="button" class="cpu-btn @(_lobbyCpuCount == count ? "active" : "")" @onclick="() => _lobbyCpuCount = count">
-                                            @(count == 0 ? "None" : $"{count}")
-                                        </button>
+                                        var cpuNum = i + 1;
+                                        <div class="lobby-player lobby-player-cpu">
+                                            <span class="lobby-player-avatar" style="background:#6366f1;">🤖</span>
+                                            <span class="lobby-player-name">CPU @cpuNum</span>
+                                            <span class="lobby-badge lobby-badge-cpu">AI</span>
+                                        </div>
                                     }
-                                </div>
+                                }
                             </div>
-                        }
 
-                        @if (_lobbyIsHost && _presets.Any(p => p.Name != "Custom"))
-                        {
-                            <div class="lobby-preset-switcher">
-                                <span class="lobby-preset-switcher-label">Rules Preset</span>
-                                <div class="lobby-preset-switcher-row">
-                                    @foreach (var preset in _presets.Where(p => p.Name != "Custom"))
-                                    {
-                                        var p = preset;
-                                        <button class="lobby-preset-pill @(_selectedPreset.Name == p.Name ? "pill-active" : "")"
-                                                @onclick="async () => await LobbySelectPreset(p)">
-                                            @p.Name
-                                        </button>
-                                    }
-                                </div>
-                            </div>
-                        }
-
-                        @if (_lobbyRules != null)
-                        {
-                            <div class="lobby-rules-panel">
-                                <div class="lobby-rules-header">
-                                    <span class="lobby-rules-title">⚙️ Active Rules</span>
-                                    <span class="lobby-rules-preset-badge">@_lobbyRules.PresetName</span>
-                                </div>
-                                <div class="lobby-rules-grid">
-                                    <div class="lobby-rule-chip @(_lobbyRules.Stacking ? "chip-on" : "chip-off")">🔥 Stacking</div>
-                                    <div class="lobby-rule-chip @(_lobbyRules.SevenSwap ? "chip-on" : "chip-off")">🃏 7-Swap</div>
-                                    <div class="lobby-rule-chip @(_lobbyRules.ZeroRotate ? "chip-on" : "chip-off")">🔄 0-Rotate</div>
-                                    <div class="lobby-rule-chip @(_lobbyRules.JumpInRule ? "chip-on" : "chip-off")">⚡ Jump-In</div>
-                                    <div class="lobby-rule-chip @(_lobbyRules.EnableVortex ? "chip-on" : "chip-off")">🌀 Vortex</div>
-                                    <div class="lobby-rule-chip @(_lobbyRules.DrawUntilPlayable ? "chip-on" : "chip-off")">📥 Draw Until Playable</div>
-                                    <div class="lobby-rule-chip @(_lobbyRules.EnableWildDraw4Challenge ? "chip-on" : "chip-off")">⚔️ WD4 Challenge</div>
-                                    <div class="lobby-rule-chip @(_lobbyRules.ForcedPlay ? "chip-on" : "chip-off")">🔒 Forced Play</div>
-                                </div>
-                                <div class="lobby-rules-meta">
-                                    <span>🃏 Hand: @_lobbyRules.StartingHandSize cards</span>
-                                    <span>🔔 UNO penalty: @_lobbyRules.UnoFailurePenaltyCards cards</span>
-                                    <span>🤖 AI: @_lobbyRules.CpuDifficulty</span>
-                                    <span>⏰ AFK penalty: @(_lobbyRules.AfkEnabled ? $"{_lobbyRules.AfkPenaltyCards} cards" : "Off")</span>
-                                </div>
-                            </div>
-                        }
-                        else
-                        {
-                            <div class="lobby-rules-panel" style="opacity:0.4; text-align:center; font-size:0.85rem; color:rgba(255,255,255,0.5); padding:12px;">
-                                ⏳ Waiting for host to set rules…
-                            </div>
-                        }
-
-                        @if (_lobbyIsHost)
-                        {
-                            @if (_lobbyPlayers.Count + _lobbyCpuCount < 2)
+                            @if (_lobbyIsHost)
                             {
-                                <p class="lobby-waiting">Need at least 2 players total to start…</p>
+                                <div class="lobby-field">
+                                    <label>CPU Players</label>
+                                    <div class="cpu-selector">
+                                        @for (int i = 0; i <= 4; i++)
+                                        {
+                                            var count = i;
+                                            <button type="button" class="cpu-btn @(_lobbyCpuCount == count ? "active" : "")" @onclick="() => _lobbyCpuCount = count">
+                                                @(count == 0 ? "None" : $"{count}")
+                                            </button>
+                                        }
+                                    </div>
+                                </div>
+                            }
+
+                            @if (_lobbyIsHost && _presets.Any(p => p.Name != "Custom"))
+                            {
+                                <div class="lobby-preset-switcher">
+                                    <span class="lobby-preset-switcher-label">Rules Preset</span>
+                                    <div class="lobby-preset-switcher-row">
+                                        @foreach (var preset in _presets.Where(p => p.Name != "Custom"))
+                                        {
+                                            var p = preset;
+                                            <button class="lobby-preset-pill @(_selectedPreset.Name == p.Name ? "pill-active" : "")"
+                                                    @onclick="async () => await LobbySelectPreset(p)">
+                                                @p.Name
+                                            </button>
+                                        }
+                                    </div>
+                                </div>
+                            }
+
+                            @if (_lobbyRules != null)
+                            {
+                                <div class="lobby-rules-panel">
+                                    <div class="lobby-rules-header">
+                                        <span class="lobby-rules-title">⚙️ Active Rules</span>
+                                        <span class="lobby-rules-preset-badge">@_lobbyRules.PresetName</span>
+                                    </div>
+                                    <div class="lobby-rules-grid">
+                                        <div class="lobby-rule-chip @(_lobbyRules.Stacking ? "chip-on" : "chip-off")">🔥 Stacking</div>
+                                        <div class="lobby-rule-chip @(_lobbyRules.SevenSwap ? "chip-on" : "chip-off")">🃏 7-Swap</div>
+                                        <div class="lobby-rule-chip @(_lobbyRules.ZeroRotate ? "chip-on" : "chip-off")">🔄 0-Rotate</div>
+                                        <div class="lobby-rule-chip @(_lobbyRules.JumpInRule ? "chip-on" : "chip-off")">⚡ Jump-In</div>
+                                        <div class="lobby-rule-chip @(_lobbyRules.EnableVortex ? "chip-on" : "chip-off")">🌀 Vortex</div>
+                                        <div class="lobby-rule-chip @(_lobbyRules.DrawUntilPlayable ? "chip-on" : "chip-off")">📥 Draw Until Playable</div>
+                                        <div class="lobby-rule-chip @(_lobbyRules.EnableWildDraw4Challenge ? "chip-on" : "chip-off")">⚔️ WD4 Challenge</div>
+                                        <div class="lobby-rule-chip @(_lobbyRules.ForcedPlay ? "chip-on" : "chip-off")">🔒 Forced Play</div>
+                                    </div>
+                                    <div class="lobby-rules-meta">
+                                        <span>🃏 Hand: @_lobbyRules.StartingHandSize cards</span>
+                                        <span>🔔 UNO penalty: @_lobbyRules.UnoFailurePenaltyCards cards</span>
+                                        <span>🤖 AI: @_lobbyRules.CpuDifficulty</span>
+                                        <span>⏰ AFK penalty: @(_lobbyRules.AfkEnabled ? $"{_lobbyRules.AfkPenaltyCards} cards" : "Off")</span>
+                                    </div>
+                                </div>
                             }
                             else
                             {
-                                <button class="lobby-btn lobby-btn-start" @onclick="LobbyStartGame">
-                                    ▶ Start Game (@(_lobbyPlayers.Count + _lobbyCpuCount) players)
-                                </button>
+                                <div class="lobby-rules-panel" style="opacity:0.4; text-align:center; font-size:0.85rem; color:rgba(255,255,255,0.5); padding:12px;">
+                                    ⏳ Waiting for host to set rules…
+                                </div>
                             }
-                        }
-                        else
-                        {
-                            <p class="lobby-waiting">Waiting for <strong>@(_lobbyPlayers.Count > 0 ? _lobbyPlayers[0] : "host")</strong> to start the game…</p>
-                        }
-                        <!-- Room Chat -->
-                        <div class="lobby-chat">
-                            <div class="lobby-chat-messages" id="lobbyChatMessages">
-                                @foreach (var (sender, msg, isMe) in _chatMessages)
+
+                            @if (_lobbyIsHost)
+                            {
+                                @if (_lobbyPlayers.Count + _lobbyCpuCount < 2)
                                 {
-                                    <div class="lobby-chat-msg @(isMe ? "chat-me" : "")">
-                                        @if (!isMe) { <span class="chat-sender">@sender</span> }
-                                        <span class="chat-bubble">@msg</span>
-                                    </div>
+                                    <p class="lobby-waiting">Need at least 2 players total to start…</p>
                                 }
-                                @if (_chatMessages.Count == 0)
+                                else
                                 {
-                                    <div class="lobby-chat-empty">No messages yet — say hi! 👋</div>
+                                    <button class="lobby-btn lobby-btn-start" @onclick="LobbyStartGame">
+                                        ▶ Start Game (@(_lobbyPlayers.Count + _lobbyCpuCount) players)
+                                    </button>
                                 }
-                            </div>
-                            <div class="lobby-chat-input-row">
-                                <input class="lobby-chat-input" type="text" placeholder="Type a message…"
-                                       @bind="_chatInput" @bind:event="oninput"
-                                       @onkeydown="LobbyChatKeyDown" maxlength="200" />
-                                <button class="lobby-chat-send" @onclick="LobbySendChat" disabled="@(string.IsNullOrWhiteSpace(_chatInput))">
-                                    ➤
-                                </button>
-                            </div>
+                            }
+                            else
+                            {
+                                <p class="lobby-waiting">Waiting for <strong>@(_lobbyPlayers.Count > 0 ? _lobbyPlayers[0] : "host")</strong> to start the game…</p>
+                            }
+
+                            <button class="lobby-btn lobby-btn-leave" @onclick="LobbyLeaveRoom">Leave Room</button>
                         </div>
 
-                        <button class="lobby-btn lobby-btn-leave" @onclick="LobbyLeaveRoom">Leave Room</button>
+                        <!-- RIGHT: Chat -->
+                        <div class="lobby-room-right">
+                            <div class="lobby-room-chat-header">💬 Chat</div>
+                            <div class="lobby-chat lobby-chat-side">
+                                <div class="lobby-chat-messages lobby-chat-messages-side" id="lobbyChatMessages">
+                                    @foreach (var (sender, msg, isMe) in _chatMessages)
+                                    {
+                                        <div class="lobby-chat-msg @(isMe ? "chat-me" : "")">
+                                            @if (!isMe) { <span class="chat-sender">@sender</span> }
+                                            <span class="chat-bubble">@msg</span>
+                                        </div>
+                                    }
+                                    @if (_chatMessages.Count == 0)
+                                    {
+                                        <div class="lobby-chat-empty">No messages yet — say hi! 👋</div>
+                                    }
+                                </div>
+                                <div class="lobby-chat-input-row">
+                                    <input class="lobby-chat-input" type="text" placeholder="Message…"
+                                           @bind="_chatInput" @bind:event="oninput"
+                                           @onkeydown="LobbyChatKeyDown" maxlength="200" />
+                                    <button class="lobby-chat-send" @onclick="LobbySendChat" disabled="@(string.IsNullOrWhiteSpace(_chatInput))">
+                                        ➤
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 }
             </div>
