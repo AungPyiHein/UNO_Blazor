@@ -319,8 +319,10 @@ namespace UnoEngine
                     var afkPlayer = Players[move.PlayerIndex];
                     int afkPenalty = Settings.AfkPenaltyCards;
                     afkPlayer.CurrentStatus = $"⏰ AFK — drawing {afkPenalty} card{(afkPenalty != 1 ? "s" : "")}…";
+                    ActiveNotificationBanner = $"⏰ {afkPlayer.Name.ToUpper()} IS AFK!";
                     OnStateChanged?.Invoke();
                     await Task.Delay(800);
+                    if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"draw-{move.PlayerIndex}");
                     for (int ai = 0; ai < afkPenalty; ai++)
                         await DrawCardAsync(afkPlayer);
                     afkPlayer.CurrentStatus = "";
@@ -1462,9 +1464,12 @@ namespace UnoEngine
             if (!currentPlayer.IsHuman) return;
 
             int penaltyCount = Settings.AfkPenaltyCards;
+            int afkIdx = CurrentPlayerIndex;
             currentPlayer.CurrentStatus = $"⏰ AFK — drawing {penaltyCount} card{(penaltyCount != 1 ? "s" : "")}…";
+            ActiveNotificationBanner = $"⏰ {currentPlayer.Name.ToUpper()} IS AFK!";
             OnStateChanged?.Invoke();
             await Task.Delay(800);
+            if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"draw-{afkIdx}");
             for (int i = 0; i < penaltyCount; i++)
                 await DrawCardAsync(currentPlayer);
             currentPlayer.CurrentStatus = "";
