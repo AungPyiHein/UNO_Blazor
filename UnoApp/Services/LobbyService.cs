@@ -18,6 +18,10 @@ public class LobbyService : IAsyncDisposable
     public event Action<string>? RulesUpdated;
     public event Action<string, int>? SpectatorJoined;
     public event Action? NextRoundRequested;
+    public event Action<string, bool>? PlayerLeft;
+    public event Action? HubReconnecting;
+    public event Action? HubReconnected;
+    public event Action? HubConnectionClosed;
 
     public string? CurrentRulesJson { get; private set; }
 
@@ -80,6 +84,13 @@ public class LobbyService : IAsyncDisposable
 
         _hub.On("NextRoundRequested", () =>
             NextRoundRequested?.Invoke());
+
+        _hub.On<string, bool>("PlayerLeft", (name, wasHost) =>
+            PlayerLeft?.Invoke(name, wasHost));
+
+        _hub.Reconnecting += _ => { HubReconnecting?.Invoke(); return Task.CompletedTask; };
+        _hub.Reconnected  += _ => { HubReconnected?.Invoke();  return Task.CompletedTask; };
+        _hub.Closed       += _ => { HubConnectionClosed?.Invoke(); return Task.CompletedTask; };
 
         await _hub.StartAsync();
     }

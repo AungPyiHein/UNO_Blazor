@@ -25,17 +25,55 @@
             </button>
         </div>
     }
+
+    @if (_hostDisconnected)
+    {
+        <div style="position:absolute;inset:0;z-index:300;background:rgba(0,0,0,0.82);backdrop-filter:blur(8px);
+                    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.1rem;">
+            <div style="font-size:3rem;">🔌</div>
+            <div style="font-size:1.9rem;color:#fff;font-weight:800;letter-spacing:.03em;">Host Disconnected</div>
+            <div style="font-size:1rem;color:rgba(255,255,255,.6);max-width:320px;text-align:center;">The host has left the game. The match cannot continue.</div>
+            <button @onclick="OnGuestLeave"
+                    style="margin-top:.8rem;padding:.6rem 2rem;border-radius:999px;border:none;background:#3b82f6;color:#fff;font-size:1rem;font-weight:700;cursor:pointer;">
+                Back to Lobby
+            </button>
+        </div>
+    }
+
+    @if (_connectionLost && !_hostDisconnected)
+    {
+        <div style="position:absolute;top:1.1rem;left:50%;transform:translateX(-50%);z-index:350;
+                    display:flex;align-items:center;gap:.6rem;
+                    background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);
+                    border:1px solid rgba(245,158,11,0.45);border-radius:999px;
+                    padding:.45rem 1.2rem;font-size:.85rem;font-weight:700;color:#f59e0b;
+                    box-shadow:0 4px 20px rgba(0,0,0,.6);">
+            <span style="display:inline-block;width:.6rem;height:.6rem;border-radius:50%;background:#f59e0b;animation:pulse 1s infinite;"></span>
+            Connection lost — reconnecting…
+            <button @onclick="OnGuestLeave"
+                    style="margin-left:.5rem;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);
+                           border-radius:999px;padding:.2rem .8rem;color:#fff;font-size:.78rem;font-weight:600;cursor:pointer;">
+                Leave
+            </button>
+        </div>
+    }
 </div>
 
 @code {
     private GameStateDto? _state;
     private bool _rematchRequested = false;
+    private bool _hostDisconnected = false;
+    private bool _connectionLost = false;
     private static readonly JsonSerializerOptions _jsonOpts = new() { PropertyNameCaseInsensitive = true };
 
     protected override void OnInitialized()
     {
         NavigationState.IsArenaMode = true;
-        LobbyService.StateUpdated += OnStateUpdated;
+        LobbyService.StateUpdated        += OnStateUpdated;
+        LobbyService.PlayerLeft          += OnPlayerLeft;
+        LobbyService.HubReconnecting     += OnHubReconnecting;
+        LobbyService.HubReconnected      += OnHubReconnected;
+        LobbyService.HubConnectionClosed += OnHubClosed;
     }
 
     private void OnStateUpdated(string json)
@@ -52,6 +90,33 @@
             InvokeAsync(StateHasChanged);
         }
         catch { }
+    }
+
+    private void OnPlayerLeft(string playerName, bool wasHost)
+    {
+        if (wasHost)
+        {
+            _hostDisconnected = true;
+        }
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnHubReconnecting()
+    {
+        _connectionLost = true;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnHubReconnected()
+    {
+        _connectionLost = false;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnHubClosed()
+    {
+        _connectionLost = true;
+        InvokeAsync(StateHasChanged);
     }
 
     private async Task OnGuestMove(MoveDto move)
@@ -86,6 +151,10 @@
     public void Dispose()
     {
         NavigationState.IsArenaMode = false;
-        LobbyService.StateUpdated -= OnStateUpdated;
+        LobbyService.StateUpdated        -= OnStateUpdated;
+        LobbyService.PlayerLeft          -= OnPlayerLeft;
+        LobbyService.HubReconnecting     -= OnHubReconnecting;
+        LobbyService.HubReconnected      -= OnHubReconnected;
+        LobbyService.HubConnectionClosed -= OnHubClosed;
     }
 }

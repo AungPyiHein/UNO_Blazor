@@ -222,8 +222,12 @@ public class GameHub : Hub
         if (!_rooms.TryGetValue(roomCode, out var players))
             return;
 
+        bool wasHost;
         lock (players)
+        {
+            wasHost = players.Count > 0 && players[0] == playerName;
             players.Remove(playerName);
+        }
 
         if (players.Count == 0)
         {
@@ -233,6 +237,7 @@ public class GameHub : Hub
             return;
         }
 
+        await Clients.Group(roomCode).SendAsync("PlayerLeft", playerName, wasHost);
         await BroadcastPlayers(roomCode, players);
     }
 

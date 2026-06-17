@@ -1168,6 +1168,19 @@
     {
         <GameView @ref="_gameViewRef" State="@_spState" OnMove="HandleSpMove" OnNextRound="HandleNextRound" OnStartGame="ResetGame" OnAnimationMidpoint="HandleAnimMidpoint" ShowPauseButton="true" />
     }
+
+    @if (_hubReconnecting)
+    {
+        <div style="position:fixed;top:1.1rem;left:50%;transform:translateX(-50%);z-index:9000;
+                    display:flex;align-items:center;gap:.6rem;
+                    background:rgba(0,0,0,0.82);backdrop-filter:blur(8px);
+                    border:1px solid rgba(245,158,11,0.45);border-radius:999px;
+                    padding:.45rem 1.1rem;font-size:.85rem;font-weight:700;color:#f59e0b;
+                    box-shadow:0 4px 20px rgba(0,0,0,.6);">
+            <span style="display:inline-block;width:.6rem;height:.6rem;border-radius:50%;background:#f59e0b;animation:pulse 1s infinite;"></span>
+            Reconnecting to server…
+        </div>
+    }
 </div>
 
 <style>
@@ -1816,6 +1829,70 @@
     .inline-lobby::-webkit-scrollbar-track { background: transparent; }
     .inline-lobby::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 99px; }
 
+    /* waiting room: no outer scroll, fills viewport */
+    .inline-lobby.lobby-in-waiting {
+        overflow: hidden;
+        padding: 0;
+        display: block;
+        align-items: unset;
+        justify-content: unset;
+    }
+
+    /* ── TWO-COLUMN WAITING ROOM ── */
+    .lobby-room-layout {
+        display: grid;
+        grid-template-columns: 1fr 280px;
+        height: 100%;
+        width: 100%;
+    }
+
+    .lobby-room-left {
+        overflow-y: auto;
+        padding: 20px 24px 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        border-right: 1px solid rgba(255,255,255,0.07);
+        scrollbar-width: thin;
+        scrollbar-color: rgba(255,255,255,0.15) transparent;
+    }
+    .lobby-room-left::-webkit-scrollbar { width: 4px; }
+    .lobby-room-left::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 99px; }
+
+    .lobby-room-right {
+        display: flex;
+        flex-direction: column;
+        background: rgba(0,0,0,0.14);
+        overflow: hidden;
+    }
+
+    .lobby-room-chat-header {
+        padding: 14px 14px 10px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 1px;
+        color: rgba(255,255,255,0.35);
+        text-transform: uppercase;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+        flex-shrink: 0;
+    }
+
+    .lobby-chat-side {
+        flex: 1;
+        padding: 10px 12px 12px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-height: 0;
+    }
+
+    .lobby-chat-messages-side {
+        height: auto !important;
+        flex: 1;
+        min-height: 0;
+    }
+
     /* ── ENTRY SCREEN ── */
     .inline-lobby-entry {
         display: flex;
@@ -1983,12 +2060,12 @@
         background: rgba(255,255,255,0.04);
     }
 
-    /* ── INNER LOBBY CARDS (create / join / waiting) ── */
+    /* ── INNER LOBBY CARDS (create / join / spectate) ── */
     .inline-lobby-card {
         background: rgba(255,255,255,0.04);
         border: 1px solid rgba(255,255,255,0.1);
         border-radius: 24px;
-        padding: 36px 44px;
+        padding: 24px 32px;
         width: 100%;
         max-width: 460px;
         display: flex;
@@ -2357,6 +2434,7 @@
 
 @code {
     private bool _isGameStarted = false;
+    private bool _hubReconnecting = false;
     private string _playerName = "PLAYER";
     private int _playerCount = 4;
     private UnoGame? _game;
@@ -2652,6 +2730,9 @@
         LobbyService.ChatMessageReceived += LobbyOnChatMessage;
         LobbyService.SpectatorJoined     += LobbyOnSpectatorJoined;
         LobbyService.NextRoundRequested  += LobbyOnNextRoundRequested;
+        LobbyService.PlayerLeft          += LobbyOnPlayerLeft;
+        LobbyService.HubReconnecting     += LobbyOnHubReconnecting;
+        LobbyService.HubReconnected      += LobbyOnHubReconnected;
 
         // Initialize Presets
         var classicPreset = new RulePresetProfile
@@ -3606,6 +3687,9 @@
         LobbyService.ChatMessageReceived -= LobbyOnChatMessage;
         LobbyService.SpectatorJoined     -= LobbyOnSpectatorJoined;
         LobbyService.NextRoundRequested  -= LobbyOnNextRoundRequested;
+        LobbyService.PlayerLeft          -= LobbyOnPlayerLeft;
+        LobbyService.HubReconnecting     -= LobbyOnHubReconnecting;
+        LobbyService.HubReconnected      -= LobbyOnHubReconnected;
 
         if (_isMultiplayerHost)
         {
@@ -3616,6 +3700,38 @@
     }
 
     private bool _nextRoundInProgress = false;
+
+    private void LobbyOnHubReconnecting()
+    {
+        _hubReconnecting = true;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void LobbyOnHubReconnected()
+    {
+        _hubReconnecting = false;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void LobbyOnPlayerLeft(string playerName, bool wasHost)
+    {
+        if (!_isGameStarted || !_isMultiplayerHost || _game == null) return;
+
+        int gameIdx = -1;
+        for (int i = 0; i < _game.Players.Count; i++)
+        {
+            if (_game.Players[i].Name == playerName) { gameIdx = i; break; }
+        }
+
+        if (gameIdx >= 0 && _pendingRemoteMoves.TryGetValue(gameIdx, out var tcs))
+        {
+            _pendingRemoteMoves.Remove(gameIdx);
+            tcs.TrySetResult(new MoveDto { PlayerIndex = gameIdx, Type = "afk" });
+        }
+
+        _game.ActiveNotificationBanner = $"📶 {playerName.ToUpper()} DISCONNECTED";
+        InvokeAsync(StateHasChanged);
+    }
 
     private async void LobbyOnNextRoundRequested()
     {
