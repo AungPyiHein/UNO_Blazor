@@ -1166,7 +1166,7 @@
     }
     else
     {
-        <GameView @ref="_gameViewRef" State="@_spState" OnMove="HandleSpMove" OnNextRound="HandleNextRound" OnStartGame="ResetGame" OnAnimationMidpoint="HandleAnimMidpoint" ShowPauseButton="true" />
+        <GameView @ref="_gameViewRef" State="@_spState" OnMove="HandleSpMove" OnNextRound="HandleNextRound" OnStartGame="ResetGame" OnAnimationMidpoint="HandleAnimMidpoint" ShowPauseButton="@(!_isMultiplayerHost)" OnPauseChanged="HandlePauseChanged" />
     }
 
     @if (_hubReconnecting)
@@ -3486,6 +3486,17 @@
             _game.ResolveVortex(activePlayer);
             _spState = BuildSpState();
             await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task HandlePauseChanged(bool paused)
+    {
+        if (_game == null) return;
+        _game.IsPaused = paused;
+        if (!paused)
+        {
+            // Resume the game loop
+            await _game.StartTurnAsync();
         }
     }
 

@@ -21,6 +21,8 @@ namespace UnoEngine
 
     public class UnoGame
     {
+        // When true the game loop should pause and avoid progressing turns.
+        public bool IsPaused { get; set; } = false;
         public event Action? OnStateChanged;
         public Func<string, Task>? OnBoardAnimation;
         public Func<string, Task>? OnSoundEffect;
@@ -230,6 +232,7 @@ namespace UnoEngine
         public async Task StartTurnAsync()
         {
             if (Status == GameStatus.GameOver) return;
+            if (IsPaused) return;
 
             var currentPlayer = GetCurrentPlayer();
             
@@ -281,6 +284,7 @@ namespace UnoEngine
                     _ => 1500
                 };
                 await Task.Delay(cpuThinkDelay);
+                if (IsPaused) return;
                 // Check if it's still this CPU's turn after the delay (in case of human jump-in)
                 if (Status != GameStatus.GameOver && CurrentPlayerIndex == Players.IndexOf(currentPlayer))
                 {

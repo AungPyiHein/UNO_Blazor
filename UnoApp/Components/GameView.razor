@@ -498,12 +498,15 @@ else
     [Parameter] public EventCallback          OnStartGame        { get; set; }
     [Parameter] public Func<string, Task>?    OnAnimationMidpoint { get; set; }
     [Parameter] public bool                    ShowPauseButton    { get; set; }
+    [Parameter] public EventCallback<bool>     OnPauseChanged     { get; set; }
 
     private bool _isPaused = false;
 
-    private void TogglePause()
+    private async Task TogglePause()
     {
         _isPaused = !_isPaused;
+        if (OnPauseChanged.HasDelegate)
+            await OnPauseChanged.InvokeAsync(_isPaused);
         StateHasChanged();
     }
 
@@ -952,7 +955,9 @@ else
         left: 0;
         right: 0;
         bottom: 0;
-        background: rgba(15,23,42,0.72);
+        background: rgba(15,23,42,0.48);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
         color: #f8fafc;
         display: grid;
         place-items: center;
@@ -960,8 +965,8 @@ else
         font-weight: 700;
         letter-spacing: 0.12em;
         text-transform: uppercase;
-        z-index: 20;
-        pointer-events: none;
+        z-index: 9999;
+        pointer-events: auto;
     }
 
     .player-profile-container {
