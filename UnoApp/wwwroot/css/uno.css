@@ -1773,7 +1773,7 @@ body {
 /* Premium Circular UNO! Side Badge */
 .uno-circular-badge {
     position: absolute;
-    left: -36px;
+    right: -36px;
     top: 50%;
     transform: translateY(-50%) scale(1);
     width: 48px;
