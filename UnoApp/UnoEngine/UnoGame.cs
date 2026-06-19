@@ -1053,7 +1053,7 @@ namespace UnoEngine
                     }
                     break;
                 case CardValue.Zero:
-                    if (Settings.ZeroRotate)
+                    if (Settings.ZeroRotate && currentPlayer.Hand.Count > 0)
                     {
                         await PerformZeroRotate();
                     }
