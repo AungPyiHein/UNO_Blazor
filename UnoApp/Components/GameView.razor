@@ -560,7 +560,12 @@ else
         {
             _lastSeenBanner = State.NotificationBanner;
             if (!string.IsNullOrEmpty(_lastSeenBanner))
-                ShowBanner(_lastSeenBanner);
+            {
+                var displayMs = _lastSeenBanner.Contains("is challenging", StringComparison.OrdinalIgnoreCase)
+                    ? 2000
+                    : 3000;
+                ShowBanner(_lastSeenBanner, displayMs);
+            }
         }
 
         // Trigger animations from DTO (MP path)
@@ -794,14 +799,14 @@ else
     }
 
     // ── Banner ────────────────────────────────────────────────────────────
-    private void ShowBanner(string message)
+    private void ShowBanner(string message, int displayMs = 3000)
     {
         _bannerCts?.Cancel();
         _bannerCts = new System.Threading.CancellationTokenSource();
         var token = _bannerCts.Token;
         _bannerText = message;
         InvokeAsync(StateHasChanged);
-        _ = Task.Delay(3000, token).ContinueWith(t => {
+        _ = Task.Delay(displayMs, token).ContinueWith(t => {
             if (!t.IsCanceled)
             {
                 _bannerText = "";
