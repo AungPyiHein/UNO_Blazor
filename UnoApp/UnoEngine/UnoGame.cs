@@ -1330,6 +1330,7 @@ namespace UnoEngine
                     if (_wd4Player != null)
                     {
                         ActiveNotificationBanner = $"{challenger.Name} is challenging {_wd4Player.Name}!";
+                        OnStateChanged?.Invoke();
                     }
                     if (OnSoundEffect != null) await OnSoundEffect("challenge");
                     await Task.Delay(600);
