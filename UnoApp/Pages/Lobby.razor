@@ -1,6 +1,7 @@
 @page "/lobby"
 @inject UnoApp.Services.LobbyService LobbyService
 @inject NavigationManager Nav
+@inject IJSRuntime JSRuntime
 @implements IDisposable
 
 <div class="lobby-wrap">
@@ -11,7 +12,7 @@
             <h1 class="lobby-title">Multiplayer</h1>
             <p class="lobby-sub">Play with friends — add CPUs to fill any empty seats.</p>
 
-            <button class="lobby-btn lobby-btn-create" @onclick='() => _mode = "create"'>
+            <button class="lobby-btn lobby-btn-create" @onclick='() => { _mode = "create"; GenerateRoomCode(); }'>
                 ➕ Create Room
             </button>
             <button class="lobby-btn lobby-btn-join" @onclick='() => _mode = "join"'>
@@ -44,14 +45,6 @@
                     }
                 </div>
                 <p class="lobby-hint">1 human host + up to @(_totalPlayers - 1) more seats</p>
-            </div>
-
-            <div class="lobby-field">
-                <label>Room Code</label>
-                <div class="room-code-row">
-                    <input class="lobby-input lobby-input-code" @bind="_roomCode" placeholder="AUTO-GENERATED" maxlength="8" @oninput="UpperRoomCode" />
-                    <button class="gen-btn" @onclick="GenerateRoomCode">🎲</button>
-                </div>
             </div>
 
             <div class="lobby-field">
@@ -119,7 +112,7 @@
     else if (_mode == "waiting")
     {
         <div class="lobby-card lobby-room">
-            <h2 class="lobby-room-code">Room <span>@_roomCode.ToUpperInvariant()</span></h2>
+            <h2 class="lobby-room-code">Room <span class="room-code-clickable" @onclick="CopyRoomCode">@_roomCode.ToUpperInvariant()</span></h2>
 
             <div class="lobby-players">
                 @foreach (var (player, idx) in _players.Select((p, i) => (p, i)))
@@ -236,6 +229,26 @@
     flex-shrink: 0;
 }
 .gen-btn:hover { background: rgba(255,255,255,0.14); }
+.copy-btn {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 12px;
+    color: #fff;
+    font-size: 1.1rem;
+    padding: 0 14px;
+    cursor: pointer;
+    transition: background 0.2s;
+    flex-shrink: 0;
+}
+.copy-btn:hover { background: rgba(255,255,255,0.14); }
+.room-code-clickable {
+    cursor: pointer;
+    user-select: all;
+    transition: text-shadow 0.2s;
+}
+.room-code-clickable:hover {
+    text-shadow: 0 0 12px rgba(34,197,94,0.6);
+}
 
 .count-selector { display: flex; gap: 8px; }
 .count-btn {
@@ -383,6 +396,14 @@
     private void UpperRoomCode(ChangeEventArgs e)
     {
         _roomCode = (e.Value?.ToString() ?? "").ToUpperInvariant();
+    }
+
+    private async Task CopyRoomCode()
+    {
+        if (!string.IsNullOrWhiteSpace(_roomCode))
+        {
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", _roomCode.ToUpperInvariant());
+        }
     }
 
     private async Task CreateRoom()

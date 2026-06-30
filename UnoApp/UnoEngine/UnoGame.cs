@@ -68,6 +68,47 @@ namespace UnoEngine
         private Random _random = new();
         private System.Threading.SemaphoreSlim _actionLock = new(1, 1);
 
+        public void ConvertPlayerToAi(int playerIndex)
+        {
+            if (playerIndex < 0 || playerIndex >= Players.Count) return;
+            Player player = Players[playerIndex];
+            if (!player.IsHuman) return;
+            
+            player.IsHuman = false;
+            player.Name = $"🤖 {player.Name}";
+            LogAction($"📶 {player.Name} (now AI) took over!");
+            
+            // If the player was selecting a wild color, handle that
+            if (PendingColorSelector == player && Status == GameStatus.WaitingForColorSelection)
+            {
+                SafeFireAndForget(() => HandleCpuColorSelectionAsync(player));
+            }
+            // If the player had a pending swap target, handle that
+            else if (PendingCard != null && Status == GameStatus.WaitingForSwapTarget && CurrentPlayerIndex == playerIndex)
+            {
+                // CPU auto-picks target
+                var target = Players.Where(p => p != player).OrderBy(p => p.Hand.Count).First();
+                SafeFireAndForget(async () =>
+                {
+                    await _actionLock.WaitAsync();
+                    try
+                    {
+                        await InternalPlayCard(player, PendingCard, null, target);
+                    }
+                    finally
+                    {
+                        _actionLock.Release();
+                        OnStateChanged?.Invoke();
+                    }
+                });
+            }
+            // If it's currently this player's turn, trigger the AI turn
+            else if (CurrentPlayerIndex == playerIndex && Status == GameStatus.Playing)
+            {
+                SafeFireAndForget(async () => await ExecuteCpuTurn(player));
+            }
+        }
+
         private void SafeFireAndForget(Func<Task> taskFactory)
         {
             _ = Task.Run(async () =>
@@ -314,26 +355,81 @@ namespace UnoEngine
                         }
                     }
                     break;
+                case "play-drawn":
+                    if (Guid.TryParse(move.CardId, out var drawnCardId))
+                    {
+                        var drawnCard = player.Hand.FirstOrDefault(c => c.Id == drawnCardId);
+                        if (drawnCard != null) await PlayCardAsync(player, drawnCard);
+                    }
+                    break;
+                case "keep-drawn":
+                    LogAction($"{player.Name} drew and kept the card.");
+                    await PassTurnAfterDraw();
+                    break;
                 case "draw":
-                    var drawn = await DrawCardAsync(player);
-                    if (drawn != null && !CanPlayCard(drawn))
-                        await PassTurnAfterDraw();
+                    await _actionLock.WaitAsync();
+                    try
+                    {
+                        if (PendingDrawCount > 0)
+                        {
+                            await HandlePendingDrawAsync();
+                        }
+                        else
+                        {
+                            var drawn = await DrawCardAsync(player);
+                            if (drawn != null && !CanPlayCard(drawn))
+                                await PassTurnAfterDraw();
+                        }
+                    }
+                    finally
+                    {
+                        _actionLock.Release();
+                    }
                     break;
                 case "afk":
-                    var afkPlayer = Players[move.PlayerIndex];
-                    int afkPenalty = Settings.AfkPenaltyCards;
-                    afkPlayer.CurrentStatus = $"⏰ AFK — drawing {afkPenalty} card{(afkPenalty != 1 ? "s" : "")}…";
-                    OnStateChanged?.Invoke();
-                    await Task.Delay(800);
-                    if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"draw-{move.PlayerIndex}");
-                    for (int ai = 0; ai < afkPenalty; ai++)
-                        await DrawCardAsync(afkPlayer);
-                    afkPlayer.CurrentStatus = "";
-                    LogAction($"⏰ {afkPlayer.Name} was AFK and drew {afkPenalty} card{(afkPenalty != 1 ? "s" : "")}.");
-                    if (Status != GameStatus.GameOver)
+                    await _actionLock.WaitAsync();
+                    try
                     {
-                        MoveToNextTurn();
-                        await StartTurnAsync();
+                        if (Status == GameStatus.GameOver) return;
+                        if (Status == GameStatus.WaitingForColorSelection && PendingColorSelector == player)
+                        {
+                            // AFK while choosing color: pick random color like CPU
+                            await HandleCpuColorSelectionAsync(player);
+                        }
+                        else if (Status == GameStatus.WaitingForSwapTarget && CurrentPlayerIndex == move.PlayerIndex)
+                        {
+                            // AFK while choosing swap target: pick random/least cards like CPU
+                            var target = Players.Where(p => p != player).OrderBy(p => p.Hand.Count).First();
+                            await InternalPlayCard(player, PendingCard!, null, target);
+                        }
+                        else if (Status == GameStatus.WaitingForWd4Challenge && Wd4ChallengerIndex == move.PlayerIndex)
+                        {
+                            // AFK while challenging: just accept the WD4
+                            await ResolveChallengeAsync(false);
+                        }
+                        else if (Status == GameStatus.Playing)
+                        {
+                            // Normal AFK penalty
+                            int penaltyCount = Settings.AfkPenaltyCards;
+                            int afkIdx = move.PlayerIndex;
+                            player.CurrentStatus = $"⏰ AFK — drawing {penaltyCount} card{(penaltyCount != 1 ? "s" : "")}…";
+                            OnStateChanged?.Invoke();
+                            await Task.Delay(800);
+                            if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"draw-{afkIdx}");
+                            for (int i = 0; i < penaltyCount; i++)
+                                await DrawCardAsync(player);
+                            player.CurrentStatus = "";
+                            LogAction($"⏰ {player.Name} was AFK and drew {penaltyCount} card{(penaltyCount != 1 ? "s" : "")}.");
+                            if (Status != GameStatus.GameOver)
+                            {
+                                MoveToNextTurn();
+                                await StartTurnAsync();
+                            }
+                        }
+                    }
+                    finally
+                    {
+                        _actionLock.Release();
                     }
                     break;
                 case "color":
@@ -348,6 +444,24 @@ namespace UnoEngine
                     break;
                 case "uno":
                     await AttemptUnoCallAsync(player);
+                    break;
+                case "catch":
+                    await AttemptUnoCallAsync(player);
+                    break;
+                case "jump-in":
+                    if (Guid.TryParse(move.CardId, out var jumpCardId))
+                    {
+                        var jumpCard = player.Hand.FirstOrDefault(c => c.Id == jumpCardId);
+                        if (jumpCard != null)
+                            await JumpInAsync(player, jumpCard);
+                    }
+                    break;
+                case "swap":
+                    if (move.TargetIndex.HasValue && PendingCard != null)
+                    {
+                        var swapTarget = Players[move.TargetIndex.Value];
+                        await PlayCardAsync(player, PendingCard, null, swapTarget);
+                    }
                     break;
             }
         }
@@ -566,6 +680,18 @@ namespace UnoEngine
                 {
                     SafeFireAndForget(() => HandleCpuColorSelectionAsync(player));
                 }
+                else if (RemotePlayerIndices.Contains(Players.IndexOf(player)) && GetRemoteHumanMove != null)
+                {
+                    // Remote human player, wait for move!
+                    int capturedIdx = Players.IndexOf(player);
+                    var moveGetter = GetRemoteHumanMove;
+                    SafeFireAndForget(async () =>
+                    {
+                        var move = await moveGetter(capturedIdx);
+                        if (move != null && Status == GameStatus.WaitingForColorSelection && PendingColorSelector == player)
+                            await ApplyRemoteMoveAsync(move);
+                    });
+                }
                 return;
             }
 
@@ -577,6 +703,19 @@ namespace UnoEngine
                     // Human must pick: show the UI
                     PendingCard = card;
                     Status = GameStatus.WaitingForSwapTarget;
+                    OnStateChanged?.Invoke();
+                    // Check if it's a remote human
+                    if (RemotePlayerIndices.Contains(Players.IndexOf(player)) && GetRemoteHumanMove != null)
+                    {
+                        int capturedIdx = Players.IndexOf(player);
+                        var moveGetter = GetRemoteHumanMove;
+                        SafeFireAndForget(async () =>
+                        {
+                            var move = await moveGetter(capturedIdx);
+                            if (move != null && Status == GameStatus.WaitingForSwapTarget && CurrentPlayerIndex == capturedIdx)
+                                await ApplyRemoteMoveAsync(move);
+                        });
+                    }
                     return;
                 }
                 else
@@ -667,6 +806,21 @@ namespace UnoEngine
 
         private async Task EndPlayCardSequence(Player player)
         {
+            // Check all players for empty hand (in case of ZeroRotate swapping hands)
+            Player? winner = Players.FirstOrDefault(p => p.Hand.Count == 0);
+            if (winner != null)
+            {
+                Status = GameStatus.GameOver;
+                Winner = winner;
+                MatchTimestamp = DateTime.UtcNow;
+                winner.CurrentStatus = "WINNER!";
+                ApplyRoundEndScores();
+                WinnerScore = winner.RoundScore;
+                LogAction($"{winner.Name} WINS! Round scores applied.");
+                if (OnSoundEffect != null) await OnSoundEffect("win");
+                return;
+            }
+
             // Only trigger UNO catch if the player who just played now has 1 card
             if (player.Hand.Count == 1)
             {
@@ -688,19 +842,6 @@ namespace UnoEngine
                         return; // Turn sequence will resume after UNO QTE
                     }
                 }
-            }
-
-            if (player.Hand.Count == 0)
-            {
-                Status = GameStatus.GameOver;
-                Winner = player;
-                MatchTimestamp = DateTime.UtcNow;
-                player.CurrentStatus = "WINNER!";
-                ApplyRoundEndScores();
-                WinnerScore = player.RoundScore;
-                LogAction($"{player.Name} WINS! Round scores applied.");
-                if (OnSoundEffect != null) await OnSoundEffect("win");
-                return;
             }
 
             if (Status == GameStatus.WaitingForWd4Challenge) return;
@@ -1035,6 +1176,18 @@ namespace UnoEngine
                         {
                             SafeFireAndForget(() => HandleCpuWd4ChallengeAsync());
                         }
+                        else if (RemotePlayerIndices.Contains(_wd4ChallengerIndex) && GetRemoteHumanMove != null)
+                        {
+                            // Remote human player is challenger
+                            int capturedIdx = _wd4ChallengerIndex;
+                            var moveGetter = GetRemoteHumanMove;
+                            SafeFireAndForget(async () =>
+                            {
+                                var move = await moveGetter(capturedIdx);
+                                if (move != null && Status == GameStatus.WaitingForWd4Challenge && Wd4ChallengerIndex == capturedIdx)
+                                    await ApplyRemoteMoveAsync(move);
+                            });
+                        }
                         return;
                     }
                     if (Settings.Stacking) PendingDrawCount += 4;
@@ -1107,7 +1260,7 @@ namespace UnoEngine
         /// Returns the drawn card and whether it is currently playable.
         /// Used by the UI to drive animated one-by-one drawing.
         /// </summary>
-        public async Task<(UnoCard card, bool isPlayable)> DrawOneForHumanAsync(Player player)
+        public async Task<(UnoCard? card, bool isPlayable)> DrawOneForHumanAsync(Player player)
         {
             if (Status == GameStatus.WaitingForJumpIn)
             {
@@ -1351,6 +1504,7 @@ namespace UnoEngine
                         int wd4PlayerIdx = Players.IndexOf(_wd4Player);
                         if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"penalty-{wd4PlayerIdx}-4");
                         for (int i = 0; i < 4; i++) { if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"draw-{wd4PlayerIdx}"); _wd4Player.Hand.Add(DrawOne()); OnStateChanged?.Invoke(); await Task.Delay(80); }
+                        MoveToNextTurn();
                     }
                     else
                     {
@@ -1458,8 +1612,8 @@ namespace UnoEngine
         private int GetNextPlayerIndex()
         {
             int index = CurrentPlayerIndex + GameDirection;
-            if (index >= Players.Count) index = 0;
-            if (index < 0) index = Players.Count - 1;
+            // Use modulo for proper wrapping in both directions
+            index = (index % Players.Count + Players.Count) % Players.Count;
             return index;
         }
 
@@ -1467,25 +1621,54 @@ namespace UnoEngine
 
         public async Task ApplyAfkPenaltyAsync()
         {
-            if (Status == GameStatus.GameOver) return;
-            var currentPlayer = GetCurrentPlayer();
-            if (!currentPlayer.IsHuman) return;
-
-            int penaltyCount = Settings.AfkPenaltyCards;
-            int afkIdx = CurrentPlayerIndex;
-            currentPlayer.CurrentStatus = $"⏰ AFK — drawing {penaltyCount} card{(penaltyCount != 1 ? "s" : "")}…";
-            OnStateChanged?.Invoke();
-            await Task.Delay(800);
-            if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"draw-{afkIdx}");
-            for (int i = 0; i < penaltyCount; i++)
-                await DrawCardAsync(currentPlayer);
-            currentPlayer.CurrentStatus = "";
-            LogAction($"⏰ {currentPlayer.Name} was AFK and drew {penaltyCount} card{(penaltyCount != 1 ? "s" : "")}.");
-            OnStateChanged?.Invoke();
-            if (Status != GameStatus.GameOver)
+            await _actionLock.WaitAsync();
+            try
             {
-                MoveToNextTurn();
-                await StartTurnAsync();
+                if (Status == GameStatus.GameOver) return;
+                var currentPlayer = GetCurrentPlayer();
+                if (!currentPlayer.IsHuman) return;
+
+                if (Status == GameStatus.WaitingForColorSelection && PendingColorSelector == currentPlayer)
+                {
+                    // AFK while choosing color: pick random color like CPU
+                    await HandleCpuColorSelectionAsync(currentPlayer);
+                }
+                else if (Status == GameStatus.WaitingForSwapTarget && CurrentPlayerIndex == Players.IndexOf(currentPlayer))
+                {
+                    // AFK while choosing swap target: pick random/least cards like CPU
+                    var target = Players.Where(p => p != currentPlayer).OrderBy(p => p.Hand.Count).First();
+                    await InternalPlayCard(currentPlayer, PendingCard!, null, target);
+                }
+                else if (Status == GameStatus.WaitingForWd4Challenge && Wd4ChallengerIndex == Players.IndexOf(currentPlayer))
+                {
+                    // AFK while challenging: just accept the WD4
+                    await ResolveChallengeAsync(false);
+                }
+                else if (Status == GameStatus.Playing)
+                {
+                    // Normal AFK penalty
+                    int penaltyCount = Settings.AfkPenaltyCards;
+                    int afkIdx = CurrentPlayerIndex;
+                    currentPlayer.CurrentStatus = $"⏰ AFK — drawing {penaltyCount} card{(penaltyCount != 1 ? "s" : "")}…";
+                    OnStateChanged?.Invoke();
+                    await Task.Delay(800);
+                    if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"draw-{afkIdx}");
+                    for (int i = 0; i < penaltyCount; i++)
+                        await DrawCardAsync(currentPlayer);
+                    currentPlayer.CurrentStatus = "";
+                    LogAction($"⏰ {currentPlayer.Name} was AFK and drew {penaltyCount} card{(penaltyCount != 1 ? "s" : "")}.");
+                    OnStateChanged?.Invoke();
+
+                    if (Status != GameStatus.GameOver)
+                    {
+                        MoveToNextTurn();
+                        await StartTurnAsync();
+                    }
+                }
+            }
+            finally
+            {
+                _actionLock.Release();
             }
         }
     }

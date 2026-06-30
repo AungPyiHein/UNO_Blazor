@@ -6,14 +6,16 @@
         <span class="initials">@GetInitials()</span>
         
         <div class="card-badge">
-            <div class="tiny-card"></div>
-            <span class="count" @key="Player.Hand.Count">@Player.Hand.Count</span>
+            @if (IsUnoDeclared)
+            {
+                <span class="uno-text" @key="@("uno")">UNO!</span>
+            }
+            else
+            {
+                <div class="tiny-card"></div>
+                <span class="count" @key="Player.Hand.Count">@Player.Hand.Count</span>
+            }
         </div>
-
-        @if (IsUnoDeclared)
-        {
-            <div class="uno-circular-badge">UNO!</div>
-        }
     </div>
     
     <div class="profile-info">
@@ -118,6 +120,20 @@
 
     .count {
         animation: pop-count 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .uno-text {
+        color: #facc15;
+        font-size: 0.9rem;
+        font-weight: 900;
+        letter-spacing: 1px;
+        animation: pop-uno 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    @@keyframes pop-uno {
+        0% { transform: scale(0.5); opacity: 0; }
+        50% { transform: scale(1.4); }
+        100% { transform: scale(1); opacity: 1; }
     }
 
     @@keyframes pop-count {

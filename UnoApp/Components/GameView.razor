@@ -48,10 +48,16 @@ else
                              style="background:linear-gradient(135deg,@PlayerColor(oName),@PlayerColorDark(oName))">
                             <span class="initials">@PlayerInitials(oName)</span>
                             <div class="card-badge">
+                            @if (oHandCount == 1)
+                            {
+                                <span class="uno-text" @key="@("uno-opponent")">UNO!</span>
+                            }
+                            else
+                            {
                                 <div class="tiny-card"></div>
                                 <span class="count" @key="oHandCount">@oHandCount</span>
-                            </div>
-                            @if (oHandCount == 1) { <div class="uno-circular-badge">UNO!</div> }
+                            }
+                        </div>
                         </div>
                         <div class="profile-info">
                             <div class="player-name">@oName</div>
@@ -230,10 +236,16 @@ else
                          style="background:linear-gradient(135deg,@PlayerColor(MyName),@PlayerColorDark(MyName))">
                         <span class="initials">@PlayerInitials(MyName)</span>
                         <div class="card-badge">
-                            <div class="tiny-card"></div>
-                            <span class="count" @key="myCount">@myCount</span>
+                            @if (myCount == 1)
+                            {
+                                <span class="uno-text" @key="@("uno-me")">UNO!</span>
+                            }
+                            else
+                            {
+                                <div class="tiny-card"></div>
+                                <span class="count" @key="myCount">@myCount</span>
+                            }
                         </div>
-                        @if (myCount == 1) { <div class="uno-circular-badge">UNO!</div> }
                     </div>
                     <div class="profile-info">
                         <div class="player-name">@MyName</div>

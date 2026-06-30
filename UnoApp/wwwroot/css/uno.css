@@ -584,6 +584,21 @@ body {
     animation: bounce-badge 0.5s cubic-bezier(0.36, 0, 0.66, -0.56) infinite alternate;
 }
 
+/* UNO badge style in card count badge */
+.uno-text {
+    color: #facc15;
+    font-size: 0.9rem;
+    font-weight: 900;
+    letter-spacing: 1px;
+    animation: pop-uno 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes pop-uno {
+    0% { transform: scale(0.5); opacity: 0; }
+    50% { transform: scale(1.4); }
+    100% { transform: scale(1); opacity: 1; }
+}
+
 @keyframes bounce-badge {
     from { transform: translateY(0) scale(1); }
     to { transform: translateY(-5px) scale(1.1); }
@@ -2766,21 +2781,4 @@ body {
     to   { box-shadow: 0 0 20px rgba(239,68,68,0.8); }
 }
 
-/* ── SPECTATOR BANNER (in-game overlay) ── */
-.spectator-banner {
-    position: absolute;
-    top: 16px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(168,85,247,0.25);
-    border: 1.5px solid rgba(168,85,247,0.55);
-    color: #e9d5ff;
-    font-size: 0.82rem;
-    font-weight: 900;
-    letter-spacing: 2.5px;
-    padding: 6px 18px;
-    border-radius: 20px;
-    z-index: 200;
-    backdrop-filter: blur(8px);
-    pointer-events: none;
-}
+

@@ -8,32 +8,37 @@
 @inject NavigationState NavigationState
 @inject LobbyService LobbyService
 @inject NavigationManager Nav
+@inject IJSRuntime JSRuntime
 @implements IAsyncDisposable
 
 <div class="menu-screen @(_isGameStarted ? "game-active" : "")">
-    @if (!_isGameStarted)
+    @if (_isGameStarted)
     {
-        <!-- Floating Header Action Buttons -->
-        <div class="menu-header">
-            <button class="glass-btn rulebook-trigger" @onclick="() => _showRuleBookModal = true">
-                <span class="icon">📖</span> Rule Book
-            </button>
-            <button class="glass-btn rules-trigger" @onclick="OpenRulesModal">
-                <span class="icon">⚙️</span> Manage Rules
-                <span class="active-preset-badge">@_selectedPreset.Name</span>
-            </button>
-            @if (_leaderboard.Count > 0)
-            {
-                <button class="glass-btn leaderboard-trigger @(_leaderboardUpdated ? "leaderboard-updated" : "")"
-                        @onclick="() => { _showLeaderboard = true; _leaderboardUpdated = false; }">
-                    <span class="icon">🏆</span> Leaderboard
-                    @if (_leaderboardUpdated) { <span class="lb-dot"></span> }
-                </button>
-            }
-        </div>
-
+        <GameView @ref="_gameViewRef" State="@_spState" OnMove="HandleSpMove" OnNextRound="HandleNextRound" OnStartGame="ResetGame" OnAnimationMidpoint="HandleAnimMidpoint" ShowPauseButton="@(!_isMultiplayerHost)" OnPauseChanged="HandlePauseChanged" />
+    }
+    else
+    {
         @if (!_showLobby)
         {
+            <!-- Floating Header Action Buttons -->
+            <div class="menu-header">
+                <button class="glass-btn rulebook-trigger" @onclick="() => _showRuleBookModal = true">
+                    <span class="icon">📖</span> Rule Book
+                </button>
+                <button class="glass-btn rules-trigger" @onclick="OpenRulesModal">
+                    <span class="icon">⚙️</span> Manage Rules
+                    <span class="active-preset-badge">@_selectedPreset.Name</span>
+                </button>
+                @if (_leaderboard.Count > 0)
+                {
+                    <button class="glass-btn leaderboard-trigger @(_leaderboardUpdated ? "leaderboard-updated" : "")"
+                            @onclick="() => { _showLeaderboard = true; _leaderboardUpdated = false; }">
+                        <span class="icon">🏆</span> Leaderboard
+                        @if (_leaderboardUpdated) { <span class="lb-dot"></span> }
+                    </button>
+                }
+            </div>
+
             <!-- Middle Tier: The Power Center -->
             <div class="center-stage">
                 <button class="mega-start-btn" @onclick="StartMatch">START MATCH</button>
@@ -65,6 +70,20 @@
         }
         else
         {
+            <!-- Floating Header Action Buttons for Lobby -->
+            <div class="menu-header lobby-menu-header">
+                <button class="glass-btn rulebook-trigger" @onclick="() => _showRuleBookModal = true">
+                    <span class="icon">📖</span> Rule Book
+                </button>
+                <button class="glass-btn rules-trigger" @onclick="OpenRulesModal">
+                    <span class="icon">⚙️</span> Manage Rules
+                    <span class="active-preset-badge">@_selectedPreset.Name</span>
+                </button>
+                <button class="glass-btn lobby-back-btn" @onclick="CloseLobby">
+                    <span class="icon">←</span> Back
+                </button>
+            </div>
+
             <!-- Inline Multiplayer Lobby -->
             <div class="inline-lobby @(_lobbyMode == "waiting" ? "lobby-in-waiting" : "")">
                 @if (_lobbyMode == "entry")
@@ -84,7 +103,7 @@
                         </div>
 
                         <div class="lobby-mode-row">
-                            <button class="lobby-mode-box lobby-mode-create" @onclick='() => _lobbyMode = "create"'>
+                            <button class="lobby-mode-box lobby-mode-create" @onclick='() => { _lobbyMode = "create"; LobbyGenerateRoomCode(); }'>
                                 <span class="lmb-icon">➕</span>
                                 <span class="lmb-label">Create Room</span>
                                 <span class="lmb-desc">Host a new game and invite friends</span>
@@ -93,11 +112,6 @@
                                 <span class="lmb-icon">🔗</span>
                                 <span class="lmb-label">Join Room</span>
                                 <span class="lmb-desc">Enter a code and jump in</span>
-                            </button>
-                            <button class="lobby-mode-box lobby-mode-spectate" @onclick='() => _lobbyMode = "spectate"'>
-                                <span class="lmb-icon">👁️</span>
-                                <span class="lmb-label">Spectate</span>
-                                <span class="lmb-desc">Watch a game without playing</span>
                             </button>
                         </div>
 
@@ -122,13 +136,6 @@
                                 }
                             </div>
                             <p class="lobby-hint">1 human host + up to @(_lobbyTotalPlayers - 1) more seats</p>
-                        </div>
-                        <div class="lobby-field">
-                            <label>Room Code</label>
-                            <div class="room-code-row">
-                                <input class="lobby-input lobby-input-code" @bind="_lobbyRoomCode" placeholder="AUTO-GENERATED" maxlength="8" @oninput="LobbyUpperRoomCode" />
-                                <button class="gen-btn" @onclick="LobbyGenerateRoomCode">🎲</button>
-                            </div>
                         </div>
                         <div class="lobby-field">
                             <label>CPU Players (fill empty seats)</label>
@@ -185,47 +192,16 @@
                         <button class="lobby-btn lobby-btn-back" @onclick='() => _lobbyMode = "entry"'>← Back</button>
                     </div>
                 }
-                else if (_lobbyMode == "spectate")
-                {
-                    <div class="inline-lobby-card">
-                        <h1 class="lobby-title" style="font-size:1.5rem">👁️ Spectate</h1>
-                        <div class="lobby-field">
-                            <label>Your Name</label>
-                            <input class="lobby-input" @bind="_lobbyPlayerName" placeholder="e.g. Watcher" maxlength="20" />
-                        </div>
-                        <div class="lobby-field">
-                            <label>Room Code</label>
-                            <input class="lobby-input lobby-input-code" @bind="_lobbyRoomCode" placeholder="e.g. GAME01" maxlength="8" @oninput="LobbyUpperRoomCode" />
-                        </div>
-                        @if (!string.IsNullOrEmpty(_lobbyError))
-                        {
-                            <p class="lobby-error">@_lobbyError</p>
-                        }
-                        <button class="lobby-btn" @onclick='async () => await LobbyJoinAsSpectator(_lobbyRoomCode, _lobbyPlayerName)' disabled="@_lobbyConnecting">
-                            @(_lobbyConnecting ? "Joining…" : "Watch Game")
-                        </button>
-                        <button class="lobby-btn lobby-btn-back" @onclick='() => _lobbyMode = "entry"'>← Back</button>
-                    </div>
-                }
-                else if (_lobbyMode == "spectating")
-                {
-                    <div class="inline-lobby-card">
-                        <div class="spectating-banner">
-                            <span class="spectating-icon">👁️</span>
-                            <div>
-                                <div class="spectating-title">Watching Room <strong>@_lobbyRoomCode.ToUpperInvariant()</strong></div>
-                                <div class="spectating-sub">Waiting for the host to start the game…</div>
-                            </div>
-                        </div>
-                        <button class="lobby-btn lobby-btn-back" @onclick="CloseLobby">← Leave</button>
-                    </div>
-                }
                 else if (_lobbyMode == "waiting")
                 {
                     <div class="lobby-room-layout">
-                        <!-- LEFT: players, rules, start -->
-                        <div class="lobby-room-left">
-                            <h2 class="lobby-room-code">Room <span>@_lobbyRoomCode.ToUpperInvariant()</span></h2>
+            <!-- LEFT: players, rules, start -->
+            <div class="lobby-room-left">
+                <h2 class="lobby-room-code">
+                    Room 
+                    <span class="room-code-clickable" @onclick="CopyRoomCode">@_lobbyRoomCode.ToUpperInvariant()</span>
+                    <button class="copy-room-btn" @onclick="CopyRoomCode" title="Copy room code">📋</button>
+                </h2>
 
                             <div class="lobby-players">
                                 @foreach (var (player, idx) in _lobbyPlayers.Select((p, i) => (p, i)))
@@ -243,34 +219,31 @@
                                         }
                                     </div>
                                 }
-                                @if (_lobbyIsHost)
+                                @for (int i = 0; i < _lobbyCpuCount; i++)
                                 {
-                                    @for (int i = 0; i < _lobbyCpuCount; i++)
-                                    {
-                                        var cpuNum = i + 1;
-                                        <div class="lobby-player lobby-player-cpu">
-                                            <span class="lobby-player-avatar" style="background:#6366f1;">🤖</span>
-                                            <span class="lobby-player-name">CPU @cpuNum</span>
-                                            <span class="lobby-badge lobby-badge-cpu">AI</span>
-                                        </div>
-                                    }
+                                    var cpuNum = i + 1;
+                                    <div class="lobby-player lobby-player-cpu">
+                                        <span class="lobby-player-avatar" style="background:#6366f1;">🤖</span>
+                                        <span class="lobby-player-name">CPU @cpuNum</span>
+                                        <span class="lobby-badge lobby-badge-cpu">AI</span>
+                                    </div>
                                 }
                             </div>
 
                             @if (_lobbyIsHost)
                             {
                                 <div class="lobby-field">
-                                    <label>CPU Players</label>
-                                    <div class="cpu-selector">
-                                        @for (int i = 0; i <= 4; i++)
-                                        {
-                                            var count = i;
-                                            <button type="button" class="cpu-btn @(_lobbyCpuCount == count ? "active" : "")" @onclick="() => _lobbyCpuCount = count">
-                                                @(count == 0 ? "None" : $"{count}")
-                                            </button>
-                                        }
-                                    </div>
+                                <label>CPU Players</label>
+                                <div class="cpu-selector">
+                                    @for (int i = 0; i <= 4; i++)
+                                    {
+                                        var count = i;
+                                        <button type="button" class="cpu-btn @(_lobbyCpuCount == count ? "active" : "")" @onclick="async () => await SetLobbyCpuCount(count)">
+                                            @(count == 0 ? "None" : $"{count}")
+                                        </button>
+                                    }
                                 </div>
+                            </div>
                             }
 
                             @if (_lobbyIsHost && _presets.Any(p => p.Name != "Custom"))
@@ -1164,10 +1137,6 @@
             </div>
         }
     }
-    else
-    {
-        <GameView @ref="_gameViewRef" State="@_spState" OnMove="HandleSpMove" OnNextRound="HandleNextRound" OnStartGame="ResetGame" OnAnimationMidpoint="HandleAnimMidpoint" ShowPauseButton="@(!_isMultiplayerHost)" OnPauseChanged="HandlePauseChanged" />
-    }
 
     @if (_hubReconnecting)
     {
@@ -1531,14 +1500,27 @@
     /* Rulebook Specific CSS Layout */
     .rulebook-modal {
         overflow: hidden !important;
-        max-height: 95vh !important;
+        max-height: 98vh !important;
+        height: 98vh !important;
         max-width: 1100px !important;
         width: 95% !important;
+        padding: 15px !important;
+        gap: 15px !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+    .rulebook-modal .modal-header {
+        padding-bottom: 10px !important;
+        flex-shrink: 0 !important;
+    }
+    .rulebook-modal .modal-footer {
+        padding-top: 10px !important;
+        flex-shrink: 0 !important;
     }
     .rulebook-layout {
         display: flex;
         gap: 24px;
-        height: 80vh;
+        flex: 1;
         overflow: hidden;
     }
     .rulebook-sidebar {
@@ -1816,7 +1798,7 @@
         inset: 0;
         overflow-y: auto;
         overflow-x: hidden;
-        padding: 90px 20px 40px;
+        padding: 120px 20px 40px;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -1829,10 +1811,13 @@
     .inline-lobby::-webkit-scrollbar-track { background: transparent; }
     .inline-lobby::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 99px; }
 
-    /* waiting room: no outer scroll, fills viewport */
+    /* waiting room: no outer scroll, fills viewport, but has top padding for menu */
     .inline-lobby.lobby-in-waiting {
         overflow: hidden;
-        padding: 0;
+        padding-top: 100px;
+        padding-bottom: 20px;
+        padding-left: 0;
+        padding-right: 0;
         display: block;
         align-items: unset;
         justify-content: unset;
@@ -1842,7 +1827,7 @@
     .lobby-room-layout {
         display: grid;
         grid-template-columns: 1fr 280px;
-        height: 100%;
+        height: calc(100vh - 120px);
         width: 100%;
     }
 
@@ -2005,34 +1990,8 @@
     }
     .lobby-mode-create .lmb-label { color: #4ade80; text-shadow: 0 0 12px rgba(34,197,94,0.5); }
     .lobby-mode-join     .lmb-label { color: #818cf8; text-shadow: 0 0 12px rgba(99,102,241,0.5); }
-    .lobby-mode-spectate .lmb-label { color: #c4b5fd; text-shadow: 0 0 12px rgba(168,85,247,0.5); }
 
-    .lobby-mode-spectate {
-        border-color: rgba(168,85,247,0.35);
-    }
-    .lobby-mode-spectate::before {
-        background: radial-gradient(ellipse at 50% 0%, rgba(168,85,247,0.14) 0%, transparent 70%);
-    }
-    .lobby-mode-spectate:hover {
-        border-color: #a855f7;
-        box-shadow: 0 0 32px rgba(168,85,247,0.4), inset 0 0 20px rgba(168,85,247,0.07);
-        background: rgba(168,85,247,0.07);
-    }
 
-    /* ── SPECTATING WAITING STATE ── */
-    .spectating-banner {
-        display: flex;
-        align-items: center;
-        gap: 16px;
-        background: rgba(168,85,247,0.12);
-        border: 1.5px solid rgba(168,85,247,0.4);
-        border-radius: 16px;
-        padding: 20px 24px;
-        margin-bottom: 16px;
-    }
-    .spectating-icon { font-size: 2rem; }
-    .spectating-title { font-size: 1rem; font-weight: 700; color: #e2e8f0; }
-    .spectating-sub   { font-size: 0.85rem; color: rgba(255,255,255,0.45); margin-top: 4px; }
 
     .lmb-desc {
         font-size: 0.82rem;
@@ -2150,8 +2109,21 @@
     .lobby-btn-back   { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.5); font-size: 0.9rem; }
     .lobby-btn-back:hover { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.8); }
 
-    .lobby-room-code { font-size: 1.4rem; font-weight: 800; color: rgba(255,255,255,0.8); text-align: center; margin: 0; }
-    .lobby-room-code span { color: #22c55e; font-size: 1.8rem; letter-spacing: 3px; display: block; margin-top: 4px; text-shadow: 0 0 18px rgba(34,197,94,0.5); }
+    .lobby-room-code { font-size: 1.4rem; font-weight: 800; color: rgba(255,255,255,0.8); text-align: center; margin: 0; display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
+    .lobby-room-code span.room-code-clickable { color: #22c55e; font-size: 1.8rem; letter-spacing: 3px; display: inline-block; text-shadow: 0 0 18px rgba(34,197,94,0.5); cursor: pointer; user-select: all; transition: text-shadow 0.2s; }
+    .lobby-room-code span.room-code-clickable:hover { text-shadow: 0 0 25px rgba(34,197,94,0.8); }
+    .copy-room-btn {
+        background: rgba(255,255,255,0.08);
+        border: 1px solid rgba(255,255,255,0.12);
+        border-radius: 12px;
+        color: #fff;
+        font-size: 1.1rem;
+        padding: 6px 12px;
+        cursor: pointer;
+        transition: background 0.2s;
+        flex-shrink: 0;
+    }
+    .copy-room-btn:hover { background: rgba(255,255,255,0.14); }
     .lobby-players { display: flex; flex-direction: column; gap: 10px; }
     .lobby-player {
         display: flex; align-items: center; gap: 12px;
@@ -2471,9 +2443,6 @@
     private bool _showLeaderboard = false;
     private bool _leaderboardUpdated = false;
 
-    // Spectator
-    private int _spectatorCount = 0;
-
     // ── Inline lobby state ──
     private bool _showLobby = false;
     private string _lobbyMode = "entry";
@@ -2723,12 +2692,12 @@
         InitializeRuleItems();
 
         LobbyService.PlayersUpdated += LobbyOnPlayersUpdated;
+        LobbyService.CpuCountUpdated += LobbyOnCpuCountUpdated;
         LobbyService.GameStarted   += LobbyOnGameStarted;
         LobbyService.RoomClosed    += LobbyOnRoomClosed;
         LobbyService.RulesUpdated  += LobbyOnRulesUpdated;
         LobbyService.PlayerKicked        += LobbyOnPlayerKicked;
         LobbyService.ChatMessageReceived += LobbyOnChatMessage;
-        LobbyService.SpectatorJoined     += LobbyOnSpectatorJoined;
         LobbyService.NextRoundRequested  += LobbyOnNextRoundRequested;
         LobbyService.PlayerLeft          += LobbyOnPlayerLeft;
         LobbyService.HubReconnecting     += LobbyOnHubReconnecting;
@@ -2841,6 +2810,13 @@
             _lobbyCpuCount = _lobbyTotalPlayers - 1;
     }
 
+    private async Task SetLobbyCpuCount(int count)
+    {
+        _lobbyCpuCount = count;
+        if (_lobbyIsHost)
+            await LobbyService.SetCpuCountAsync(count);
+    }
+
     private void LobbyUpperRoomCode(ChangeEventArgs e)
     {
         _lobbyRoomCode = (e.Value?.ToString() ?? "").ToUpperInvariant();
@@ -2851,6 +2827,14 @@
         const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
         var rng = new Random();
         _lobbyRoomCode = new string(Enumerable.Range(0, 6).Select(_ => chars[rng.Next(chars.Length)]).ToArray());
+    }
+
+    private async Task CopyRoomCode()
+    {
+        if (!string.IsNullOrWhiteSpace(_lobbyRoomCode))
+        {
+            await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", _lobbyRoomCode.ToUpperInvariant());
+        }
     }
 
     private async Task LobbyCreateRoom()
@@ -2868,6 +2852,7 @@
             _lobbyIsHost = true;
             _lobbyMode = "waiting";
             await BroadcastLobbyRules();
+            await LobbyService.SetCpuCountAsync(_lobbyCpuCount);
         }
         catch (Exception ex)
         {
@@ -2964,20 +2949,14 @@
         InvokeAsync(StateHasChanged);
     }
 
+    private void LobbyOnCpuCountUpdated(int cpuCount)
+    {
+        _lobbyCpuCount = cpuCount;
+        InvokeAsync(StateHasChanged);
+    }
+
     private void LobbyOnGameStarted(string[] players, int cpuCount)
     {
-        // If we joined as spectator, just navigate to the game page
-        if (LobbyService.IsSpectator)
-        {
-            InvokeAsync(() =>
-            {
-                _showLobby = false;
-                Nav.NavigateTo("/multiplayer-game");
-                return Task.CompletedTask;
-            });
-            return;
-        }
-
         int idx = Array.IndexOf(players, _lobbyPlayerName.Trim());
         LobbyService.SetPlayerInfo(idx, players, cpuCount);
 
@@ -2993,12 +2972,6 @@
                 Nav.NavigateTo("/multiplayer-game");
             }
         });
-    }
-
-    private void LobbyOnSpectatorJoined(string name, int count)
-    {
-        _spectatorCount = count;
-        InvokeAsync(StateHasChanged);
     }
 
     private void LobbyOnRoomClosed()
@@ -3038,35 +3011,46 @@
         await LobbyService.SendChatMessageAsync(msg);
     }
 
-    private async Task LobbyJoinAsSpectator(string roomCode, string name)
-    {
-        if (string.IsNullOrWhiteSpace(roomCode) || string.IsNullOrWhiteSpace(name)) return;
-        try
-        {
-            await LobbyService.JoinAsSpectatorAsync(roomCode, name);
-            // Navigate immediately — game is already in progress when a spectator joins,
-            // so GameStarted won't fire again. State broadcasts will populate the view.
-            Nav.NavigateTo("/multiplayer-game");
-        }
-        catch { }
-    }
-
     // ── AFK Timer ─────────────────────────────────────────────────────────────
     private void ManageAfkTimer()
     {
         if (_game == null || _game.Status == GameStatus.GameOver) { CancelAfkTimer(); return; }
         if (!_game.Settings.AfkEnabled) { CancelAfkTimer(); return; }
 
-        var curIdx = _game.CurrentPlayerIndex;
-        var curPlayer = _game.Players[curIdx];
-        // Ignore non-human players always
-        if (!curPlayer.IsHuman)
+        int curIdx = -1;
+        Player? curPlayer = null;
+
+        // Determine which player we're waiting on based on game status
+        if (_game.Status == GameStatus.Playing)
+        {
+            curIdx = _game.CurrentPlayerIndex;
+            curPlayer = _game.Players[curIdx];
+        }
+        else if (_game.Status == GameStatus.WaitingForColorSelection && _game.PendingColorSelector != null)
+        {
+            curIdx = _game.Players.IndexOf(_game.PendingColorSelector);
+            curPlayer = _game.PendingColorSelector;
+        }
+        else if (_game.Status == GameStatus.WaitingForSwapTarget)
+        {
+            curIdx = _game.CurrentPlayerIndex;
+            curPlayer = _game.Players[curIdx];
+        }
+        else if (_game.Status == GameStatus.WaitingForWd4Challenge)
+        {
+            curIdx = _game.Wd4ChallengerIndex;
+            if (curIdx >= 0 && curIdx < _game.Players.Count)
+                curPlayer = _game.Players[curIdx];
+        }
+        // WaitingForUnoCall and WaitingForJumpIn already have their own timers in UnoGame, so skip those
+
+        if (curPlayer == null || !curPlayer.IsHuman)
         {
             CancelAfkTimer();
             return;
         }
 
-        // If the current player is a remote human and we're NOT the host, do not start a timer here.
+        // If the current player is a remote human and we're NOT the host, don't start timer here.
         if (_game.RemotePlayerIndices.Contains(curIdx) && !_isMultiplayerHost)
         {
             CancelAfkTimer();
@@ -3088,16 +3072,33 @@
         {
             await Task.Delay(timeoutMs, token);
             if (token.IsCancellationRequested) return;
-            if (_game != null && _game.CurrentPlayerIndex == curIdx && _game.Status != GameStatus.GameOver)
+            if (_game != null && _game.Status == _afkTimerStatus && _game.Status != GameStatus.GameOver)
             {
-                if (_isMultiplayerHost && _game.RemotePlayerIndices.Contains(curIdx))
+                // Verify we're still waiting on the same player
+                bool stillWaiting = false;
+                if (_game.Status == GameStatus.Playing)
+                    stillWaiting = _game.CurrentPlayerIndex == curIdx;
+                else if (_game.Status == GameStatus.WaitingForColorSelection)
+                    stillWaiting = _game.PendingColorSelector == curPlayer;
+                else if (_game.Status == GameStatus.WaitingForSwapTarget)
+                    stillWaiting = _game.CurrentPlayerIndex == curIdx;
+                else if (_game.Status == GameStatus.WaitingForWd4Challenge)
+                    stillWaiting = _game.Wd4ChallengerIndex == curIdx;
+
+                if (stillWaiting)
                 {
-                    if (_pendingRemoteMoves.TryGetValue(curIdx, out var tcs))
-                        tcs.TrySetResult(new MoveDto { PlayerIndex = curIdx, Type = "afk" });
-                }
-                else
-                {
-                    await InvokeAsync(async () => await _game.ApplyAfkPenaltyAsync());
+                    if (_isMultiplayerHost && _game.RemotePlayerIndices.Contains(curIdx))
+                    {
+                        if (_pendingRemoteMoves.TryGetValue(curIdx, out var tcs))
+                            tcs.TrySetResult(new MoveDto { PlayerIndex = curIdx, Type = "afk" });
+                        else
+                            // If not in pendingRemoteMoves, just call ApplyRemoteMoveAsync directly
+                            await InvokeAsync(async () => await _game.ApplyRemoteMoveAsync(new MoveDto { PlayerIndex = curIdx, Type = "afk" }));
+                    }
+                    else
+                    {
+                        await InvokeAsync(async () => await _game.ApplyAfkPenaltyAsync());
+                    }
                 }
             }
         }, token);
@@ -3200,15 +3201,23 @@
         await _game.StartTurnAsync();
     }
 
-    private void OnRemoteMoveReceived(string json)
+    private async void OnRemoteMoveReceived(string json)
     {
         try
         {
             var move = JsonSerializer.Deserialize<MoveDto>(json, _mpJsonOpts);
-            if (move != null && _pendingRemoteMoves.TryGetValue(move.PlayerIndex, out var tcs))
+            if (move != null)
             {
-                _pendingRemoteMoves.Remove(move.PlayerIndex);
-                tcs.TrySetResult(move);
+                if (_pendingRemoteMoves.TryGetValue(move.PlayerIndex, out var tcs))
+                {
+                    _pendingRemoteMoves.Remove(move.PlayerIndex);
+                    tcs.TrySetResult(move);
+                }
+                else if (_isMultiplayerHost && _game != null)
+                {
+                    // If not waiting for a specific move, just apply it directly!
+                    await _game.ApplyRemoteMoveAsync(move);
+                }
             }
         }
         catch { }
@@ -3233,16 +3242,6 @@
                 var dto = BuildStateForPlayer(i);
                 var json = JsonSerializer.Serialize(dto);
                 await LobbyService.SendStateToPlayerAsync(i, json);
-            }
-            catch { }
-        }
-        if (LobbyService.SpectatorCount > 0)
-        {
-            try
-            {
-                var spectatorDto = BuildSpectatorState();
-                var spectatorJson = JsonSerializer.Serialize(spectatorDto);
-                await LobbyService.SendStateToSpectatorsAsync(spectatorJson);
             }
             catch { }
         }
@@ -3291,6 +3290,12 @@
         var player = game.Players[playerIndex];
         var topCard = game.TopCard;
 
+        bool isMyTurn = 
+            game.CurrentPlayerIndex == playerIndex || 
+            (game.Status == GameStatus.WaitingForWd4Challenge && game.Wd4ChallengerIndex == playerIndex) ||
+            (game.Status == GameStatus.WaitingForColorSelection && game.PendingColorSelector == player) ||
+            (game.Status == GameStatus.WaitingForSwapTarget && game.CurrentPlayerIndex == playerIndex);
+
         return new GameStateDto
         {
             CurrentPlayerIndex   = game.CurrentPlayerIndex,
@@ -3298,8 +3303,8 @@
             ActiveColor          = game.LastValidColor.ToString(),
             HandCounts           = game.Players.Select(p => p.Hand.Count).ToArray(),
             PlayerNames          = game.Players.Select(p => p.Name).ToArray(),
-            MyHand               = player.Hand.Select(c => new CardDto { Id = c.Id.ToString(), Color = c.Color.ToString(), Value = c.Value.ToString(), IsPlayable = game.CurrentPlayerIndex == playerIndex && game.CanPlayCard(c), RotationAngle = c.RotationAngle }).ToList(),
-            IsMyTurn             = game.CurrentPlayerIndex == playerIndex || (game.Status == GameStatus.WaitingForWd4Challenge && game.Wd4ChallengerIndex == playerIndex),
+            MyHand               = player.Hand.Select(c => new CardDto { Id = c.Id.ToString(), Color = c.Color.ToString(), Value = c.Value.ToString(), IsPlayable = game.CurrentPlayerIndex == playerIndex && game.Status == GameStatus.Playing && game.CanPlayCard(c), RotationAngle = c.RotationAngle }).ToList(),
+            IsMyTurn             = isMyTurn,
             Status               = game.Status.ToString(),
             Direction            = GetApparentDirection(playerIndex, game.Players.Count, game.GameDirection),
             IsGameOver           = game.Status == GameStatus.GameOver,
@@ -3324,39 +3329,6 @@
             Wd4BluffCards        = game.Wd4BluffRevealCards?.Select(c => new CardDto { Id = c.Id.ToString(), Color = c.Color.ToString(), Value = c.Value.ToString() }).ToList() ?? new(),
             Wd4BluffPlayerIndex  = game.Wd4BluffPlayer != null ? game.Players.IndexOf(game.Wd4BluffPlayer) : -1,
             MyPlayerIndex        = playerIndex,
-        };
-    }
-
-    private GameStateDto BuildSpectatorState()
-    {
-        var game = _game!;
-        return new GameStateDto
-        {
-            CurrentPlayerIndex  = game.CurrentPlayerIndex,
-            TopCard             = game.TopCard != null ? new CardDto { Id = game.TopCard.Id.ToString(), Color = game.TopCard.Color.ToString(), Value = game.TopCard.Value.ToString(), RotationAngle = game.TopCard.RotationAngle } : null,
-            ActiveColor         = game.LastValidColor.ToString(),
-            HandCounts          = game.Players.Select(p => p.Hand.Count).ToArray(),
-            PlayerNames         = game.Players.Select(p => p.Name).ToArray(),
-            MyHand              = new List<CardDto>(),
-            IsMyTurn            = false,
-            Status              = game.Status.ToString(),
-            Direction           = game.GameDirection,
-            IsGameOver          = game.Status == GameStatus.GameOver,
-            WinnerIndex         = game.Winner != null ? game.Players.IndexOf(game.Winner) : null,
-            PendingDraw         = game.PendingDrawCount,
-            NotificationBanner  = game.ActiveNotificationBanner,
-            Wd4ChallengerIndex  = game.Wd4ChallengerIndex,
-            MatchTimestamp      = game.MatchTimestamp?.ToString("o") ?? "",
-            TotalScores         = game.Players.Select(p => p.TotalScore).ToArray(),
-            RoundScores         = game.Players.Select(p => p.RoundScore).ToArray(),
-            PlayerStatuses      = game.Players.Select(p => p.CurrentStatus).ToArray(),
-            DiscardHistory      = game.DiscardHistory.Select(c => new CardDto { Id = c.Id.ToString(), Color = c.Color.ToString(), Value = c.Value.ToString(), RotationAngle = c.RotationAngle }).ToList(),
-            GameLog             = game.GameLog.TakeLast(60).ToList(),
-            AnimationTrigger    = _pendingAnimTrigger,
-            RoundNumber         = game.RoundNumber,
-            LastPlayerIndex     = game.LastPlayerIndex,
-            JumpInTimerSeconds  = game.Settings.JumpInTimerSeconds,
-            MyPlayerIndex       = -1,
         };
     }
 
@@ -3696,7 +3668,6 @@
         LobbyService.RulesUpdated  -= LobbyOnRulesUpdated;
         LobbyService.PlayerKicked        -= LobbyOnPlayerKicked;
         LobbyService.ChatMessageReceived -= LobbyOnChatMessage;
-        LobbyService.SpectatorJoined     -= LobbyOnSpectatorJoined;
         LobbyService.NextRoundRequested  -= LobbyOnNextRoundRequested;
         LobbyService.PlayerLeft          -= LobbyOnPlayerLeft;
         LobbyService.HubReconnecting     -= LobbyOnHubReconnecting;
@@ -3734,10 +3705,15 @@
             if (_game.Players[i].Name == playerName) { gameIdx = i; break; }
         }
 
-        if (gameIdx >= 0 && _pendingRemoteMoves.TryGetValue(gameIdx, out var tcs))
+        if (gameIdx >= 0)
         {
-            _pendingRemoteMoves.Remove(gameIdx);
-            tcs.TrySetResult(new MoveDto { PlayerIndex = gameIdx, Type = "afk" });
+            if (_pendingRemoteMoves.TryGetValue(gameIdx, out var tcs))
+            {
+                _pendingRemoteMoves.Remove(gameIdx);
+                tcs.TrySetResult(null);
+            }
+
+            _game.ConvertPlayerToAi(gameIdx);
         }
 
         _game.ActiveNotificationBanner = $"📶 {playerName.ToUpper()} DISCONNECTED";
