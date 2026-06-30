@@ -67,6 +67,8 @@ namespace UnoEngine
 
         private Random _random = new();
         private System.Threading.SemaphoreSlim _actionLock = new(1, 1);
+        private readonly Dictionary<int, string> _remoteDrawnCardIds = new();
+        public IReadOnlyDictionary<int, string> RemoteDrawnCardIds => _remoteDrawnCardIds;
 
         public void ConvertPlayerToAi(int playerIndex)
         {
@@ -291,8 +293,8 @@ namespace UnoEngine
                 }
             }
 
-            // Safety: if status got stuck in WaitingForSwapTarget on a non-human turn, reset it
-            if (Status == GameStatus.WaitingForSwapTarget && CurrentPlayerIndex != 0)
+            // Safety: if status got stuck in WaitingForSwapTarget on a CPU turn, reset it
+            if (Status == GameStatus.WaitingForSwapTarget && !Players[CurrentPlayerIndex].IsHuman)
             {
                 Status = GameStatus.Playing;
                 PendingCard = null;
@@ -356,6 +358,7 @@ namespace UnoEngine
                     }
                     break;
                 case "play-drawn":
+                    _remoteDrawnCardIds.Remove(move.PlayerIndex);
                     if (Guid.TryParse(move.CardId, out var drawnCardId))
                     {
                         var drawnCard = player.Hand.FirstOrDefault(c => c.Id == drawnCardId);
@@ -363,6 +366,7 @@ namespace UnoEngine
                     }
                     break;
                 case "keep-drawn":
+                    _remoteDrawnCardIds.Remove(move.PlayerIndex);
                     LogAction($"{player.Name} drew and kept the card.");
                     await PassTurnAfterDraw();
                     break;
@@ -377,8 +381,20 @@ namespace UnoEngine
                         else
                         {
                             var drawn = await DrawCardAsync(player);
-                            if (drawn != null && !CanPlayCard(drawn))
+                            if (drawn == null)
+                            {
+                                // ForcedPlay blocked the draw — nothing to do
+                            }
+                            else if (!CanPlayCard(drawn))
+                            {
                                 await PassTurnAfterDraw();
+                            }
+                            else
+                            {
+                                // Drawn card is playable — track it so the guest sees PLAY/KEEP choice
+                                _remoteDrawnCardIds[move.PlayerIndex] = drawn.Id.ToString();
+                                OnStateChanged?.Invoke();
+                            }
                         }
                     }
                     finally
@@ -1606,6 +1622,7 @@ namespace UnoEngine
         private void MoveToNextTurn()
         {
             IsUnoCalled = false;
+            _remoteDrawnCardIds.Clear();
             CurrentPlayerIndex = GetNextPlayerIndex();
         }
 

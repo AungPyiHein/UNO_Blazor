@@ -75,10 +75,6 @@
                 <button class="glass-btn rulebook-trigger" @onclick="() => _showRuleBookModal = true">
                     <span class="icon">📖</span> Rule Book
                 </button>
-                <button class="glass-btn rules-trigger" @onclick="OpenRulesModal">
-                    <span class="icon">⚙️</span> Manage Rules
-                    <span class="active-preset-badge">@_selectedPreset.Name</span>
-                </button>
                 <button class="glass-btn lobby-back-btn" @onclick="CloseLobby">
                     <span class="icon">←</span> Back
                 </button>
@@ -212,6 +208,7 @@
                                         <span class="lobby-player-name">@player</span>
                                         @if (idx == 0) { <span class="lobby-badge">HOST</span> }
                                         @if (player == _lobbyPlayerName.Trim()) { <span class="lobby-badge lobby-badge-you">YOU</span> }
+                                        @if (idx > 0 && _guestReadyStates.TryGetValue(player, out var rBadge) && rBadge) { <span class="lobby-badge lobby-badge-ready">✓ READY</span> }
                                         @if (_lobbyIsHost && idx != 0)
                                         {
                                             <button class="lobby-kick-btn" title="Kick @player"
@@ -246,21 +243,46 @@
                             </div>
                             }
 
-                            @if (_lobbyIsHost && _presets.Any(p => p.Name != "Custom"))
+                            @if (_lobbyIsHost)
                             {
                                 <div class="lobby-preset-switcher">
-                                    <span class="lobby-preset-switcher-label">Rules Preset</span>
+                                    <span class="lobby-preset-switcher-label">Game Rules</span>
                                     <div class="lobby-preset-switcher-row">
-                                        @foreach (var preset in _presets.Where(p => p.Name != "Custom"))
+                                        @foreach (var preset in _presets)
                                         {
                                             var p = preset;
                                             <button class="lobby-preset-pill @(_selectedPreset.Name == p.Name ? "pill-active" : "")"
-                                                    @onclick="async () => await LobbySelectPreset(p)">
+                                                    @onclick="async () => await LobbySelectPresetOrCustom(p)">
                                                 @p.Name
                                             </button>
                                         }
                                     </div>
                                 </div>
+
+                                @if (_selectedPreset.Name == "Custom" && _lobbyCustomSettings != null)
+                                {
+                                    <div class="lobby-custom-rules-panel">
+                                        <div class="lobby-custom-rules-title">⚙️ Custom Configuration</div>
+                                        <div class="lobby-custom-rules-grid">
+                                            <label class="lcr-toggle"><input type="checkbox" @bind="_lobbyCustomSettings.Stacking" /> Stacking</label>
+                                            <label class="lcr-toggle"><input type="checkbox" @bind="_lobbyCustomSettings.DrawUntilPlayable" /> Draw Until Playable</label>
+                                            <label class="lcr-toggle"><input type="checkbox" @bind="_lobbyCustomSettings.ForcedPlay" /> Forced Play</label>
+                                            <label class="lcr-toggle"><input type="checkbox" @bind="_lobbyCustomSettings.EnableWildDraw4Challenge" /> WD4 Challenge</label>
+                                            <label class="lcr-toggle"><input type="checkbox" @bind="_lobbyCustomSettings.SevenSwap" /> 7-Swap</label>
+                                            <label class="lcr-toggle"><input type="checkbox" @bind="_lobbyCustomSettings.ZeroRotate" /> 0-Rotate</label>
+                                            <label class="lcr-toggle"><input type="checkbox" @bind="_lobbyCustomSettings.JumpInRule" /> Jump-In</label>
+                                            <label class="lcr-toggle"><input type="checkbox" @bind="_lobbyCustomSettings.EnableVortex" /> Vortex</label>
+                                            <label class="lcr-toggle"><input type="checkbox" @bind="_lobbyCustomSettings.AfkEnabled" /> AFK Penalty</label>
+                                        </div>
+                                        <div class="lobby-custom-rules-sliders">
+                                            <div class="lcr-slider-row">
+                                                <span>Starting Hand: @_lobbyCustomSettings.StartingHandSize cards</span>
+                                                <input type="range" min="3" max="12" @bind="_lobbyCustomSettings.StartingHandSize" @bind:event="oninput" />
+                                            </div>
+                                        </div>
+                                        <button class="lobby-btn lobby-btn-apply-rules" @onclick="LobbyApplyCustomRules">✓ Apply Custom Rules</button>
+                                    </div>
+                                }
                             }
 
                             @if (_lobbyRules != null)
@@ -303,13 +325,23 @@
                                 }
                                 else
                                 {
-                                    <button class="lobby-btn lobby-btn-start" @onclick="LobbyStartGame">
+                                    @if (_lobbyPlayers.Count > 1 && !AllGuestsReady())
+                                    {
+                                        <p class="lobby-waiting">⏳ Waiting for guests to ready up…</p>
+                                    }
+                                    <button class="lobby-btn lobby-btn-start"
+                                            disabled="@(_lobbyPlayers.Count > 1 && !AllGuestsReady())"
+                                            @onclick="LobbyStartGame">
                                         ▶ Start Game (@(_lobbyPlayers.Count + _lobbyCpuCount) players)
                                     </button>
                                 }
                             }
                             else
                             {
+                                <button class="lobby-btn @(_myReadyState ? "lobby-btn-ready-on" : "lobby-btn-ready-off")"
+                                        @onclick="async () => await ToggleLobbyReady()">
+                                    @(_myReadyState ? "✓ Ready!" : "Ready Up")
+                                </button>
                                 <p class="lobby-waiting">Waiting for <strong>@(_lobbyPlayers.Count > 0 ? _lobbyPlayers[0] : "host")</strong> to start the game…</p>
                             }
 
@@ -2104,6 +2136,13 @@
     .lobby-btn-create { background: #22c55e; color: #000; box-shadow: 0 0 18px rgba(34,197,94,0.3); }
     .lobby-btn-join   { background: rgba(99,102,241,0.85); color: #fff; box-shadow: 0 0 18px rgba(99,102,241,0.3); }
     .lobby-btn-start  { background: #22c55e; color: #000; font-size: 1.1rem; box-shadow: 0 0 18px rgba(34,197,94,0.3); }
+    .lobby-btn-start:disabled { background: rgba(34,197,94,0.3) !important; color: rgba(0,0,0,0.5) !important; box-shadow: none !important; opacity: 1 !important; }
+    .lobby-btn-ready-off { background: rgba(99,102,241,0.2); border: 1px solid rgba(99,102,241,0.4); color: #a5b4fc; font-size: 1rem; font-weight: 800; }
+    .lobby-btn-ready-off:hover { background: rgba(99,102,241,0.35); }
+    .lobby-btn-ready-on  { background: rgba(34,197,94,0.2); border: 1px solid rgba(34,197,94,0.5); color: #4ade80; font-size: 1rem; font-weight: 800; box-shadow: 0 0 12px rgba(34,197,94,0.2); }
+    .lobby-btn-ready-on:hover { background: rgba(34,197,94,0.3); }
+    .lobby-btn-apply-rules { background: rgba(99,102,241,0.25); border: 1px solid rgba(99,102,241,0.45); color: #a5b4fc; font-size: 0.9rem; font-weight: 700; margin-top: 4px; }
+    .lobby-btn-apply-rules:hover { background: rgba(99,102,241,0.4); color: #fff; }
     .lobby-btn-leave  { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.6); font-size: 0.9rem; }
     .lobby-btn-leave:hover { background: rgba(239,68,68,0.2); color: #ef4444; }
     .lobby-btn-back   { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.5); font-size: 0.9rem; }
@@ -2148,6 +2187,7 @@
     }
     .lobby-badge-you { background: rgba(34,197,94,0.2); color: #22c55e; }
     .lobby-badge-cpu { background: rgba(99,102,241,0.2); color: #a5b4fc; }
+    .lobby-badge-ready { background: rgba(34,197,94,0.25); color: #4ade80; border: 1px solid rgba(34,197,94,0.4); }
 
     /* ── KICK BUTTON & KICKED NOTICE ── */
     .lobby-kick-btn {
@@ -2335,6 +2375,53 @@
         box-shadow: 0 0 8px rgba(34,197,94,0.15);
     }
 
+    /* ── CUSTOM RULES PANEL in waiting room ── */
+    .lobby-custom-rules-panel {
+        background: rgba(99,102,241,0.05);
+        border: 1px solid rgba(99,102,241,0.2);
+        border-radius: 14px;
+        padding: 14px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    .lobby-custom-rules-title {
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: rgba(165,180,252,0.9);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .lobby-custom-rules-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px 10px;
+    }
+    .lcr-toggle {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 0.82rem;
+        color: rgba(255,255,255,0.75);
+        cursor: pointer;
+        user-select: none;
+    }
+    .lcr-toggle input[type="checkbox"] {
+        accent-color: #6366f1;
+        width: 15px;
+        height: 15px;
+        cursor: pointer;
+    }
+    .lobby-custom-rules-sliders { display: flex; flex-direction: column; gap: 6px; }
+    .lcr-slider-row {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        font-size: 0.82rem;
+        color: rgba(255,255,255,0.7);
+    }
+    .lcr-slider-row input[type="range"] { width: 100%; accent-color: #6366f1; }
+
     /* ── RULES PANEL in waiting room ── */
     .lobby-rules-panel {
         background: rgba(255,255,255,0.03);
@@ -2457,6 +2544,9 @@
     private List<string> _lobbyPlayers = new();
     private int _lobbyCpuCount = 1;
     private int _lobbyTotalPlayers = 4;
+    private Dictionary<string, bool> _guestReadyStates = new();
+    private bool _myReadyState = false;
+    private GameSettings? _lobbyCustomSettings;
     private LobbyRulesDto? _lobbyRules;
 
     private record LobbyRulesDto(
@@ -2702,6 +2792,7 @@
         LobbyService.PlayerLeft          += LobbyOnPlayerLeft;
         LobbyService.HubReconnecting     += LobbyOnHubReconnecting;
         LobbyService.HubReconnected      += LobbyOnHubReconnected;
+        LobbyService.PlayerReadyUpdated  += LobbyOnPlayerReadyUpdated;
 
         // Initialize Presets
         var classicPreset = new RulePresetProfile
@@ -2894,11 +2985,63 @@
         StateHasChanged();
     }
 
+    private async Task LobbySelectPresetOrCustom(RulePresetProfile preset)
+    {
+        if (preset.Name == "Custom")
+        {
+            _selectedPreset = preset;
+            _lobbyCustomSettings ??= preset.Settings.Clone();
+            StateHasChanged();
+        }
+        else
+        {
+            await LobbySelectPreset(preset);
+        }
+    }
+
+    private async Task LobbyApplyCustomRules()
+    {
+        if (_lobbyCustomSettings == null) return;
+        var customPreset = _presets.First(p => p.Name == "Custom");
+        customPreset.Settings = _lobbyCustomSettings.Clone();
+        _selectedPreset = customPreset;
+        await BroadcastLobbyRules();
+        StateHasChanged();
+    }
+
+    private bool AllGuestsReady()
+    {
+        if (_lobbyPlayers.Count <= 1) return true;
+        for (int i = 1; i < _lobbyPlayers.Count; i++)
+        {
+            if (!_guestReadyStates.TryGetValue(_lobbyPlayers[i], out var ready) || !ready)
+                return false;
+        }
+        return true;
+    }
+
+    private async Task ToggleLobbyReady()
+    {
+        _myReadyState = !_myReadyState;
+        await LobbyService.SetPlayerReadyAsync(_myReadyState);
+        StateHasChanged();
+    }
+
+    private void LobbyOnPlayerReadyUpdated(string playerName, bool isReady)
+    {
+        _guestReadyStates[playerName] = isReady;
+        InvokeAsync(StateHasChanged);
+    }
+
     private void LobbyOnRulesUpdated(string json)
     {
         try
         {
             _lobbyRules = JsonSerializer.Deserialize<LobbyRulesDto>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            // Reset ready states whenever rules change
+            _guestReadyStates.Clear();
+            if (!_lobbyIsHost)
+                _myReadyState = false;
             InvokeAsync(StateHasChanged);
         }
         catch { }
@@ -2937,6 +3080,8 @@
     {
         _lobbyMode = "entry";
         _lobbyPlayers.Clear();
+        _guestReadyStates.Clear();
+        _myReadyState = false;
         LobbyService.ResetGame();
         await Task.CompletedTask;
     }
@@ -2946,6 +3091,9 @@
         _lobbyPlayers = players;
         if (!_lobbyIsHost)
             _lobbyIsHost = players.Count > 0 && players[0] == _lobbyPlayerName.Trim();
+        // Remove ready states for players who left
+        var departed = _guestReadyStates.Keys.Where(k => !players.Contains(k)).ToList();
+        foreach (var k in departed) _guestReadyStates.Remove(k);
         InvokeAsync(StateHasChanged);
     }
 
@@ -3319,7 +3467,7 @@
             DiscardHistory       = game.DiscardHistory.Select(c => new CardDto { Id = c.Id.ToString(), Color = c.Color.ToString(), Value = c.Value.ToString(), RotationAngle = c.RotationAngle }).ToList(),
             GameLog              = game.GameLog.TakeLast(60).ToList(),
             AnimationTrigger     = _pendingAnimTrigger,
-            DrawnCardId          = playerIndex == 0 ? _spDrawnCardId : null,
+            DrawnCardId          = playerIndex == 0 ? _spDrawnCardId : (_game.RemoteDrawnCardIds.TryGetValue(playerIndex, out var rdc) ? rdc : null),
             RoundNumber          = game.RoundNumber,
             LastPlayerIndex      = game.LastPlayerIndex,
             CanCallUno           = (game.CurrentPlayerIndex == playerIndex && game.Players[playerIndex].Hand.Count == 2 && !game.IsUnoCalled && game.Status == GameStatus.Playing) || (game.Status == GameStatus.WaitingForUnoCall && game.PlayerAtRisk == game.Players[playerIndex]),
@@ -3479,7 +3627,7 @@
         _showRulesModal = true;
     }
 
-    private void SaveAndApplyRules()
+    private async Task SaveAndApplyRules()
     {
         if (_editingPreset != null && _editingSettings != null)
         {
@@ -3487,6 +3635,8 @@
             _selectedPreset = _editingPreset;
         }
         _showRulesModal = false;
+        if (_showLobby && _lobbyMode == "waiting" && _lobbyIsHost)
+            await BroadcastLobbyRules();
     }
 
     private void SelectPreset(RulePresetProfile preset)
@@ -3672,6 +3822,7 @@
         LobbyService.PlayerLeft          -= LobbyOnPlayerLeft;
         LobbyService.HubReconnecting     -= LobbyOnHubReconnecting;
         LobbyService.HubReconnected      -= LobbyOnHubReconnected;
+        LobbyService.PlayerReadyUpdated  -= LobbyOnPlayerReadyUpdated;
 
         if (_isMultiplayerHost)
         {

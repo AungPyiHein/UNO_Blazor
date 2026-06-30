@@ -157,6 +157,13 @@ public class GameHub : Hub
             await Clients.Client(hostConnectionId).SendAsync("NextRoundRequested");
     }
 
+    public async Task SetPlayerReady(string roomCode, bool isReady)
+    {
+        roomCode = roomCode.Trim().ToUpperInvariant();
+        if (!_connections.TryGetValue(Context.ConnectionId, out var info)) return;
+        await Clients.Group(roomCode).SendAsync("PlayerReadyUpdated", info.PlayerName, isReady);
+    }
+
     public async Task SendStateToPlayer(string roomCode, int playerIndex, string stateJson)
     {
         roomCode = roomCode.Trim().ToUpperInvariant();
