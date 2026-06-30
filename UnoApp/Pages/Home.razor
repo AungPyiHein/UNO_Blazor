@@ -3407,7 +3407,7 @@
         for (int k = 1; k < n; k++)
         {
             int pi = (myIndex + k) % n;
-            int j  = pi < myIndex ? pi : pi - 1; // visual slot index
+            int j  = k - 1; // visual slot index: 0=left, 1=top, 2=right (rotated from myIndex)
             pts.Add(GetPositionForSlot(j, total));
         }
         double area = 0;

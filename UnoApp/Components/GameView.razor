@@ -527,8 +527,8 @@ else
 
     private List<(string name, int idx)> Opponents => State == null
         ? new()
-        : Enumerable.Range(0, State.PlayerNames.Length)
-            .Where(i => i != State.MyPlayerIndex)
+        : Enumerable.Range(1, State.PlayerNames.Length - 1)
+            .Select(offset => (State.MyPlayerIndex + offset) % State.PlayerNames.Length)
             .Select(i => (State.PlayerNames[i], i))
             .ToList();
 
@@ -842,9 +842,11 @@ else
 
         int totalOpponents = (State?.PlayerNames.Length ?? 2) - 1;
 
-        // Build opponent index list in the same order used by the UI
-        var opps = Enumerable.Range(0, State?.PlayerNames.Length ?? 0)
-                             .Where(i => i != (State?.MyPlayerIndex ?? 0))
+        // Build opponent index list in the same rotated order used by the UI
+        int n = State?.PlayerNames.Length ?? 0;
+        int myIdx = State?.MyPlayerIndex ?? 0;
+        var opps = Enumerable.Range(1, n - 1)
+                             .Select(off => (myIdx + off) % n)
                              .ToArray();
         int j = Array.IndexOf(opps, playerIndex);
 
@@ -908,8 +910,9 @@ else
         if (lastPlayerIndex < 0) return "";
         if (lastPlayerIndex == State!.MyPlayerIndex)
             return "animation: play-from-human 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);";
-        // Map lastPlayerIndex into opponent visual slot index (consistent with other helpers)
-        var opps = Enumerable.Range(0, State.PlayerNames.Length).Where(i => i != State.MyPlayerIndex).ToArray();
+        // Map lastPlayerIndex into opponent visual slot index (rotated, consistent with other helpers)
+        int _n = State.PlayerNames.Length;
+        var opps = Enumerable.Range(1, _n - 1).Select(off => (State.MyPlayerIndex + off) % _n).ToArray();
         int j = Array.IndexOf(opps, lastPlayerIndex);
         int total = opponentCount;
         double x = 50, y = 15;
