@@ -262,23 +262,70 @@
                                 @if (_selectedPreset.Name == "Custom" && _lobbyCustomSettings != null)
                                 {
                                     <div class="lobby-custom-rules-panel">
-                                        <div class="lobby-custom-rules-title">⚙️ Custom Configuration</div>
-                                        <div class="lobby-custom-rules-grid">
-                                            <label class="lcr-toggle"><input type="checkbox" @bind="_lobbyCustomSettings.Stacking" /> Stacking</label>
-                                            <label class="lcr-toggle"><input type="checkbox" @bind="_lobbyCustomSettings.DrawUntilPlayable" /> Draw Until Playable</label>
-                                            <label class="lcr-toggle"><input type="checkbox" @bind="_lobbyCustomSettings.ForcedPlay" /> Forced Play</label>
-                                            <label class="lcr-toggle"><input type="checkbox" @bind="_lobbyCustomSettings.EnableWildDraw4Challenge" /> WD4 Challenge</label>
-                                            <label class="lcr-toggle"><input type="checkbox" @bind="_lobbyCustomSettings.SevenSwap" /> 7-Swap</label>
-                                            <label class="lcr-toggle"><input type="checkbox" @bind="_lobbyCustomSettings.ZeroRotate" /> 0-Rotate</label>
-                                            <label class="lcr-toggle"><input type="checkbox" @bind="_lobbyCustomSettings.JumpInRule" /> Jump-In</label>
-                                            <label class="lcr-toggle"><input type="checkbox" @bind="_lobbyCustomSettings.EnableVortex" /> Vortex</label>
-                                            <label class="lcr-toggle"><input type="checkbox" @bind="_lobbyCustomSettings.AfkEnabled" /> AFK Penalty</label>
+                                        <div class="lobby-custom-rules-title">⚙ CUSTOM CONFIGURATION</div>
+                                        <div class="lcr-toggles-grid">
+                                            <button class="lcr-tile @(_lobbyCustomSettings.Stacking ? "lcr-tile-on" : "")"
+                                                    @onclick="() => { _lobbyCustomSettings.Stacking = !_lobbyCustomSettings.Stacking; }">
+                                                <span class="lcr-tile-icon">🔥</span>
+                                                <span class="lcr-tile-label">Stacking</span>
+                                                <span class="lcr-pip"></span>
+                                            </button>
+                                            <button class="lcr-tile @(_lobbyCustomSettings.DrawUntilPlayable ? "lcr-tile-on" : "")"
+                                                    @onclick="() => { _lobbyCustomSettings.DrawUntilPlayable = !_lobbyCustomSettings.DrawUntilPlayable; if (_lobbyCustomSettings.DrawUntilPlayable) _lobbyCustomSettings.ForcedPlay = true; }">
+                                                <span class="lcr-tile-icon">📥</span>
+                                                <span class="lcr-tile-label">Draw Until Playable</span>
+                                                <span class="lcr-pip"></span>
+                                            </button>
+                                            <button class="lcr-tile @(_lobbyCustomSettings.ForcedPlay ? "lcr-tile-on" : "")"
+                                                    @onclick="() => { _lobbyCustomSettings.ForcedPlay = !_lobbyCustomSettings.ForcedPlay; if (!_lobbyCustomSettings.ForcedPlay) _lobbyCustomSettings.DrawUntilPlayable = false; }">
+                                                <span class="lcr-tile-icon">🔒</span>
+                                                <span class="lcr-tile-label">Forced Play</span>
+                                                <span class="lcr-pip"></span>
+                                            </button>
+                                            <button class="lcr-tile @(_lobbyCustomSettings.EnableWildDraw4Challenge ? "lcr-tile-on" : "")"
+                                                    @onclick="() => { _lobbyCustomSettings.EnableWildDraw4Challenge = !_lobbyCustomSettings.EnableWildDraw4Challenge; }">
+                                                <span class="lcr-tile-icon">⚔️</span>
+                                                <span class="lcr-tile-label">WD4 Challenge</span>
+                                                <span class="lcr-pip"></span>
+                                            </button>
+                                            <button class="lcr-tile @(_lobbyCustomSettings.SevenSwap ? "lcr-tile-on" : "")"
+                                                    @onclick="() => { _lobbyCustomSettings.SevenSwap = !_lobbyCustomSettings.SevenSwap; }">
+                                                <span class="lcr-tile-icon">🃏</span>
+                                                <span class="lcr-tile-label">7-Swap</span>
+                                                <span class="lcr-pip"></span>
+                                            </button>
+                                            <button class="lcr-tile @(_lobbyCustomSettings.ZeroRotate ? "lcr-tile-on" : "")"
+                                                    @onclick="() => { _lobbyCustomSettings.ZeroRotate = !_lobbyCustomSettings.ZeroRotate; }">
+                                                <span class="lcr-tile-icon">🔄</span>
+                                                <span class="lcr-tile-label">0-Rotate</span>
+                                                <span class="lcr-pip"></span>
+                                            </button>
+                                            <button class="lcr-tile @(_lobbyCustomSettings.JumpInRule ? "lcr-tile-on" : "")"
+                                                    @onclick="() => { _lobbyCustomSettings.JumpInRule = !_lobbyCustomSettings.JumpInRule; }">
+                                                <span class="lcr-tile-icon">⚡</span>
+                                                <span class="lcr-tile-label">Jump-In</span>
+                                                <span class="lcr-pip"></span>
+                                            </button>
+                                            <button class="lcr-tile @(_lobbyCustomSettings.EnableVortex ? "lcr-tile-on" : "")"
+                                                    @onclick="() => { _lobbyCustomSettings.EnableVortex = !_lobbyCustomSettings.EnableVortex; }">
+                                                <span class="lcr-tile-icon">🌀</span>
+                                                <span class="lcr-tile-label">Vortex</span>
+                                                <span class="lcr-pip"></span>
+                                            </button>
+                                            <button class="lcr-tile @(_lobbyCustomSettings.AfkEnabled ? "lcr-tile-on" : "")"
+                                                    @onclick="() => { _lobbyCustomSettings.AfkEnabled = !_lobbyCustomSettings.AfkEnabled; }">
+                                                <span class="lcr-tile-icon">⏰</span>
+                                                <span class="lcr-tile-label">AFK Penalty</span>
+                                                <span class="lcr-pip"></span>
+                                            </button>
                                         </div>
-                                        <div class="lobby-custom-rules-sliders">
-                                            <div class="lcr-slider-row">
-                                                <span>Starting Hand: @_lobbyCustomSettings.StartingHandSize cards</span>
-                                                <input type="range" min="3" max="12" @bind="_lobbyCustomSettings.StartingHandSize" @bind:event="oninput" />
+                                        <div class="lcr-slider-section">
+                                            <div class="lcr-slider-header">
+                                                <span class="lcr-slider-label">Starting Hand</span>
+                                                <span class="lcr-slider-value">@_lobbyCustomSettings.StartingHandSize cards</span>
                                             </div>
+                                            <input type="range" class="lcr-range" min="3" max="12"
+                                                   @bind="_lobbyCustomSettings.StartingHandSize" @bind:event="oninput" />
                                         </div>
                                         <button class="lobby-btn lobby-btn-apply-rules" @onclick="LobbyApplyCustomRules">✓ Apply Custom Rules</button>
                                     </div>
@@ -2377,50 +2424,132 @@
 
     /* ── CUSTOM RULES PANEL in waiting room ── */
     .lobby-custom-rules-panel {
-        background: rgba(99,102,241,0.05);
-        border: 1px solid rgba(99,102,241,0.2);
-        border-radius: 14px;
-        padding: 14px 16px;
+        background: linear-gradient(135deg, rgba(30,27,75,0.7) 0%, rgba(17,24,39,0.85) 100%);
+        border: 1px solid rgba(99,102,241,0.3);
+        border-radius: 16px;
+        padding: 16px;
         display: flex;
         flex-direction: column;
-        gap: 10px;
+        gap: 12px;
+        box-shadow: 0 4px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.05);
     }
     .lobby-custom-rules-title {
-        font-size: 0.82rem;
-        font-weight: 700;
-        color: rgba(165,180,252,0.9);
+        font-size: 0.72rem;
+        font-weight: 800;
+        color: rgba(165,180,252,0.7);
         text-transform: uppercase;
-        letter-spacing: 0.5px;
+        letter-spacing: 1.5px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid rgba(99,102,241,0.2);
     }
-    .lobby-custom-rules-grid {
+    .lcr-toggles-grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 6px 10px;
+        gap: 6px;
     }
-    .lcr-toggle {
+    .lcr-tile {
         display: flex;
         align-items: center;
         gap: 7px;
-        font-size: 0.82rem;
-        color: rgba(255,255,255,0.75);
+        padding: 9px 10px;
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.07);
+        border-radius: 10px;
         cursor: pointer;
+        transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, color 0.15s;
+        text-align: left;
+        color: rgba(255,255,255,0.4);
+        font-size: 0.78rem;
+        font-weight: 600;
+        font-family: inherit;
         user-select: none;
+        min-height: 42px;
+        letter-spacing: 0.2px;
     }
-    .lcr-toggle input[type="checkbox"] {
-        accent-color: #6366f1;
-        width: 15px;
-        height: 15px;
-        cursor: pointer;
+    .lcr-tile:hover {
+        background: rgba(99,102,241,0.1);
+        border-color: rgba(99,102,241,0.35);
+        color: rgba(255,255,255,0.75);
     }
-    .lobby-custom-rules-sliders { display: flex; flex-direction: column; gap: 6px; }
-    .lcr-slider-row {
+    .lcr-tile-on {
+        background: rgba(99,102,241,0.15) !important;
+        border-color: rgba(99,102,241,0.55) !important;
+        color: #c7d2fe !important;
+        box-shadow: 0 0 14px rgba(99,102,241,0.18), inset 0 1px 0 rgba(255,255,255,0.06);
+    }
+    .lcr-tile-icon {
+        font-size: 0.95rem;
+        flex-shrink: 0;
+        width: 18px;
+        text-align: center;
+        line-height: 1;
+    }
+    .lcr-tile-label {
+        flex: 1;
+        line-height: 1.25;
+    }
+    .lcr-pip {
+        width: 30px;
+        height: 16px;
+        border-radius: 8px;
+        background: rgba(255,255,255,0.1);
+        position: relative;
+        flex-shrink: 0;
+        transition: background 0.18s;
+    }
+    .lcr-pip::after {
+        content: '';
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.3);
+        transition: transform 0.18s ease, background 0.18s;
+    }
+    .lcr-tile-on .lcr-pip {
+        background: rgba(99,102,241,0.65);
+    }
+    .lcr-tile-on .lcr-pip::after {
+        transform: translateX(14px);
+        background: #fff;
+        box-shadow: 0 0 6px rgba(99,102,241,0.6);
+    }
+    .lcr-slider-section {
         display: flex;
         flex-direction: column;
-        gap: 4px;
-        font-size: 0.82rem;
-        color: rgba(255,255,255,0.7);
+        gap: 6px;
+        padding: 10px 12px;
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255,255,255,0.07);
+        border-radius: 10px;
     }
-    .lcr-slider-row input[type="range"] { width: 100%; accent-color: #6366f1; }
+    .lcr-slider-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .lcr-slider-label {
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: rgba(255,255,255,0.55);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .lcr-slider-value {
+        font-size: 0.82rem;
+        font-weight: 800;
+        color: #a5b4fc;
+    }
+    .lcr-range {
+        width: 100%;
+        accent-color: #6366f1;
+        cursor: pointer;
+    }
 
     /* ── RULES PANEL in waiting room ── */
     .lobby-rules-panel {
