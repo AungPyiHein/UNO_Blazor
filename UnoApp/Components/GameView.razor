@@ -611,8 +611,13 @@ else
             if (parts.Length == 3 && int.TryParse(parts[1], out int p1) && int.TryParse(parts[2], out int p2))
             {
                 _swapP1 = p1; _swapP2 = p2; _isAnimating = true;
+                // Snapshot hand counts and zero out both participants so cards visually clear immediately
+                _vortexHandSnapshot = State?.HandCounts.ToArray() ?? Array.Empty<int>();
+                if (p1 < _vortexHandSnapshot.Length) _vortexHandSnapshot[p1] = 0;
+                if (p2 < _vortexHandSnapshot.Length) _vortexHandSnapshot[p2] = 0;
                 await InvokeAsync(StateHasChanged);
                 await Task.Delay(1050);
+                _vortexHandSnapshot = null;
                 _swapP1 = -1; _swapP2 = -1; _isAnimating = false;
                 await InvokeAsync(StateHasChanged);
             }

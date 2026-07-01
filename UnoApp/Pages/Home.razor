@@ -3609,14 +3609,14 @@
         }
     }
 
-    private async Task HandlePauseChanged(bool paused)
+    private void HandlePauseChanged(bool paused)
     {
         if (_game == null) return;
         _game.IsPaused = paused;
         if (!paused)
         {
-            // Resume the game loop
-            await _game.StartTurnAsync();
+            // Fire without blocking so TogglePause's StateHasChanged() clears the overlay immediately
+            _ = _game.StartTurnAsync();
         }
     }
 
