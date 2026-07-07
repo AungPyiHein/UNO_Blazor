@@ -419,12 +419,10 @@
                                         <div class="lobby-rule-chip @(_lobbyRules.DrawUntilPlayable ? "chip-on" : "chip-off")">📥 Draw Until Playable</div>
                                         <div class="lobby-rule-chip @(_lobbyRules.EnableWildDraw4Challenge ? "chip-on" : "chip-off")">⚔️ WD4 Challenge</div>
                                         <div class="lobby-rule-chip @(_lobbyRules.ForcedPlay ? "chip-on" : "chip-off")">🔒 Forced Play</div>
-                                    </div>
-                                    <div class="lobby-rules-meta">
-                                        <span>🃏 Hand: @_lobbyRules.StartingHandSize cards</span>
-                                        <span>🔔 UNO penalty: @_lobbyRules.UnoFailurePenaltyCards cards</span>
-                                        <span>🤖 AI: @_lobbyRules.CpuDifficulty</span>
-                                        <span>⏰ AFK penalty: @(_lobbyRules.AfkEnabled ? $"{_lobbyRules.AfkPenaltyCards} cards" : "Off")</span>
+                                        <div class="lobby-rule-chip chip-value">🃏 Hand Size: <strong>@_lobbyRules.StartingHandSize cards</strong></div>
+                                        <div class="lobby-rule-chip chip-value">🔔 UNO Penalty: <strong>@_lobbyRules.UnoFailurePenaltyCards cards</strong></div>
+                                        <div class="lobby-rule-chip chip-value">🤖 AI: <strong>@_lobbyRules.CpuDifficulty</strong></div>
+                                        <div class="lobby-rule-chip @(_lobbyRules.AfkEnabled ? "chip-value" : "chip-off")">⏳ AFK: <strong>@(_lobbyRules.AfkEnabled ? $"{_lobbyRules.AfkTimeoutSeconds}s / {_lobbyRules.AfkPenaltyCards} cards" : "Off")</strong></div>
                                     </div>
                                 </div>
                             }
@@ -2679,15 +2677,14 @@
         color: rgba(255,255,255,0.25);
         text-decoration: line-through;
     }
-    .lobby-rules-meta {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-        border-top: 1px solid rgba(255,255,255,0.07);
-        padding-top: 10px;
-        font-size: 0.78rem;
-        color: rgba(255,255,255,0.45);
-        font-weight: 600;
+    .chip-value {
+        background: rgba(99,102,241,0.10);
+        border: 1px solid rgba(99,102,241,0.25);
+        color: #a5b4fc;
+    }
+    .chip-value strong {
+        color: #c7d2fe;
+        margin-left: 2px;
     }
 </style>
 
@@ -2763,7 +2760,8 @@
         int UnoFailurePenaltyCards,
         string CpuDifficulty,
         bool AfkEnabled,
-        int AfkPenaltyCards
+        int AfkPenaltyCards,
+        int AfkTimeoutSeconds
     );
 
     private List<RulePresetProfile> _presets = new();
@@ -3172,7 +3170,8 @@
             s.UnoFailurePenaltyCards,
             s.CpuDifficulty.ToString(),
             s.AfkEnabled,
-            s.AfkPenaltyCards
+            s.AfkPenaltyCards,
+            s.AfkTimeoutSeconds
         );
         var json = JsonSerializer.Serialize(dto);
         await LobbyService.SetRoomRulesAsync(json);
