@@ -1664,6 +1664,14 @@ namespace UnoEngine
 
         public async Task ApplyAfkPenaltyAsync()
         {
+            // Flags captured inside the lock; the methods they trigger also acquire _actionLock,
+            // so they must be called AFTER releasing it (same pattern as ApplyRemoteMoveAsync).
+            bool afkShouldStartTurn = false;
+            bool afkNeedsColor = false;
+            CardColor afkChosenColor = CardColor.Red;
+            bool afkNeedsChallenge = false;
+            Player? afkPlayer = null;
+
             await _actionLock.WaitAsync();
             try
             {
@@ -1671,21 +1679,27 @@ namespace UnoEngine
                 var currentPlayer = GetCurrentPlayer();
                 if (!currentPlayer.IsHuman) return;
 
+                afkPlayer = currentPlayer;
+
                 if (Status == GameStatus.WaitingForColorSelection && PendingColorSelector == currentPlayer)
                 {
-                    // AFK while choosing color: pick random color like CPU
-                    await HandleCpuColorSelectionAsync(currentPlayer);
+                    // Pick best color inside lock (reads hand), finalize outside (acquires lock again)
+                    var counts = currentPlayer.Hand.Where(c => c.Color != CardColor.Wild)
+                                                    .GroupBy(c => c.Color)
+                                                    .OrderByDescending(g => g.Count());
+                    afkChosenColor = counts.Any() ? counts.First().Key : (CardColor)_random.Next(0, 4);
+                    afkNeedsColor = true;
                 }
                 else if (Status == GameStatus.WaitingForSwapTarget && CurrentPlayerIndex == Players.IndexOf(currentPlayer))
                 {
-                    // AFK while choosing swap target: pick random/least cards like CPU
+                    // InternalPlayCard is safe to call inside the lock (it doesn't re-acquire it)
                     var target = Players.Where(p => p != currentPlayer).OrderBy(p => p.Hand.Count).First();
                     await InternalPlayCard(currentPlayer, PendingCard!, null, target);
                 }
                 else if (Status == GameStatus.WaitingForWd4Challenge && Wd4ChallengerIndex == Players.IndexOf(currentPlayer))
                 {
-                    // AFK while challenging: just accept the WD4
-                    await ResolveChallengeAsync(false);
+                    // ResolveChallengeAsync acquires _actionLock — must run outside
+                    afkNeedsChallenge = true;
                 }
                 else if (Status == GameStatus.Playing)
                 {
@@ -1705,7 +1719,9 @@ namespace UnoEngine
                     if (Status != GameStatus.GameOver)
                     {
                         MoveToNextTurn();
-                        await StartTurnAsync();
+                        // StartTurnAsync → ExecuteCpuTurn → PlayCardAsync all acquire _actionLock
+                        // — must run outside the lock to avoid deadlock
+                        afkShouldStartTurn = true;
                     }
                 }
             }
@@ -1713,6 +1729,13 @@ namespace UnoEngine
             {
                 _actionLock.Release();
             }
+
+            // Post-lock: run actions that re-acquire _actionLock.
+            // SetWildColorForRemoteAsync re-validates Status/PendingColorSelector under the lock
+            // before finalizing, protecting against a race where another action already resolved color.
+            if (afkNeedsColor && afkPlayer != null) await SetWildColorForRemoteAsync(afkChosenColor, afkPlayer);
+            else if (afkNeedsChallenge) await ResolveChallengeAsync(false);
+            else if (afkShouldStartTurn) await StartTurnAsync();
         }
     }
 }
