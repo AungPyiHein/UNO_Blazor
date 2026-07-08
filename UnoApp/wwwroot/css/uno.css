@@ -263,6 +263,15 @@ body {
     animation: draw-human-from-deck 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
+/* Suppresses the draw-from-deck pop-in for one render when a hand-card-wrapper's @key changes
+   for reasons other than a genuine new draw (e.g. the vortex animation handing keying back from a
+   stable slot index to the card's real id once it settles) — without this, the node recreation
+   replays the pop-in and looks like the card "resets" right after it already landed. */
+.slot-human .hand-card-wrapper.vortex-settled,
+.slot-opponent .hand-card-wrapper.vortex-settled {
+    animation: none !important;
+}
+
 @keyframes draw-human-from-deck {
     0% { 
         transform: translate(var(--draw-origin-x, -14vw), var(--draw-origin-y, -48vh)) rotate(-30deg) scale(0.3); 

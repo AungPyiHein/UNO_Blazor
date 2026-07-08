@@ -321,10 +321,17 @@ else
                        Key by stable slot index for the whole vortex window instead, and only key by card identity
                        once the vortex has fully settled. *@
                     <div @key="@(_isSwallowingCards || _isSpittingCards || _vortexHandSnapshot != null ? $"vortex-slot-{i}" : (card != null ? (object)card.Id : $"ghost-{i}"))"
-                         class="hand-card-wrapper @(_isSwallowingCards ? "vortex-ingest" : "") @(_isSpittingCards ? "vortex-eject" : "") @(isDrawnCard ? "drawn-card-highlight" : "") @(canJumpIn ? "jump-in-highlight" : "")"
+                         class="hand-card-wrapper @(_isSwallowingCards ? "vortex-ingest" : "") @(_isSpittingCards ? "vortex-eject" : "") @(card != null && _vortexSettledCardIds.Contains(card.Id) ? "vortex-settled" : "") @(isDrawnCard ? "drawn-card-highlight" : "") @(canJumpIn ? "jump-in-highlight" : "")"
                          style="--card-rot:@((off * hAng).ToString("0.00", IC))deg; --card-ty:@((Math.Pow(off, 2) * hTyF).ToString("0.00", IC))px; z-index:@(isDrawnCard ? 1000 : i); @GetVortexDelayStyle(i)"
                          @onclick="() => { if (card != null) OnCardClickedAsync(card); }">
-                        @if (card != null && !_isSwallowingCards && !_zeroRotateActive)
+                        @* Always render the real face-up card and let the vortex-ingest/vortex-eject CSS
+                           classes control visibility (opacity/scale) during the animation. Previously this
+                           swapped between a face-down UnoCardComponent and the face-up UnoCardView exactly
+                           when the animation class changed, which is two separate DOM patches landing in the
+                           same tick — sometimes Blazor painted the face-down frame first, sometimes it didn't,
+                           producing an inconsistent "flip" flash. Rendering one component type throughout
+                           removes that race entirely. *@
+                        @if (card != null && !_zeroRotateActive)
                         {
                             <UnoCardView Color="@ParseColor(card.Color)" Value="@ParseValue(card.Value)"
                                          SizeClass="w-16 h-24" />
@@ -551,6 +558,15 @@ else
     private bool    _isSwallowingCards    = false;
     private bool    _isSpittingCards      = false;
     private int[]?  _vortexHandSnapshot   = null;
+    // Card ids that just landed via the vortex eject animation. Their hand-card-wrapper's @key
+    // switches from a stable slot index back to the card's real id once the vortex window closes,
+    // which is a genuine DOM node recreation — and every wrapper has an unconditional "draw from
+    // deck" pop-in animation for normal draws, so recreating the node would replay it. We mark
+    // these specific ids so their (re)mount gets `animation: none` permanently rather than toggling
+    // a class on a timer, which would just restart the very animation it's meant to suppress
+    // (removing an `animation: none` override on an already-mounted element re-triggers the
+    // keyframe because the computed animation-name value changes).
+    private HashSet<string> _vortexSettledCardIds = new();
     private CardColor? _highlightedColor  = null;
     private bool    _sevenOverlayActive   = false;
     private int     _sevenActorIndex      = -1;
@@ -572,6 +588,14 @@ else
     protected override async Task OnParametersSetAsync()
     {
         if (State == null) return;
+
+        // A card's Guid.Id is permanent for the whole game (vortex/reshuffle move the same UnoCard
+        // instances, they don't mint new ids). Once a settled card leaves the hand (played), prune
+        // its id — its wrapper is no longer mounted, so this can't restart anything — otherwise, if
+        // that same card is later discarded, reshuffled back into the draw pile, and drawn again by
+        // a player, its legitimate future draw-in pop-in would stay incorrectly suppressed forever.
+        if (_vortexSettledCardIds.Count > 0)
+            _vortexSettledCardIds.RemoveWhere(id => !State.MyHand.Any(c => c.Id == id));
 
         // Show banner when NotificationBanner changes
         if (State.NotificationBanner != _lastSeenBanner)
@@ -712,10 +736,14 @@ else
             await Task.Delay(420);
 
             // Reveal the real, reshuffled hand and start the eject animation in the same render so
-            // cards never appear statically before flying out.
+            // cards never appear statically before flying out. Record these card ids as
+            // "vortex-settled" now so that when the wrapper @key reverts to card.Id below, the
+            // recreated node is born with its pop-in animation already suppressed.
             _isSwallowingCards = false;
             _vortexHandSnapshot = null;
             _isSpittingCards = true;
+            foreach (var c in State?.MyHand ?? Enumerable.Empty<CardDto>())
+                _vortexSettledCardIds.Add(c.Id);
             await InvokeAsync(StateHasChanged);
             await Task.Delay(1300);
 
