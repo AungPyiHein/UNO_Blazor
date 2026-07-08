@@ -314,7 +314,13 @@ else
                                    && State.Status != "WaitingForSwapTarget"
                                    && !_isProcessingAction && !_isAnimating;
 
-                    <div @key="@(card != null ? card.Id : $"ghost-{i}")"
+                    @* During the vortex sequence the underlying card identities change (old hand -> reshuffled
+                       hand) while the visual slot count stays put via the snapshot. Keying by card.Id in that
+                       window makes Blazor tear down and recreate every wrapper the instant the new cards land,
+                       which resets the in-flight CSS animation and looks like the hand "blinking" a few times.
+                       Key by stable slot index for the whole vortex window instead, and only key by card identity
+                       once the vortex has fully settled. *@
+                    <div @key="@(_isSwallowingCards || _isSpittingCards || _vortexHandSnapshot != null ? $"vortex-slot-{i}" : (card != null ? (object)card.Id : $"ghost-{i}"))"
                          class="hand-card-wrapper @(_isSwallowingCards ? "vortex-ingest" : "") @(_isSpittingCards ? "vortex-eject" : "") @(isDrawnCard ? "drawn-card-highlight" : "") @(canJumpIn ? "jump-in-highlight" : "")"
                          style="--card-rot:@((off * hAng).ToString("0.00", IC))deg; --card-ty:@((Math.Pow(off, 2) * hTyF).ToString("0.00", IC))px; z-index:@(isDrawnCard ? 1000 : i); @GetVortexDelayStyle(i)"
                          @onclick="() => { if (card != null) OnCardClickedAsync(card); }">
@@ -696,14 +702,19 @@ else
             await InvokeAsync(StateHasChanged);
             await Task.Delay(1350);
 
-            _isSwallowingCards = false;
-            _vortexHandSnapshot = null;
-
+            // Keep the swallow snapshot/class active (cards held invisible mid-animation) while the
+            // real hand is resolved underneath. Clearing the snapshot here would briefly expose the
+            // stale pre-vortex hand, then the freshly-resolved hand, both before the eject animation
+            // even starts — that double exposure is what reads as the hand "blinking".
             if (OnAnimationMidpoint != null)
                 await OnAnimationMidpoint("resolve-vortex");
 
             await Task.Delay(420);
 
+            // Reveal the real, reshuffled hand and start the eject animation in the same render so
+            // cards never appear statically before flying out.
+            _isSwallowingCards = false;
+            _vortexHandSnapshot = null;
             _isSpittingCards = true;
             await InvokeAsync(StateHasChanged);
             await Task.Delay(1300);
