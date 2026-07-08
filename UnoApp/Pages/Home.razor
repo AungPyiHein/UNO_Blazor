@@ -3670,7 +3670,7 @@
             DrawnCardId          = playerIndex == 0 ? _spDrawnCardId : (_game.RemoteDrawnCardIds.TryGetValue(playerIndex, out var rdc) ? rdc : null),
             RoundNumber          = game.RoundNumber,
             LastPlayerIndex      = game.LastPlayerIndex,
-            CanCallUno           = (game.CurrentPlayerIndex == playerIndex && game.Players[playerIndex].Hand.Count == 2 && !game.IsUnoCalled && game.Status == GameStatus.Playing) || (game.Status == GameStatus.WaitingForUnoCall && game.PlayerAtRisk == game.Players[playerIndex]),
+            CanCallUno           = game.Status == GameStatus.WaitingForUnoCall && game.PlayerAtRisk == game.Players[playerIndex],
             CanCatchUno          = game.Status == GameStatus.WaitingForUnoCall && game.PlayerAtRisk != null && game.PlayerAtRisk != game.Players[playerIndex],
             JumpInTimerSeconds   = game.Settings.JumpInTimerSeconds,
             ForcedPlay           = game.Settings.ForcedPlay,
@@ -3767,14 +3767,6 @@
             case "uno":
                 if (_game.Status == GameStatus.WaitingForUnoCall)
                     await _game.AttemptUnoCallAsync(player);
-                else
-                {
-                    _game.IsUnoCalled = true;
-                    _game.LogAction("PLAYER proactively declared UNO!");
-                    _game.ActiveNotificationBanner = "YOU DECLARED UNO!";
-                    _spState = BuildSpState();
-                    await InvokeAsync(StateHasChanged);
-                }
                 break;
 
             case "catch":
