@@ -619,10 +619,32 @@ else
     }
 
     // ── Public API: called by SP parent via @ref ──────────────────────────
+    // Guards against a real re-entrancy bug: Home.razor's OnBoardAnimation handler calls
+    // _gameViewRef.TriggerAnimation(anim) directly AND (for "vortex-shuffle" specifically) the
+    // mid-animation OnAnimationMidpoint callback rebuilds _spState with AnimationTrigger still set
+    // to that same in-flight anim string (it's only cleared after the direct call returns). That
+    // rebuilt state flows back into this component as a changed `State` parameter, and
+    // OnParametersSetAsync's "AnimationTrigger changed" check fires a SECOND, overlapping call to
+    // TriggerAnimation for the exact same animType — which is what played the vortex sequence twice.
+    private string _activeAnimType = "";
+
     public async Task TriggerAnimation(string animType)
     {
         if (string.IsNullOrEmpty(animType)) return;
+        if (animType == _activeAnimType) return; // duplicate call for an animation already in flight
+        _activeAnimType = animType;
+        try
+        {
+            await RunAnimationAsync(animType);
+        }
+        finally
+        {
+            _activeAnimType = "";
+        }
+    }
 
+    private async Task RunAnimationAsync(string animType)
+    {
         if (animType.StartsWith("skip-") && int.TryParse(animType.Split('-')[1], out int skipIdx))
         {
             await Task.Delay(600); // Wait for card fly-in animation to land before showing skip
@@ -789,7 +811,10 @@ else
         }
 
         if (!State.IsMyTurn || !card.IsPlayable) return;
-        if (card.Color == "Wild")
+        // Vortex is color-nullified server-side (UnoGame.InternalPlayCard skips color selection for
+        // it), so don't prompt the color picker for it even though it's Color == "Wild" like the
+        // other wilds — doing so left a needless popup with no server-side effect.
+        if (card.Color == "Wild" && card.Value != "Vortex")
         {
             _pendingWildCardId = card.Id;
             StateHasChanged();
