@@ -611,6 +611,12 @@ namespace UnoEngine
             cpu.CurrentStatus = "Drawing...";
             LogAction($"{cpu.Name} had no moves and is drawing...");
             var drawn = await DrawCardAsync(cpu);
+
+            // Guard: if status changed during the draw (e.g. game ended, or a Jump-In fired),
+            // or it is no longer this CPU's turn, abandon the continuation silently.
+            if (Status != GameStatus.Playing || CurrentPlayerIndex != Players.IndexOf(cpu))
+                return;
+
             if (drawn == null)
             {
                 MoveToNextTurn();
@@ -1365,14 +1371,18 @@ namespace UnoEngine
                 UnoCard drawn;
                 do
                 {
+                    // Stop if game state changed (e.g. another player jumped in, game ended)
+                    if (Status != GameStatus.Playing) return null;
                     if (OnBoardAnimation != null && !player.IsHuman) await OnBoardAnimation.Invoke($"draw-{playerIdx}");
                     drawn = DrawOne();
                     player.Hand.Add(drawn);
                     if (OnSoundEffect != null) await OnSoundEffect("cardDraw");
                     OnStateChanged?.Invoke();
                     await Task.Delay(400);
-                } while (!CanPlayCard(drawn));
-                
+                } while (!CanPlayCard(drawn) && Status == GameStatus.Playing);
+
+                // Loop exited because status changed, not because we found a playable card
+                if (Status != GameStatus.Playing) return null;
                 return drawn;
             }
             else
@@ -1647,6 +1657,11 @@ namespace UnoEngine
                 cpu.CurrentStatus = "Drawing...";
                 LogAction($"{cpu.Name} had no moves and is drawing...");
                 var drawn = await DrawCardAsync(cpu);
+
+                // Guard: abandon if status changed or turn shifted during draw loop
+                if (Status != GameStatus.Playing || CurrentPlayerIndex != Players.IndexOf(cpu))
+                    return;
+
                 if (drawn != null && CanPlayCard(drawn))
                 {
                     LogAction($"{cpu.Name} played the drawn {drawn}.");
