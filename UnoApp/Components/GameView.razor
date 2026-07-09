@@ -291,8 +291,8 @@ else
                 int hCount = sortedHand.Count;
                 int snapshotCount = _vortexHandSnapshot != null ? _vortexHandSnapshot[State.MyPlayerIndex] : hCount;
                 double hMid = (snapshotCount - 1) / 2.0;
-                double hAng = hCount <= 5 ? 4.0 : hCount <= 9 ? 3.0 : hCount <= 14 ? 2.0 : hCount <= 20 ? 1.2 : 0.8;
-                double hTyF = hCount <= 5 ? 1.0 : hCount <= 10 ? 0.6 : hCount <= 16 ? 0.3 : hCount <= 22 ? 0.15 : 0.08;
+                double hAng = snapshotCount <= 5 ? 4.0 : snapshotCount <= 9 ? 3.0 : snapshotCount <= 14 ? 2.0 : snapshotCount <= 20 ? 1.2 : 0.8;
+                double hTyF = snapshotCount <= 5 ? 1.0 : snapshotCount <= 10 ? 0.6 : snapshotCount <= 16 ? 0.3 : snapshotCount <= 22 ? 0.15 : 0.08;
             }
             <div class="hand @(IsSwapPartner(State.MyPlayerIndex) ? "swap-anim" : "") @_rotateAnim">
                 @for (int i = 0; i < snapshotCount; i++)
@@ -761,15 +761,29 @@ else
             // cards never appear statically before flying out. Record these card ids as
             // "vortex-settled" now so that when the wrapper @key reverts to card.Id below, the
             // recreated node is born with its pop-in animation already suppressed.
+            //
+            // Keep _vortexHandSnapshot set (non-null) during the eject phase so that mid-eject
+            // state updates from OnStateChanged (the game engine continues running) cannot change
+            // the slot count or fan-layout angles mid-animation — which would add/remove wrappers
+            // and snap card positions, producing the visible 2-3 "resets" after settling.
+            // The @key stays "vortex-slot-{i}" for the whole eject because _isSpittingCards is true
+            // OR _vortexHandSnapshot is non-null; clearing both atomically at the end gives one
+            // clean key-switch to card.Id instead of one-per-state-update.
             _isSwallowingCards = false;
-            _vortexHandSnapshot = null;
             _isSpittingCards = true;
+            _vortexHandSnapshot = State?.HandCounts.ToArray();
             foreach (var c in State?.MyHand ?? Enumerable.Empty<CardDto>())
                 _vortexSettledCardIds.Add(c.Id);
             await InvokeAsync(StateHasChanged);
             await Task.Delay(1300);
 
+            // Re-capture any card ids that arrived during the eject delay (the game may have
+            // advanced: CPUs drawing/playing, penalty applies, etc. can change State.MyHand).
+            foreach (var c in State?.MyHand ?? Enumerable.Empty<CardDto>())
+                _vortexSettledCardIds.Add(c.Id);
+            // Clear both flags atomically → single render, single key-switch.
             _isSpittingCards = false;
+            _vortexHandSnapshot = null;
             _showVortexAnimation = false;
             _isAnimating = false;
             await InvokeAsync(StateHasChanged);
