@@ -466,7 +466,7 @@ namespace UnoEngine
                             await Task.Delay(800);
                             if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"draw-{afkIdx}");
                             for (int i = 0; i < penaltyCount; i++)
-                                await DrawCardAsync(player);
+                                await DrawCardAsync(player, isPenaltyDraw: true);
                             player.CurrentStatus = "";
                             LogAction($"⏰ {player.Name} was AFK and drew {penaltyCount} card{(penaltyCount != 1 ? "s" : "")}.");
                             if (Status != GameStatus.GameOver)
@@ -1336,14 +1336,16 @@ namespace UnoEngine
             await StartTurnAsync();
         }
 
-        public async Task<UnoCard?> DrawCardAsync(Player player)
+        public async Task<UnoCard?> DrawCardAsync(Player player, bool isPenaltyDraw = false)
         {
             if (Status == GameStatus.WaitingForJumpIn)
             {
                 return null;
             }
-            // Strict Rule Constraint: Under forced-play / no-reneging, block drawing if player holds a playable card
-            if ((Settings.ForcedPlay || !Settings.AllowReneging) && PendingDrawCount == 0)
+            // Strict Rule Constraint: Under forced-play / no-reneging, block drawing if player holds a playable card.
+            // AFK penalty draws bypass this — a player being penalised for inactivity must always receive their cards
+            // even if they technically hold a playable card (they just failed to play it).
+            if (!isPenaltyDraw && (Settings.ForcedPlay || !Settings.AllowReneging) && PendingDrawCount == 0)
             {
                 var hasPlayableCard = player.Hand.Any(card => CanPlayCard(card));
                 if (hasPlayableCard)
@@ -1755,7 +1757,7 @@ namespace UnoEngine
                     await Task.Delay(800);
                     if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"draw-{afkIdx}");
                     for (int i = 0; i < penaltyCount; i++)
-                        await DrawCardAsync(currentPlayer);
+                        await DrawCardAsync(currentPlayer, isPenaltyDraw: true);
                     currentPlayer.CurrentStatus = "";
                     LogAction($"⏰ {currentPlayer.Name} was AFK and drew {penaltyCount} card{(penaltyCount != 1 ? "s" : "")}.");
                     OnStateChanged?.Invoke();
