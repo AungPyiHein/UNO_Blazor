@@ -58,6 +58,11 @@ namespace UnoEngine
         public bool CanCallUno => Status == GameStatus.WaitingForUnoCall && PlayerAtRisk == Players[0];
         public int LastUnoViolatorIndex { get; set; } = -1;
         public int LastPlayerAtRiskIndex { get; private set; } = -1;
+        // Skip/Reverse(2p) used to call MoveToNextTurn() immediately inside HandleSpecialActions,
+        // which advanced the turn (and any visual "skip" indicator) BEFORE the just-played card's
+        // hand-count-1 check ran, so the UNO button appeared to pop up only after the next player's
+        // turn had already started. Defer that extra advance until after the UNO risk check.
+        private bool _pendingExtraTurnAdvance = false;
         public string ActiveNotificationBanner { get; set; } = "";
         public CardColor LastValidColor { get; set; }
 
@@ -888,7 +893,7 @@ namespace UnoEngine
 
             if (Status == GameStatus.WaitingForWd4Challenge) return;
 
-            MoveToNextTurn();
+            AdvanceTurnAfterUnoCheck();
             
             if (Settings.JumpInRule && IsJumpInPossible())
             {
@@ -1052,7 +1057,7 @@ namespace UnoEngine
                     LastPlayerAtRiskIndex = -1;
                     Status = GameStatus.Playing;
                     
-                    MoveToNextTurn();
+                    AdvanceTurnAfterUnoCheck();
                     
                     if (Settings.JumpInRule && IsJumpInPossible())
                     {
@@ -1110,7 +1115,7 @@ namespace UnoEngine
                 LastPlayerAtRiskIndex = -1;
                 Status = GameStatus.Playing;
 
-                MoveToNextTurn();
+                AdvanceTurnAfterUnoCheck();
 
                 if (Settings.JumpInRule && IsJumpInPossible())
                 {
@@ -1190,13 +1195,13 @@ namespace UnoEngine
             {
                 case CardValue.Skip:
                     if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"skip-{GetNextPlayerIndex()}");
-                    MoveToNextTurn();
+                    _pendingExtraTurnAdvance = true; // Applied after the UNO risk check in EndPlayCardSequence
                     break;
                 case CardValue.Reverse:
                     if (Players.Count == 2)
                     {
                         if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"skip-{GetNextPlayerIndex()}");
-                        MoveToNextTurn(); // In 2 player, Reverse acts like Skip
+                        _pendingExtraTurnAdvance = true; // In 2 player, Reverse acts like Skip
                     }
                     else
                     {
@@ -1272,7 +1277,7 @@ namespace UnoEngine
                 OnStateChanged?.Invoke();
                 await Task.Delay(80);
             }
-            MoveToNextTurn(); // Skip their turn after drawing
+            _pendingExtraTurnAdvance = true; // Skip their turn after drawing, applied after the UNO risk check
         }
 
         public async Task HandlePendingDrawAsync()
@@ -1650,6 +1655,22 @@ namespace UnoEngine
             IsUnoCalled = false;
             _remoteDrawnCardIds.Clear();
             CurrentPlayerIndex = GetNextPlayerIndex();
+        }
+
+        /// <summary>
+        /// Advances the turn once the UNO risk check for the card-player has been resolved
+        /// (either immediately, or after the UNO QTE completes), then applies any extra
+        /// advance that a Skip/Reverse(2p) play deferred so the skipped player isn't passed
+        /// over before the UNO button had a chance to appear.
+        /// </summary>
+        private void AdvanceTurnAfterUnoCheck()
+        {
+            MoveToNextTurn();
+            if (_pendingExtraTurnAdvance)
+            {
+                _pendingExtraTurnAdvance = false;
+                MoveToNextTurn();
+            }
         }
 
         private int GetNextPlayerIndex()
