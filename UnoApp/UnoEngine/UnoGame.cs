@@ -427,6 +427,14 @@ namespace UnoEngine
                     try
                     {
                         if (Status == GameStatus.GameOver) return;
+
+                        // The AFK timeout is detected OUTSIDE this lock, so the player may have
+                        // already acted in the window between that check and this task acquiring
+                        // the lock. Re-validate atomically here, BEFORE any notification/animation,
+                        // so a just-in-time move never causes a visible-but-reverted "AFK —
+                        // drawing" flash or penalizes the wrong (now-current) player.
+                        if (Status == GameStatus.Playing && CurrentPlayerIndex != move.PlayerIndex) return;
+
                         if (Status == GameStatus.WaitingForColorSelection && PendingColorSelector == player)
                         {
                             // Pick a random color — finalize directly to avoid re-entrant lock
@@ -1683,7 +1691,7 @@ namespace UnoEngine
 
         public Player GetCurrentPlayer() => Players[CurrentPlayerIndex];
 
-        public async Task ApplyAfkPenaltyAsync()
+        public async Task ApplyAfkPenaltyAsync(int expectedPlayerIndex, GameStatus expectedStatus)
         {
             // Flags captured inside the lock; the methods they trigger also acquire _actionLock,
             // so they must be called AFTER releasing it (same pattern as ApplyRemoteMoveAsync).
@@ -1697,6 +1705,21 @@ namespace UnoEngine
             try
             {
                 if (Status == GameStatus.GameOver) return;
+
+                // The AFK timeout is detected OUTSIDE this lock (on a background timer), so the
+                // player may have already acted (played/drawn/etc.) in the window between that
+                // check and this task actually acquiring the lock. Re-validate atomically here,
+                // BEFORE any notification/animation is shown, so a just-in-time move never causes
+                // a visible-but-reverted "AFK — drawing" flash or penalizes the wrong player.
+                if (Status != expectedStatus) return;
+                int actualWaitingIndex = expectedStatus switch
+                {
+                    GameStatus.WaitingForColorSelection => PendingColorSelector != null ? Players.IndexOf(PendingColorSelector) : -1,
+                    GameStatus.WaitingForWd4Challenge    => Wd4ChallengerIndex,
+                    _                                     => CurrentPlayerIndex,
+                };
+                if (actualWaitingIndex != expectedPlayerIndex) return;
+
                 var currentPlayer = GetCurrentPlayer();
                 if (!currentPlayer.IsHuman) return;
 

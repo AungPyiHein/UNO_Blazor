@@ -3414,12 +3414,13 @@
         _afkCts = new CancellationTokenSource();
         var token = _afkCts.Token;
         var timeoutMs = (int)(_game.Settings.AfkTimeoutSeconds * 1000);
+        var capturedStatus = _game.Status; // immutable snapshot for this timer's lifetime — don't re-read the mutable field at dispatch time
 
         _ = Task.Run(async () =>
         {
             await Task.Delay(timeoutMs, token);
             if (token.IsCancellationRequested) return;
-            if (_game != null && _game.Status == _afkTimerStatus && _game.Status != GameStatus.GameOver)
+            if (_game != null && _game.Status == capturedStatus && _game.Status != GameStatus.GameOver)
             {
                 // Verify we're still waiting on the same player
                 bool stillWaiting = false;
@@ -3444,7 +3445,7 @@
                     }
                     else
                     {
-                        await InvokeAsync(async () => await _game.ApplyAfkPenaltyAsync());
+                        await InvokeAsync(async () => await _game.ApplyAfkPenaltyAsync(curIdx, capturedStatus));
                     }
                 }
             }
