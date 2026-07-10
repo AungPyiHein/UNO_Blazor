@@ -129,8 +129,8 @@ else
 
         @if (_swapP1 >= 0 && _swapP2 >= 0)
         {
-            <div class="swap-fly-stack fly-@(_swapP1)-@(_swapP2)"></div>
-            <div class="swap-fly-stack fly-@(_swapP2)-@(_swapP1)" style="animation-delay:0.06s"></div>
+            <div class="swap-fly-stack fly-@(VisualSlot(_swapP1))-@(VisualSlot(_swapP2))"></div>
+            <div class="swap-fly-stack fly-@(VisualSlot(_swapP2))-@(VisualSlot(_swapP1))" style="animation-delay:0.06s"></div>
         }
 
         <div class="center-area">
@@ -912,6 +912,13 @@ else
 
     // ── Helpers ───────────────────────────────────────────────────────────
     private bool IsSwapPartner(int playerIndex) => _swapP1 == playerIndex || _swapP2 == playerIndex;
+
+    private int VisualSlot(int absoluteIndex)
+    {
+        if (State == null) return absoluteIndex;
+        int n = State.PlayerNames.Length;
+        return (absoluteIndex - State.MyPlayerIndex + n) % n;
+    }
 
     private string GetVortexDelayStyle(int cardIndex)
     {
