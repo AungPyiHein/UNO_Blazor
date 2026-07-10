@@ -1591,7 +1591,8 @@ namespace UnoEngine
                         int challengerIdx = Players.IndexOf(challenger);
                         if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"penalty-{challengerIdx}-{wrongPenalty}");
                         for (int i = 0; i < wrongPenalty; i++) { if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"draw-{challengerIdx}"); challenger.Hand.Add(DrawOne()); OnStateChanged?.Invoke(); await Task.Delay(80); }
-                        MoveToNextTurn();
+                        MoveToNextTurn(); // advance to challenger
+                        MoveToNextTurn(); // skip challenger — wrong-challenge still forfeits their turn
                     }
                 }
                 else
@@ -1600,7 +1601,8 @@ namespace UnoEngine
                     int acceptIdx = Players.IndexOf(challenger);
                     if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"penalty-{acceptIdx}-4");
                     for (int i = 0; i < 4; i++) { if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"draw-{acceptIdx}"); challenger.Hand.Add(DrawOne()); if (OnSoundEffect != null) await OnSoundEffect("cardDraw"); OnStateChanged?.Invoke(); await Task.Delay(80); }
-                    MoveToNextTurn();
+                    MoveToNextTurn(); // advance to challenger
+                    MoveToNextTurn(); // skip challenger — accepting the penalty forfeits their turn
                     Status = GameStatus.Playing;
                     _wd4Player = null;
                     _wd4HandSnapshotMatchingCards = null;
