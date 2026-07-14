@@ -129,8 +129,8 @@ else
 
         @if (_swapP1 >= 0 && _swapP2 >= 0)
         {
-            <div class="swap-fly-stack fly-@(VisualSlot(_swapP1))-@(VisualSlot(_swapP2))"></div>
-            <div class="swap-fly-stack fly-@(VisualSlot(_swapP2))-@(VisualSlot(_swapP1))" style="animation-delay:0.06s"></div>
+            <div class="swap-fly-stack fly-@(GetCssSlot(_swapP1))-@(GetCssSlot(_swapP2))"></div>
+            <div class="swap-fly-stack fly-@(GetCssSlot(_swapP2))-@(GetCssSlot(_swapP1))" style="animation-delay:0.06s"></div>
         }
 
         <div class="center-area">
@@ -913,11 +913,18 @@ else
     // ── Helpers ───────────────────────────────────────────────────────────
     private bool IsSwapPartner(int playerIndex) => _swapP1 == playerIndex || _swapP2 == playerIndex;
 
-    private int VisualSlot(int absoluteIndex)
+    private int GetCssSlot(int absoluteIndex)
     {
         if (State == null) return absoluteIndex;
+        if (absoluteIndex == State.MyPlayerIndex) return 0;
         int n = State.PlayerNames.Length;
-        return (absoluteIndex - State.MyPlayerIndex + n) % n;
+        int totalOpponents = n - 1;
+        int j = (absoluteIndex - State.MyPlayerIndex - 1 + n) % n;
+        if (totalOpponents == 1) return 2;
+        if (totalOpponents == 2) return j == 0 ? 1 : 3;
+        if (totalOpponents == 3) { if (j == 0) return 1; if (j == 1) return 2; return 3; }
+        if (totalOpponents == 4) { if (j == 0) return 1; if (j <= 2) return 2; return 3; }
+        if (j == 0) return 1; if (j <= 3) return 2; return 3;
     }
 
     private string GetVortexDelayStyle(int cardIndex)
