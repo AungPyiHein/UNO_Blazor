@@ -3521,9 +3521,9 @@
         _game.OnBoardAnimation += async (anim) =>
         {
             _pendingAnimTrigger = anim;
+            await BroadcastStateAsync();   // send trigger to guests immediately
+            _pendingAnimTrigger = "";      // clear before host anim so OnStateChanged doesn't re-broadcast
             if (_gameViewRef != null) await _gameViewRef.TriggerAnimation(anim);
-            await BroadcastStateAsync();
-            _pendingAnimTrigger = "";
         };
         _game.OnStateChanged += async () =>
         {
@@ -4106,9 +4106,9 @@
             _game.OnBoardAnimation += async (anim) =>
             {
                 _pendingAnimTrigger = anim;
+                await BroadcastStateAsync();   // send trigger to guests immediately
+                _pendingAnimTrigger = "";      // clear before host anim so OnStateChanged doesn't re-broadcast
                 if (_gameViewRef != null) await _gameViewRef.TriggerAnimation(anim);
-                await BroadcastStateAsync();
-                _pendingAnimTrigger = "";
             };
             _game.OnStateChanged += async () =>
             {
