@@ -64,6 +64,7 @@ namespace UnoEngine
         // turn had already started. Defer that extra advance until after the UNO risk check.
         private bool _pendingExtraTurnAdvance = false;
         public string ActiveNotificationBanner { get; set; } = "";
+        public int NotificationBannerTargetIndex { get; set; } = -1; // -1 = broadcast to all
         public CardColor LastValidColor { get; set; }
 
         public List<int> RemotePlayerIndices { get; set; } = new();
@@ -1105,6 +1106,7 @@ namespace UnoEngine
                 {
                     LogAction($"{caller.Name} successfully called UNO!");
                     ActiveNotificationBanner = $"{caller.Name.ToUpper()} CALLED UNO!";
+                    NotificationBannerTargetIndex = -1;
                     if (OnSoundEffect != null) await OnSoundEffect("unoCall");
                 }
                 else
@@ -1112,6 +1114,7 @@ namespace UnoEngine
                     LogAction($"{caller.Name} CAUGHT {PlayerAtRisk.Name}! {PlayerAtRisk.Name} draws 2.");
                     LastUnoViolatorIndex = Players.IndexOf(PlayerAtRisk);
                     ActiveNotificationBanner = $"{caller.Name.ToUpper()} CAUGHT {PlayerAtRisk.Name.ToUpper()}!";
+                    NotificationBannerTargetIndex = -1;
                     if (OnSoundEffect != null) await OnSoundEffect("caught");
                     int caughtIdx = Players.IndexOf(PlayerAtRisk);
                     if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"penalty-{caughtIdx}-{Settings.UnoFailurePenaltyCards}");
@@ -1358,7 +1361,10 @@ namespace UnoEngine
                 {
                     // Only show the banner for the human player — CPU hits this as an internal guard
                     if (player.IsHuman)
+                    {
                         ActiveNotificationBanner = $"{player.Name.ToUpper()} MUST PLAY A CARD!";
+                        NotificationBannerTargetIndex = Players.IndexOf(player);
+                    }
                     LogAction($"{player.Name} tried to draw but has a playable card.");
                     OnStateChanged?.Invoke();
                     return null;
@@ -1550,6 +1556,7 @@ namespace UnoEngine
                     if (_wd4Player != null)
                     {
                         ActiveNotificationBanner = $"{challenger.Name} is challenging {_wd4Player.Name}!";
+                        NotificationBannerTargetIndex = -1;
                         OnStateChanged?.Invoke();
                     }
                     if (OnSoundEffect != null) await OnSoundEffect("challenge");
@@ -1567,6 +1574,7 @@ namespace UnoEngine
                         // Now proceed with penalty
                         if (OnSoundEffect != null) await OnSoundEffect("challengeBluffCaught");
                         ActiveNotificationBanner = $"BLUFF CAUGHT! {_wd4Player.Name.ToUpper()} DRAWS 4!";
+                        NotificationBannerTargetIndex = -1;
                         LogAction($"{challenger.Name} challenged — {_wd4Player.Name} was bluffing! They draw 4.");
                         int wd4PlayerIdx = Players.IndexOf(_wd4Player);
                         if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"penalty-{wd4PlayerIdx}-4");
@@ -1587,6 +1595,7 @@ namespace UnoEngine
                         if (OnSoundEffect != null) await OnSoundEffect("challengeFail");
                         int wrongPenalty = Settings.Wd4WrongChallengePenalty;
                         ActiveNotificationBanner = $"WRONG CALL! {challenger.Name.ToUpper()} DRAWS {wrongPenalty}!";
+                        NotificationBannerTargetIndex = -1;
                         LogAction($"{challenger.Name} challenged — bluff NOT confirmed. {challenger.Name} draws {wrongPenalty}.");
                         int challengerIdx = Players.IndexOf(challenger);
                         if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"penalty-{challengerIdx}-{wrongPenalty}");

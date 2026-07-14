@@ -3658,7 +3658,9 @@
             IsGameOver           = game.Status == GameStatus.GameOver,
             WinnerIndex          = game.Winner != null ? game.Players.IndexOf(game.Winner) : null,
             PendingDraw          = game.PendingDrawCount,
-            NotificationBanner   = game.ActiveNotificationBanner,
+            NotificationBanner   = (game.NotificationBannerTargetIndex >= 0 && game.NotificationBannerTargetIndex != playerIndex)
+                                       ? ""
+                                       : game.ActiveNotificationBanner,
             Wd4ChallengerIndex   = game.Wd4ChallengerIndex,
             MatchTimestamp       = game.MatchTimestamp?.ToString("o") ?? "",
             TotalScores          = game.Players.Select(p => p.TotalScore).ToArray(),
@@ -4060,6 +4062,7 @@
         }
 
         _game.ActiveNotificationBanner = $"📶 {playerName.ToUpper()} DISCONNECTED";
+        _game.NotificationBannerTargetIndex = -1;
         InvokeAsync(StateHasChanged);
     }
 
