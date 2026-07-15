@@ -137,6 +137,51 @@ erDiagram
 
 ### [DONE] Phase 4: New UI Pages
 
+#### [DONE] PostgreSQL Trigger (Player Stats Automation)
+- [x] Create a `SECURITY DEFINER` Postgres function to automatically aggregate wins, losses, streaks, and win rates upon match completion.
+- [x] Attach an `AFTER INSERT` trigger on `match_players`.
+
+<details>
+<summary><b>Click to view the applied Trigger SQL</b></summary>
+
+```sql
+CREATE OR REPLACE FUNCTION public.update_player_stats()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  INSERT INTO public.player_stats (
+    player_id, total_wins, total_losses, total_games, total_score, best_score, win_streak, best_win_streak, win_rate
+  )
+  VALUES (NEW.player_id, 0, 0, 0, 0, 0, 0, 0, 0)
+  ON CONFLICT (player_id) DO NOTHING;
+
+  UPDATE public.player_stats
+  SET
+    total_games = total_games + 1,
+    total_wins = total_wins + CASE WHEN NEW.is_winner THEN 1 ELSE 0 END,
+    total_losses = total_losses + CASE WHEN NOT NEW.is_winner THEN 1 ELSE 0 END,
+    total_score = total_score + NEW.total_score,
+    best_score = GREATEST(best_score, NEW.total_score),
+    win_streak = CASE WHEN NEW.is_winner THEN win_streak + 1 ELSE 0 END,
+    best_win_streak = GREATEST(best_win_streak, CASE WHEN NEW.is_winner THEN win_streak + 1 ELSE 0 END),
+    last_played_at = NOW(),
+    win_rate = ROUND(((total_wins + CASE WHEN NEW.is_winner THEN 1 ELSE 0 END)::numeric / (total_games + 1)::numeric) * 100, 2)
+  WHERE player_id = NEW.player_id;
+
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER on_match_player_insert
+AFTER INSERT ON public.match_players
+FOR EACH ROW
+EXECUTE FUNCTION public.update_player_stats();
+```
+</details>
+
 #### [DONE] Profile Page
 - [x] Display name editing.
 - [x] Avatar upload (Uploads to Supabase Storage).
@@ -156,7 +201,7 @@ erDiagram
 
 ---
 
-### [LEFT TO DO] Phase 5: Admin Panel (In-Game Dashboard)
+### [DONE] Phase 5: Admin Panel (In-Game Dashboard)
 
 #### [DONE] Supabase RLS Policies & Schema
 - [x] Add an `is_admin` boolean to the `profiles` table.
@@ -197,17 +242,35 @@ WITH CHECK ( public.is_admin() );
 ```
 </details>
 
-#### [NEW] Admin Account Setup Process
+#### [DONE] Admin Account Setup Process
 1. Run the app and go to the Login screen.
 2. Click "Sign Up" to create your new account (or log into an existing one) as a normal player.
 3. Log into your Supabase Dashboard on the web, go to the Table Editor, and find your row in the `profiles` table.
 4. Manually flip the `is_admin` switch from `false` to `true`.
 5. Now when you log into the app, you will have admin privileges!
 
-#### [NEW] Admin Dashboard Page (`/admin`)
-- [ ] **Access Control**: Page only loads if the logged-in user's `is_admin` is true.
-- [ ] **User Management**: List all users (searchable by name).
-- [ ] **Edit Users**: Change a user's display name, avatar, or tweak their stats.
-- [ ] **Ban Users (Soft Delete)**: Because hard-deleting users from `auth.users` requires a secure server backend, the admin panel will "ban" users instead.
-- [ ] **Enforce Ban**: Add checks in `Home.razor` and `Lobby.razor` so that if `currentUser.IsBanned == true`, they are blocked from hosting or joining multiplayer lobbies.
-- [ ] **Manage CPUs**: Edit the 6 CPU bots' names, avatars, and tweak their "lifetime stats" to make them look more intimidating on the leaderboard.
+#### [DONE] Admin Dashboard Page (`Admin.razor`)
+- [x] **Access Control**: Page only loads if the logged-in user's `is_admin` is true. We will enforce this via `OnInitializedAsync`. If false, redirect to `/home`.
+- [x] **Navigation**: Add a "⚙️ Admin Panel" button in `Home.razor` that only appears for admin users.
+- [x] **C# SDK Methods**: Add new methods to `SupabaseService.cs`:
+  - `GetAllProfiles()`: Fetches all registered users and CPU bots.
+  - `GetAllStats()`: Fetches all rows from `player_stats`.
+  - `UpdateProfileAdmin(profile)`: Updates a user's name, avatar, or `is_banned` status.
+  - `UpdateStatsAdmin(stats)`: Modifies a user's wins/losses/score.
+- [x] **User Management UI**: Build a glassmorphic dashboard (consistent with `Profile` and `Leaderboard`) listing all users. Include a search bar to easily find players.
+- [x] **Edit Users & Manage CPUs**: Clicking a user opens an inline editor or modal to change their display name, avatar URL, or manually overwrite their stats (perfect for making the 6 CPU bots look intimidating!).
+- [x] **Ban Users (Soft Delete)**: Add a bright red "BAN" toggle.
+- [x] **Enforce Ban**: Add checks in `Home.razor` (when hitting "Host Game") and `Lobby.razor` (when joining a room) so that if `currentUser.IsBanned == true`, they are blocked from multiplayer lobbies with a clear error message.
+
+---
+
+### [LEFT TO DO] Phase 6: Final Testing & Verification
+Before declaring the project complete, we must manually verify all systems end-to-end.
+
+#### [NEW] Test Scenarios
+- [ ] **Auth & Profiles**: Can a new user sign up? Does their default stats row generate upon playing? Can they upload an avatar and see it instantly?
+- [ ] **Admin Security**: Log in as a non-admin. Try to navigate directly to `/admin`. Does it redirect?
+- [ ] **Admin Gameplay**: Ensure that an admin account can play multiplayer games just like a normal player without any issues.
+- [ ] **Admin Powers**: Log in as an admin. Edit a CPU bot's name and stats. Verify it immediately reflects on the `/leaderboard`.
+- [ ] **Ban Enforcement**: As an admin, ban a test account. Log into the test account and attempt to host or join a multiplayer lobby. It must be blocked.
+- [ ] **Game Loop & Triggers**: Play a full game against CPU bots to completion. Ensure the host correctly saves the match, and the PostgreSQL trigger automatically increments wins, losses, games played, and updates the global leaderboard.
