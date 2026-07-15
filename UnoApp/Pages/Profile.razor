@@ -41,6 +41,10 @@
                             @if (_isSaving) { <span class="spinner-sm"></span> } else { <span>Save</span> }
                         </button>
                     </div>
+                    @if (!string.IsNullOrEmpty(_errorMessage))
+                    {
+                        <div class="text-danger mt-2" style="font-size: 0.85rem;">@_errorMessage</div>
+                    }
                 </div>
             </div>
 
@@ -265,6 +269,7 @@
     private List<MatchPlayerModel>? _history;
     private string _editName = "";
     private bool _isSaving = false;
+    private string _errorMessage = "";
 
     protected override async Task OnInitializedAsync()
     {
@@ -289,9 +294,21 @@
         if (string.IsNullOrWhiteSpace(_editName) || _profile == null) return;
         
         _isSaving = true;
+        _errorMessage = "";
         
-        await Supabase.UpdateDisplayName(_editName);
-        _profile.DisplayName = _editName;
+        try
+        {
+            await Supabase.UpdateDisplayName(_editName);
+            _profile.DisplayName = _editName;
+        }
+        catch (Supabase.Postgrest.Exceptions.PostgrestException ex) when (ex.Message.Contains("unique constraint"))
+        {
+            _errorMessage = "That display name is already taken!";
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = "Failed to update profile.";
+        }
         
         _isSaving = false;
     }
@@ -321,9 +338,9 @@
         }
     }
 
-    private void SignOut()
+    private async Task SignOut()
     {
-        Supabase.SignOut();
+        await Supabase.SignOut();
         Navigation.NavigateTo("/");
     }
 

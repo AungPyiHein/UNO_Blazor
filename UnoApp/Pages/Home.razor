@@ -2971,35 +2971,8 @@
     {
         NavigationState.IsArenaMode = true;
         InitializeRuleItems();
-        
-        try {
-            _profile = await Supabase.GetMyProfile();
-            if (_profile != null && !string.IsNullOrWhiteSpace(_profile.DisplayName))
-            {
-                _playerName = _profile.DisplayName;
-            }
-            
-            _cpuProfiles = await Supabase.GetCpuProfiles();
-            _globalLeaderboard = await Supabase.GetGlobalLeaderboard(20);
-        } catch {
-            // fallback if DB fails
-        }
 
-        LobbyService.PlayersUpdated += LobbyOnPlayersUpdated;
-        LobbyService.CpuCountUpdated += LobbyOnCpuCountUpdated;
-        LobbyService.GameStarted   += LobbyOnGameStarted;
-        LobbyService.RoomClosed    += LobbyOnRoomClosed;
-        LobbyService.RulesUpdated  += LobbyOnRulesUpdated;
-        LobbyService.PlayerKicked        += LobbyOnPlayerKicked;
-        LobbyService.ChatMessageReceived += LobbyOnChatMessage;
-        LobbyService.NextRoundRequested  += LobbyOnNextRoundRequested;
-        LobbyService.EndGameVoteReceived += LobbyOnEndGameVoteReceived;
-        LobbyService.PlayerLeft          += LobbyOnPlayerLeft;
-        LobbyService.HubReconnecting     += LobbyOnHubReconnecting;
-        LobbyService.HubReconnected      += LobbyOnHubReconnected;
-        LobbyService.PlayerReadyUpdated  += LobbyOnPlayerReadyUpdated;
-
-        // Initialize Presets
+        // Initialize Presets BEFORE any await calls
         var classicPreset = new RulePresetProfile
         {
             Name = "Classic",
@@ -3026,10 +2999,10 @@
         var chaosPreset = new RulePresetProfile
         {
             Name = "Chaos",
-            IsReadonly = true, // Locked system preset forcing all modifiers to max
+            IsReadonly = true,
             Settings = new GameSettings
             {
-                StartingHandSize = 6, // 6 cards starting hand for Chaos
+                StartingHandSize = 6,
                 Stacking = true,
                 DrawUntilPlayable = true,
                 ForcedPlay = false,
@@ -3037,10 +3010,10 @@
                 SevenSwap = true,
                 ZeroRotate = true,
                 JumpInRule = true,
-                ShowJumpInGlow = false, // Disabled in Chaos
-                JumpInTimerSeconds = 1.0, // 1 second QTE timer for ultimate speed/chaos
+                ShowJumpInGlow = false,
+                JumpInTimerSeconds = 1.0,
                 EnableVortex = true,
-                UnoFailurePenaltyCards = 5, // Max draw penalty
+                UnoFailurePenaltyCards = 5,
                 CpuDifficulty = AiDifficulty.Hard,
                 AfkEnabled = true,
                 AfkTimeoutSeconds = 10,
@@ -3075,6 +3048,47 @@
 
         // Set default preset
         _selectedPreset = classicPreset;
+        
+        try {
+            _profile = await Supabase.GetMyProfile();
+            if (_profile != null && !string.IsNullOrWhiteSpace(_profile.DisplayName))
+            {
+                _playerName = _profile.DisplayName;
+            }
+            
+            _cpuProfiles = await Supabase.GetCpuProfiles();
+
+            // ONE-TIME DB HOTFIX FOR ADMIN
+            if (_profile?.IsAdmin == true && _cpuProfiles.Count > 0 && _cpuProfiles.Any(c => c.DisplayName.StartsWith("CPU ")))
+            {
+                var names = new[] { "Chairman Meow", "Brutus", "Cheddar", "Captain Splash", "Eggbert", "Sir Reginald" };
+                var files = new[] { "slycat.jpg", "buster.jpg", "sneaky.jpg", "grumpy.jpg", "freaky.jpg", "creepy.jpg" };
+                for (int i=0; i<Math.Min(6, _cpuProfiles.Count); i++) {
+                     await Supabase.UpdateProfileAdmin(_cpuProfiles[i].Id, names[i], $"/images/cpu/{files[i]}", false);
+                }
+                _cpuProfiles = await Supabase.GetCpuProfiles(); // Reload
+            }
+
+            _globalLeaderboard = await Supabase.GetGlobalLeaderboard(20);
+        } catch {
+            // fallback if DB fails
+        }
+
+        LobbyService.PlayersUpdated += LobbyOnPlayersUpdated;
+        LobbyService.CpuCountUpdated += LobbyOnCpuCountUpdated;
+        LobbyService.GameStarted   += LobbyOnGameStarted;
+        LobbyService.RoomClosed    += LobbyOnRoomClosed;
+        LobbyService.RulesUpdated  += LobbyOnRulesUpdated;
+        LobbyService.PlayerKicked        += LobbyOnPlayerKicked;
+        LobbyService.ChatMessageReceived += LobbyOnChatMessage;
+        LobbyService.NextRoundRequested  += LobbyOnNextRoundRequested;
+        LobbyService.EndGameVoteReceived += LobbyOnEndGameVoteReceived;
+        LobbyService.PlayerLeft          += LobbyOnPlayerLeft;
+        LobbyService.HubReconnecting     += LobbyOnHubReconnecting;
+        LobbyService.HubReconnected      += LobbyOnHubReconnected;
+        LobbyService.PlayerReadyUpdated  += LobbyOnPlayerReadyUpdated;
+
+        // Presets were initialized at the top of the method
 
         // Multiplayer host: returning from lobby after game started
         if (LobbyService.IsGameStarted && LobbyService.IsHost)
@@ -3570,9 +3584,11 @@
                 IsHuman = true
             });
         }
+        
+        var availableCpus = _cpuProfiles.OrderBy(x => Guid.NewGuid()).ToList();
         for (int i = 0; i < cpuCount; i++)
         {
-            var cpu = i < _cpuProfiles.Count ? _cpuProfiles[i] : null;
+            var cpu = i < availableCpus.Count ? availableCpus[i] : null;
             players.Add(new Player
             {
                 Id = cpu?.Id ?? Guid.NewGuid().ToString(),
@@ -4033,10 +4049,11 @@
             new Player { Id = Guid.NewGuid().ToString(), Name = string.IsNullOrWhiteSpace(_playerName) ? "PLAYER" : _playerName.ToUpper(), IsHuman = true }
         };
 
+        var availableCpus = _cpuProfiles.OrderBy(x => Guid.NewGuid()).ToList();
         for (int i = 1; i < _playerCount; i++)
         {
             var cpuIdx = i - 1;
-            var cpu = cpuIdx < _cpuProfiles.Count ? _cpuProfiles[cpuIdx] : null;
+            var cpu = cpuIdx < availableCpus.Count ? availableCpus[cpuIdx] : null;
             players.Add(new Player 
             { 
                 Id = cpu?.Id ?? Guid.NewGuid().ToString(), 
