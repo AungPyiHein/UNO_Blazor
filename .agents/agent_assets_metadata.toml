@@ -1,8 +1,0 @@
-uploads = []
-generated = []
-
-[[outputs]]
-id = "Nurl6vh4BDgl1bA1TQ79U"
-uri = "file://uno_suggestions.md"
-type = "text"
-title = "UNO Blazor — Feature Suggestions"
