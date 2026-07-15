@@ -745,6 +745,12 @@ namespace UnoEngine
                     // Human already chose a colour (local host or guest colour was bundled with the move).
                     // InternalFinalizeWildColor is called directly here — we're already inside
                     // _actionLock, so we call the internal method rather than the public wrappers.
+                    //
+                    // In multiplayer, flash the chosen colour slice so other players can see it,
+                    // mirroring the CPU highlight animation. Skip in single-player (no remote players)
+                    // to avoid a redundant re-flash for the local human who just clicked the button.
+                    if (OnBoardAnimation != null && RemotePlayerIndices.Count > 0)
+                        await OnBoardAnimation.Invoke($"cpu-color-pick-{declaredColor}");
                     await InternalFinalizeWildColor(declaredColor.Value, player);
                 }
                 else if (!player.IsHuman)
