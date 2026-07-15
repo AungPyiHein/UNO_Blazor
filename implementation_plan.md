@@ -7,8 +7,10 @@ Add persistent storage via Supabase (PostgreSQL + Auth) so that player profiles,
 - [x] **Phase 1: Supabase Setup & CPU Seeding**
 - [x] **Phase 2: Client Project (`UnoApp`) — Auth & Services**
 - [x] **Phase 3: Game Integration**
-- [ ] **Phase 4: New UI Pages**
-- [ ] **Phase 5: Admin Panel**
+- [x] **Phase 4: New UI Pages**
+- [x] **Phase 5: Admin Panel**
+- [x] **Test Phase: Final Testing & Verification**
+- [ ] **Phase 6: Email OTP Auth (Brevo)**
 
 ---
 
@@ -264,13 +266,34 @@ WITH CHECK ( public.is_admin() );
 
 ---
 
-### [LEFT TO DO] Phase 6: Final Testing & Verification
+### [DONE] Test Phase: Final Testing & Verification
 Before declaring the project complete, we must manually verify all systems end-to-end.
 
-#### [NEW] Test Scenarios
-- [ ] **Auth & Profiles**: Can a new user sign up? Does their default stats row generate upon playing? Can they upload an avatar and see it instantly?
-- [ ] **Admin Security**: Log in as a non-admin. Try to navigate directly to `/admin`. Does it redirect?
-- [ ] **Admin Gameplay**: Ensure that an admin account can play multiplayer games just like a normal player without any issues.
-- [ ] **Admin Powers**: Log in as an admin. Edit a CPU bot's name and stats. Verify it immediately reflects on the `/leaderboard`.
-- [ ] **Ban Enforcement**: As an admin, ban a test account. Log into the test account and attempt to host or join a multiplayer lobby. It must be blocked.
-- [ ] **Game Loop & Triggers**: Play a full game against CPU bots to completion. Ensure the host correctly saves the match, and the PostgreSQL trigger automatically increments wins, losses, games played, and updates the global leaderboard.
+#### [DONE] Test Scenarios
+- [x] **Auth & Profiles**: Can a new user sign up? Does their default stats row generate upon playing? Can they upload an avatar and see it instantly?
+- [x] **Admin Security**: Log in as a non-admin. Try to navigate directly to `/admin`. Does it redirect?
+- [x] **Admin Gameplay**: Ensure that an admin account can play multiplayer games just like a normal player without any issues.
+- [x] **Admin Powers**: Log in as an admin. Edit a CPU bot's name and stats. Verify it immediately reflects on the `/leaderboard`.
+- [x] **Ban Enforcement**: As an admin, ban a test account. Log into the test account and attempt to host or join a multiplayer lobby. It must be blocked.
+- [x] **Game Loop & Triggers**: Play a full game against CPU bots to completion. Ensure the host correctly saves the match, and the PostgreSQL trigger automatically increments wins, losses, games played, and updates the global leaderboard.
+
+---
+
+### [LEFT TO DO] Phase 6: Email OTP Auth (Brevo Integration)
+
+The user wants to implement One-Time Password (OTP) email authentication for production. Supabase supports custom SMTP providers. Since the user wants a free, unlimited-ish tier for production, **Brevo** (formerly Sendinblue) is an excellent choice (300 emails/day for free).
+
+#### Goals
+- Guide the user on creating a Brevo account and obtaining SMTP credentials.
+- Guide the user on configuring Supabase Authentication to use Brevo's SMTP server.
+- Update `Login.razor` to support an "Email OTP" flow (Magic Link or 6-digit pin).
+- Update `SupabaseService.cs` to add methods for `SignInWithOtp()` and `VerifyOtp()`.
+
+#### UI Flow for OTP
+1. User enters their email address and clicks "Send Code".
+2. UI switches to a "Verification" state.
+3. User checks their email, enters the 6-digit code (or clicks the magic link).
+4. If code is valid, user is authenticated and redirected to `/home`.
+
+> [!IMPORTANT]
+> Since this involves setting up a 3rd party service (Brevo) and configuring the Supabase dashboard (which only the user has access to), the initial steps will involve step-by-step instructions for the user to follow in their browser.
