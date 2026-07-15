@@ -1,0 +1,210 @@
+@page "/leaderboard"
+@using UnoApp.Services
+@inject SupabaseService Supabase
+@inject NavigationManager Navigation
+@inject NavigationState NavigationState
+
+<div class="login-screen">
+    <div class="top-nav">
+        <button class="glass-btn" @onclick='() => Navigation.NavigateTo("/home")'>← Back to Game</button>
+    </div>
+
+    <div class="leaderboard-container">
+        <div class="glass-card text-center mb-4">
+            <h1 class="page-title">Global Leaderboard</h1>
+            <p class="subtitle">The greatest UNO masters of all time.</p>
+        </div>
+
+        <div class="glass-card">
+            @if (_globalLeaderboard == null)
+            {
+                <div class="text-center p-5">
+                    <span class="spinner-sm"></span> Loading rankings...
+                </div>
+            }
+            else if (_globalLeaderboard.Count == 0)
+            {
+                <div class="text-center p-5">
+                    No records found. Play a game to get on the board!
+                </div>
+            }
+            else
+            {
+                <table class="lb-table">
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Player</th>
+                            <th>Wins</th>
+                            <th>Losses</th>
+                            <th>Win %</th>
+                            <th>Total Score</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @for (int i = 0; i < _globalLeaderboard.Count; i++)
+                        {
+                            var e = _globalLeaderboard[i];
+                            int rank = i + 1;
+                            <tr class="@(rank == 1 ? "rank-1" : rank == 2 ? "rank-2" : rank == 3 ? "rank-3" : "")">
+                                <td class="rank-col">
+                                    @if (rank == 1) { <span>🥇</span> }
+                                    else if (rank == 2) { <span>🥈</span> }
+                                    else if (rank == 3) { <span>🥉</span> }
+                                    else { <span>@rank</span> }
+                                </td>
+                                <td class="player-col">
+                                    @if (!string.IsNullOrEmpty(e.AvatarUrl))
+                                    {
+                                        <img src="@e.AvatarUrl" class="lb-avatar" />
+                                    }
+                                    <span class="lb-name">@e.DisplayName</span>
+                                    @if (e.IsCpu)
+                                    {
+                                        <span class="badge-ai">AI</span>
+                                    }
+                                </td>
+                                <td class="text-success fw-bold">@e.TotalWins</td>
+                                <td class="text-danger fw-bold">@e.TotalLosses</td>
+                                @{
+                                    float wr = e.TotalGames > 0 ? (e.TotalWins / (float)e.TotalGames) * 100 : 0;
+                                }
+                                <td class="text-warning fw-bold">@(wr.ToString("0.0"))%</td>
+                                <td class="score-col">@e.TotalScore</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </div>
+</div>
+
+<style>
+    .login-screen {
+        width: 100vw;
+        height: 100vh;
+        background: linear-gradient(135deg, #0a0a1a 0%, #1a1a3e 40%, #0d0d2b 100%);
+        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        color: white;
+        overflow-y: auto;
+        position: relative;
+    }
+    
+    .login-screen::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background:
+            radial-gradient(circle at 50% 20%, rgba(244, 63, 94, 0.15) 0%, transparent 50%),
+            radial-gradient(circle at 20% 80%, rgba(99, 102, 241, 0.1) 0%, transparent 50%);
+        pointer-events: none;
+        position: fixed;
+    }
+
+    .top-nav {
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        z-index: 10;
+    }
+
+    .leaderboard-container {
+        position: relative;
+        z-index: 1;
+        max-width: 900px;
+        margin: 80px auto;
+        padding: 0 20px;
+        padding-bottom: 50px;
+    }
+
+    /* Glassmorphism */
+    .glass-card {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 20px;
+        padding: 30px;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    }
+    .mb-4 { margin-bottom: 30px; }
+    .p-5 { padding: 40px; }
+
+    .glass-btn {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: white;
+        padding: 10px 20px;
+        border-radius: 12px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+    .glass-btn:hover { background: rgba(255, 255, 255, 0.2); transform: translateY(-2px); }
+
+    /* Typography */
+    .page-title {
+        margin: 0; font-size: 2.5rem; font-weight: 800;
+        background: linear-gradient(135deg, #fca5a5 0%, #f43f5e 100%);
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .subtitle { color: #94a3b8; font-size: 1.1rem; margin-top: 5px; }
+    .text-center { text-align: center; }
+    .text-success { color: #34d399; }
+    .text-danger { color: #f87171; }
+    .text-warning { color: #fbbf24; }
+    .fw-bold { font-weight: 700; }
+
+    /* Table */
+    .lb-table { width: 100%; border-collapse: collapse; }
+    .lb-table th {
+        text-align: left; padding: 15px; color: #94a3b8;
+        font-weight: 600; text-transform: uppercase; letter-spacing: 1px; font-size: 0.85rem;
+        border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+    }
+    .lb-table td { padding: 15px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+    .lb-table tbody tr { transition: background 0.2s; }
+    .lb-table tbody tr:hover { background: rgba(255, 255, 255, 0.03); }
+
+    .rank-col { font-size: 1.2rem; font-weight: bold; width: 60px; text-align: center; }
+    .player-col { display: flex; align-items: center; gap: 10px; }
+    .lb-avatar { width: 32px; height: 32px; border-radius: 50%; border: 2px solid #6366f1; object-fit: cover; }
+    .lb-name { font-weight: 600; font-size: 1.1rem; }
+    .score-col { font-family: monospace; font-size: 1.1rem; color: #a5b4fc; font-weight: bold; }
+
+    .badge-ai { background: rgba(99, 102, 241, 0.2); border: 1px solid #6366f1; color: #c7d2fe; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; }
+
+    .rank-1 td { background: linear-gradient(to right, rgba(251, 191, 36, 0.1), transparent); }
+    .rank-2 td { background: linear-gradient(to right, rgba(148, 163, 184, 0.1), transparent); }
+    .rank-3 td { background: linear-gradient(to right, rgba(180, 83, 9, 0.1), transparent); }
+
+    .spinner-sm {
+        display: inline-block;
+        width: 16px; height: 16px;
+        border: 2px solid rgba(255,255,255,0.3);
+        border-radius: 50%;
+        border-top-color: white;
+        animation: spin 1s ease-in-out infinite;
+    }
+    @@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+
+@code {
+    private List<LeaderboardEntryDto>? _globalLeaderboard;
+
+    protected override async Task OnInitializedAsync()
+    {
+        NavigationState.IsArenaMode = true;
+        
+        try
+        {
+            _globalLeaderboard = await Supabase.GetGlobalLeaderboard(50);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching leaderboard: {ex.Message}");
+            _globalLeaderboard = new List<LeaderboardEntryDto>();
+        }
+    }
+}

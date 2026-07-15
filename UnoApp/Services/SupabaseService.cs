@@ -305,8 +305,8 @@ public class SupabaseService
         var ext = Path.GetExtension(fileName).ToLower();
         var storagePath = $"{userId}/avatar{ext}";
 
-        // Upload to the "Avatars" bucket
-        await _client!.Storage.From("Avatars").Upload(
+        // Upload to the "avatars" bucket
+        await _client!.Storage.From("avatars").Upload(
             fileBytes,
             storagePath,
             new Supabase.Storage.FileOptions
@@ -316,7 +316,7 @@ public class SupabaseService
         );
 
         // Get the public URL
-        var publicUrl = _client.Storage.From("Avatars").GetPublicUrl(storagePath);
+        var publicUrl = _client.Storage.From("avatars").GetPublicUrl(storagePath);
 
         // Update the profile with the new avatar URL
         await UpdateAvatarUrl(publicUrl);

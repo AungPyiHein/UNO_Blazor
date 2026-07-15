@@ -1,0 +1,348 @@
+@page "/profile"
+@using UnoApp.Services
+@inject SupabaseService Supabase
+@inject NavigationManager Navigation
+@inject NavigationState NavigationState
+
+<div class="login-screen">
+    <!-- Top Nav -->
+    <div class="top-nav">
+        <button class="glass-btn" @onclick='() => Navigation.NavigateTo("/home")'>← Back to Game</button>
+        <button class="glass-btn btn-danger" @onclick="SignOut">Sign Out</button>
+    </div>
+
+    <div class="profile-container">
+        <!-- Left Column: Edit Profile & Stats -->
+        <div class="profile-sidebar">
+            <div class="glass-card text-center">
+                <h2>My Profile</h2>
+                
+                <div class="avatar-section">
+                    @if (!string.IsNullOrEmpty(_profile?.AvatarUrl))
+                    {
+                        <img src="@_profile.AvatarUrl" class="avatar-img" />
+                    }
+                    else
+                    {
+                        <div class="avatar-img placeholder">@(_profile?.DisplayName?.FirstOrDefault() ?? '?')</div>
+                    }
+                    
+                    <div class="avatar-upload-overlay">
+                        <label for="avatarUpload" class="upload-btn">📷</label>
+                        <InputFile id="avatarUpload" OnChange="HandleFileSelected" accept="image/png, image/jpeg" style="display: none;" />
+                    </div>
+                </div>
+
+                <div class="form-group mt-3">
+                    <label>Display Name</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" @bind="_editName" class="form-control" />
+                        <button class="glass-btn" @onclick="SaveProfile" disabled="@_isSaving">
+                            @if (_isSaving) { <span class="spinner-sm"></span> } else { <span>Save</span> }
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-card stats-card mt-4">
+                <h3>Lifetime Stats</h3>
+                @if (_stats != null)
+                {
+                    <div class="stats-grid">
+                        <div class="stat-box">
+                            <span class="stat-label">Wins</span>
+                            <span class="stat-value text-success">@_stats.TotalWins</span>
+                        </div>
+                        <div class="stat-box">
+                            <span class="stat-label">Losses</span>
+                            <span class="stat-value text-danger">@_stats.TotalLosses</span>
+                        </div>
+                        <div class="stat-box">
+                            <span class="stat-label">Games</span>
+                            <span class="stat-value">@_stats.TotalGames</span>
+                        </div>
+                        <div class="stat-box">
+                            <span class="stat-label">Win Rate</span>
+                            <span class="stat-value text-warning">@(_stats.WinRate.ToString("0.0"))%</span>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <p>No stats recorded yet.</p>
+                }
+            </div>
+        </div>
+
+        <!-- Right Column: Match History -->
+        <div class="profile-main">
+            <div class="glass-card match-history-card">
+                <h3>Recent Matches</h3>
+                
+                @if (_history == null)
+                {
+                    <p>Loading history...</p>
+                }
+                else if (_history.Count == 0)
+                {
+                    <p>You haven't played any matches yet.</p>
+                }
+                else
+                {
+                    <div class="history-list">
+                        @foreach (var match in _history)
+                        {
+                            <div class="history-item @(match.IsWinner ? "history-win" : "history-loss")">
+                                <div class="h-left">
+                                    <span class="h-result">@(match.IsWinner ? "VICTORY" : "DEFEAT")</span>
+                                    <span class="h-placement">@(match.FinalPlacement)@(GetOrdinal(match.FinalPlacement)) Place</span>
+                                </div>
+                                <div class="h-mid">
+                                    <span class="h-score">Score: @match.TotalScore</span>
+                                    <span class="h-cards">Cards Left: @match.CardsRemaining</span>
+                                </div>
+                                <div class="h-right">
+                                    <span class="h-date">Match ID: @match.MatchId.Substring(0, 8)</span>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Consistent Background */
+    .login-screen {
+        width: 100vw;
+        height: 100vh;
+        background: linear-gradient(135deg, #0a0a1a 0%, #1a1a3e 40%, #0d0d2b 100%);
+        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        color: white;
+        overflow-y: auto;
+        position: relative;
+    }
+    
+    .login-screen::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background:
+            radial-gradient(circle at 20% 30%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
+            radial-gradient(circle at 80% 70%, rgba(244, 63, 94, 0.1) 0%, transparent 50%);
+        pointer-events: none;
+        position: fixed;
+    }
+
+    .top-nav {
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        right: 20px;
+        display: flex;
+        justify-content: space-between;
+        z-index: 10;
+    }
+
+    .profile-container {
+        position: relative;
+        z-index: 1;
+        max-width: 1200px;
+        margin: 80px auto;
+        display: grid;
+        grid-template-columns: 350px 1fr;
+        gap: 30px;
+        padding: 0 20px;
+        padding-bottom: 50px;
+    }
+
+    @@media (max-width: 900px) {
+        .profile-container { grid-template-columns: 1fr; }
+    }
+
+    /* Glassmorphism */
+    .glass-card {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 20px;
+        padding: 30px;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    }
+
+    .glass-btn {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: white;
+        padding: 10px 20px;
+        border-radius: 12px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+    .glass-btn:hover { background: rgba(255, 255, 255, 0.2); transform: translateY(-2px); }
+    .glass-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    
+    .btn-danger { background: rgba(239, 68, 68, 0.2); border-color: rgba(239, 68, 68, 0.5); }
+    .btn-danger:hover { background: rgba(239, 68, 68, 0.4); }
+
+    /* Typography & Utilities */
+    h2, h3 { margin-top: 0; margin-bottom: 20px; font-weight: 700; background: linear-gradient(135deg, #fff 0%, #a5b4fc 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .text-center { text-align: center; }
+    .mt-3 { margin-top: 15px; }
+    .mt-4 { margin-top: 30px; }
+    .text-success { color: #34d399; }
+    .text-danger { color: #f87171; }
+    .text-warning { color: #fbbf24; }
+
+    /* Forms */
+    .form-group label { display: block; text-align: left; margin-bottom: 8px; color: #94a3b8; font-size: 0.9rem; }
+    input.form-control {
+        width: 100%;
+        background: rgba(0, 0, 0, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        padding: 10px 15px;
+        color: white;
+        font-size: 1rem;
+        outline: none;
+    }
+    input.form-control:focus { border-color: #6366f1; }
+
+    /* Avatar */
+    .avatar-section { display: flex; justify-content: center; margin-bottom: 20px; position: relative; width: 120px; margin: 0 auto 20px auto; }
+    .avatar-img { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 3px solid #6366f1; box-shadow: 0 0 20px rgba(99, 102, 241, 0.4); }
+    .avatar-img.placeholder { background: linear-gradient(135deg, #6366f1, #3b82f6); display: flex; align-items: center; justify-content: center; font-size: 3rem; font-weight: bold; width: 120px; height: 120px; border-radius: 50%; }
+
+    .avatar-upload-overlay { position: absolute; bottom: 0; right: 0; }
+    .upload-btn { background: rgba(255, 255, 255, 0.2); backdrop-filter: blur(5px); border-radius: 50%; width: 35px; height: 35px; display: flex; align-items: center; justify-content: center; cursor: pointer; border: 1px solid rgba(255, 255, 255, 0.4); font-size: 1.2rem; transition: transform 0.2s; }
+    .upload-btn:hover { transform: scale(1.1); background: rgba(255, 255, 255, 0.3); }
+
+    /* Stats Grid */
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+    .stat-box { background: rgba(0,0,0,0.2); border-radius: 12px; padding: 15px; text-align: center; border: 1px solid rgba(255,255,255,0.05); }
+    .stat-label { display: block; font-size: 0.8rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
+    .stat-value { display: block; font-size: 1.8rem; font-weight: bold; }
+
+    /* Match History */
+    .match-history-card { min-height: 500px; }
+    .history-list { display: flex; flex-direction: column; gap: 15px; }
+    .history-item { 
+        display: flex; justify-content: space-between; align-items: center; 
+        background: rgba(0,0,0,0.2); border-radius: 12px; padding: 15px 20px; 
+        border-left: 4px solid #6366f1; 
+    }
+    .history-win { border-left-color: #34d399; background: linear-gradient(to right, rgba(52, 211, 153, 0.1), rgba(0,0,0,0.2)); }
+    .history-loss { border-left-color: #f87171; }
+    
+    .h-left { display: flex; flex-direction: column; width: 100px; }
+    .h-result { font-weight: bold; font-size: 1.1rem; }
+    .h-placement { font-size: 0.8rem; color: #94a3b8; }
+    
+    .h-mid { display: flex; flex-direction: column; flex-grow: 1; padding: 0 20px; }
+    .h-score { font-weight: 600; }
+    .h-cards { font-size: 0.85rem; color: #cbd5e1; }
+    
+    .h-right { text-align: right; font-size: 0.8rem; color: #64748b; }
+
+    .spinner-sm {
+        display: inline-block;
+        width: 16px; height: 16px;
+        border: 2px solid rgba(255,255,255,0.3);
+        border-radius: 50%;
+        border-top-color: white;
+        animation: spin 1s ease-in-out infinite;
+    }
+    @@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+
+@code {
+    private ProfileModel? _profile;
+    private PlayerStatsModel? _stats;
+    private List<MatchPlayerModel>? _history;
+    private string _editName = "";
+    private bool _isSaving = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        NavigationState.IsArenaMode = true;
+        
+        var uid = Supabase.CurrentUserId;
+        if (uid == null)
+        {
+            Navigation.NavigateTo("/");
+            return;
+        }
+
+        _profile = await Supabase.GetProfile(uid);
+        _editName = _profile?.DisplayName ?? "";
+        
+        _stats = await Supabase.GetMyStats();
+        _history = await Supabase.GetMatchHistory(uid);
+    }
+
+    private async Task SaveProfile()
+    {
+        if (string.IsNullOrWhiteSpace(_editName) || _profile == null) return;
+        
+        _isSaving = true;
+        
+        await Supabase.UpdateDisplayName(_editName);
+        _profile.DisplayName = _editName;
+        
+        _isSaving = false;
+    }
+
+    private async Task HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        // Limit to 5MB
+        if (file.Size > 5 * 1024 * 1024) return;
+        
+        try
+        {
+            using var stream = file.OpenReadStream(5 * 1024 * 1024);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            var bytes = ms.ToArray();
+            
+            var newUrl = await Supabase.UploadAvatar(bytes, file.Name);
+            if (newUrl != null && _profile != null)
+            {
+                _profile.AvatarUrl = newUrl;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error uploading avatar: {ex.Message}");
+        }
+    }
+
+    private void SignOut()
+    {
+        Supabase.SignOut();
+        Navigation.NavigateTo("/");
+    }
+
+    private string GetOrdinal(int num)
+    {
+        if (num <= 0) return "";
+        switch (num % 100)
+        {
+            case 11:
+            case 12:
+            case 13:
+                return "th";
+        }
+        switch (num % 10)
+        {
+            case 1: return "st";
+            case 2: return "nd";
+            case 3: return "rd";
+            default: return "th";
+        }
+    }
+}

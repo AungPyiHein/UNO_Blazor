@@ -30,14 +30,13 @@
                     <span class="icon">⚙️</span> Manage Rules
                     <span class="active-preset-badge">@_selectedPreset.Name</span>
                 </button>
-                @if (_globalLeaderboard.Count > 0)
-                {
-                    <button class="glass-btn leaderboard-trigger @(_leaderboardUpdated ? "leaderboard-updated" : "")"
-                            @onclick="() => { _showLeaderboard = true; _leaderboardUpdated = false; }">
-                        <span class="icon">🏆</span> Leaderboard
-                        @if (_leaderboardUpdated) { <span class="lb-dot"></span> }
-                    </button>
-                }
+                <button class="glass-btn" @onclick='() => Nav.NavigateTo("/leaderboard")'>
+                    <span class="icon">🏆</span> Leaderboard
+                    @if (_leaderboardUpdated) { <span class="lb-dot"></span> }
+                </button>
+                <button class="glass-btn" @onclick='() => Nav.NavigateTo("/profile")'>
+                    <span class="icon">👤</span> Profile
+                </button>
             </div>
 
             <!-- Middle Tier: The Power Center -->
@@ -940,51 +939,6 @@
 
                     <div class="modal-footer">
                         <button class="confirm-rules-btn" @onclick="SaveAndApplyRules">Save & Apply</button>
-                    </div>
-                </div>
-            </div>
-        }
-
-        <!-- MODAL: Leaderboard -->
-        @if (_showLeaderboard)
-        {
-            <div class="modal-backdrop" @onclick="() => _showLeaderboard = false">
-                <div class="modal-card leaderboard-modal" @onclick:stopPropagation>
-                    <div class="modal-header">
-                        <h2>🏆 Session Leaderboard</h2>
-                        <button class="close-btn" @onclick="() => _showLeaderboard = false">×</button>
-                    </div>
-                    <div class="leaderboard-body">
-                        <table class="lb-table">
-                            <thead>
-                                <tr><th>#</th><th>Player</th><th>W</th><th>L</th><th>Games</th><th>Total Score</th></tr>
-                            </thead>
-                            <tbody>
-                                @for (int ri = 0; ri < _globalLeaderboard.Count; ri++)
-                                {
-                                    var e = _globalLeaderboard[ri];
-                                    int rank = ri + 1;
-                                    <tr class="@(rank == 1 ? "lb-top" : "")">
-                                        <td>@(rank == 1 ? "🥇" : rank == 2 ? "🥈" : rank == 3 ? "🥉" : rank.ToString())</td>
-                                        <td>
-                                            @if (!string.IsNullOrEmpty(e.AvatarUrl))
-                                            {
-                                                <img src="@e.AvatarUrl" class="lb-avatar" style="width: 20px; height: 20px; border-radius: 50%; vertical-align: middle; margin-right: 5px;" />
-                                            }
-                                            @e.DisplayName
-                                            @if (e.IsCpu)
-                                            {
-                                                <span class="lobby-badge lobby-badge-cpu" style="margin-left:5px;">AI</span>
-                                            }
-                                        </td>
-                                        <td class="lb-win">@e.TotalWins</td>
-                                        <td class="lb-lose">@e.TotalLosses</td>
-                                        <td>@e.TotalGames</td>
-                                        <td class="lb-date">@e.TotalScore</td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
                     </div>
                 </div>
             </div>
