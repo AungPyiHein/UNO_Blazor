@@ -24,7 +24,37 @@ else
         }
         @if (_isPaused)
         {
-            <div class="pause-overlay">PAUSED</div>
+            <div class="pause-overlay">
+                <div class="pause-menu-card glass-panel">
+                    @if (!_showQuitConfirm)
+                    {
+                        <h2 class="pause-title">GAME PAUSED</h2>
+                        <div class="pause-buttons">
+                            <button class="menu-btn btn-resume" @onclick="TogglePause">
+                                <span class="icon">▶</span> Resume Game
+                            </button>
+                            <button class="menu-btn btn-quit" @onclick="ToggleQuitConfirm">
+                                <span class="icon">🚪</span> Quit Match
+                            </button>
+                        </div>
+                    }
+                    else
+                    {
+                        <h2 class="pause-title text-danger">ABANDON MATCH?</h2>
+                        <p class="pause-warning">
+                            Are you sure you want to quit? If you leave now, you will forfeit this match and your stats will be affected.
+                        </p>
+                        <div class="pause-buttons">
+                            <button class="menu-btn btn-resume" @onclick="ToggleQuitConfirm">
+                                Cancel
+                            </button>
+                            <button class="menu-btn btn-quit" @onclick="ConfirmQuit">
+                                Yes, Quit
+                            </button>
+                        </div>
+                    }
+                </div>
+            </div>
         }
 
         @for (int j = 0; j < Opponents.Count; j++)
@@ -615,9 +645,27 @@ else
     private async Task TogglePause()
     {
         _isPaused = !_isPaused;
+        _showQuitConfirm = false; // Reset confirm state when toggling
         if (OnPauseChanged.HasDelegate)
             await OnPauseChanged.InvokeAsync(_isPaused);
         StateHasChanged();
+    }
+
+    private bool _showQuitConfirm = false;
+
+    private void ToggleQuitConfirm()
+    {
+        _showQuitConfirm = !_showQuitConfirm;
+    }
+
+    private async Task ConfirmQuit()
+    {
+        _showQuitConfirm = false;
+        _isPaused = false;
+        if (OnStartGame.HasDelegate)
+        {
+            await OnStartGame.InvokeAsync();
+        }
     }
 
     private string MyName => State != null && State.PlayerNames.Length > State.MyPlayerIndex
@@ -1223,22 +1271,88 @@ else
     }
     .pause-overlay {
         position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(15,23,42,0.48);
-        backdrop-filter: blur(6px);
-        -webkit-backdrop-filter: blur(6px);
-        color: #f8fafc;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(15,23,42,0.7);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
         display: grid;
         place-items: center;
-        font-size: 0.95rem;
-        font-weight: 700;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
         z-index: 10000;
         pointer-events: auto;
+    }
+    
+    .pause-menu-card {
+        background: rgba(30, 41, 59, 0.85);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 24px;
+        padding: 40px;
+        text-align: center;
+        width: 90%;
+        max-width: 400px;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        animation: dropIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    
+    .pause-title {
+        color: #f8fafc;
+        font-size: 1.8rem;
+        font-weight: 800;
+        letter-spacing: 0.1em;
+        margin-top: 0;
+        margin-bottom: 30px;
+        text-transform: uppercase;
+    }
+    
+    .text-danger {
+        color: #ef4444;
+    }
+    
+    .pause-warning {
+        color: #cbd5e1;
+        font-size: 1rem;
+        line-height: 1.5;
+        margin-bottom: 30px;
+        font-weight: 500;
+    }
+    
+    .pause-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .menu-btn {
+        padding: 15px 20px;
+        border-radius: 12px;
+        font-size: 1.1rem;
+        font-weight: 700;
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        transition: all 0.2s;
+    }
+    
+    .btn-resume {
+        background: rgba(99, 102, 241, 0.2);
+        color: #a5b4fc;
+        border: 1px solid rgba(99, 102, 241, 0.5);
+    }
+    .btn-resume:hover {
+        background: rgba(99, 102, 241, 0.4);
+        transform: translateY(-2px);
+    }
+    
+    .btn-quit {
+        background: rgba(239, 68, 68, 0.15);
+        color: #fca5a5;
+        border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+    .btn-quit:hover {
+        background: rgba(239, 68, 68, 0.3);
+        transform: translateY(-2px);
     }
 
     .player-profile-container {

@@ -15,7 +15,7 @@
 <div class="menu-screen @(_isGameStarted ? "game-active" : "")">
     @if (_isGameStarted)
     {
-        <GameView @ref="_gameViewRef" State="@_spState" OnMove="HandleSpMove" OnNextRound="HandleNextRound" OnStartGame="ReturnToLobbyAsync" OnAnimationMidpoint="HandleAnimMidpoint" ShowPauseButton="@(!_isMultiplayerHost)" OnPauseChanged="HandlePauseChanged" />
+        <GameView @ref="_gameViewRef" State="@_spState" OnMove="HandleSpMove" OnNextRound="HandleNextRound" OnStartGame="ReturnToLobbyAsync" OnAnimationMidpoint="HandleAnimMidpoint" ShowPauseButton="true" OnPauseChanged="HandlePauseChanged" />
     }
     else
     {
