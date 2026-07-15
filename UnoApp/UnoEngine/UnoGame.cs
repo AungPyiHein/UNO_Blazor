@@ -63,6 +63,13 @@ namespace UnoEngine
         // hand-count-1 check ran, so the UNO button appeared to pop up only after the next player's
         // turn had already started. Defer that extra advance until after the UNO risk check.
         private bool _pendingExtraTurnAdvance = false;
+
+        /// <summary>
+        /// Index of the player who was just skipped by a Skip or 2-player Reverse.
+        /// That player may not jump in on the same card that skipped them.
+        /// Reset to -1 once the jump-in window closes.
+        /// </summary>
+        public int SkippedForJumpInIndex { get; private set; } = -1;
         public string ActiveNotificationBanner { get; set; } = "";
         public int NotificationBannerTargetIndex { get; set; } = -1; // -1 = broadcast to all
         public CardColor LastValidColor { get; set; }
@@ -670,9 +677,17 @@ namespace UnoEngine
             return card.Color == TopCard.Color && card.Value == TopCard.Value;
         }
 
-        public async Task<bool> JumpInAsync(Player player, UnoCard card)
+        public bool IsEligibleForJumpIn(UnoCard card, Player player)
         {
             if (!IsEligibleForJumpIn(card)) return false;
+            // The player who was just skipped cannot jump in on the same card that skipped them
+            if (Players.IndexOf(player) == SkippedForJumpInIndex) return false;
+            return true;
+        }
+
+        public async Task<bool> JumpInAsync(Player player, UnoCard card)
+        {
+            if (!IsEligibleForJumpIn(card, player)) return false;
 
             await _actionLock.WaitAsync();
             try
@@ -746,11 +761,12 @@ namespace UnoEngine
                     // InternalFinalizeWildColor is called directly here — we're already inside
                     // _actionLock, so we call the internal method rather than the public wrappers.
                     //
-                    // In multiplayer, flash the chosen colour slice so other players can see it,
-                    // mirroring the CPU highlight animation. Skip in single-player (no remote players)
-                    // to avoid a redundant re-flash for the local human who just clicked the button.
+                    // In multiplayer, show guests the colour picker briefly then highlight the chosen
+                    // slice — "wild-chosen-{color}" keeps the WaitingForColorSelection overlay visible
+                    // for a short blank phase so guests see the picker before the colour is revealed.
+                    // Skip in single-player (no remote players) to avoid a redundant re-flash.
                     if (OnBoardAnimation != null && RemotePlayerIndices.Count > 0)
-                        await OnBoardAnimation.Invoke($"cpu-color-pick-{declaredColor}");
+                        await OnBoardAnimation.Invoke($"wild-chosen-{declaredColor}");
                     await InternalFinalizeWildColor(declaredColor.Value, player);
                 }
                 else if (!player.IsHuman)
@@ -1006,6 +1022,7 @@ namespace UnoEngine
             if (TopCard == null) return false;
             foreach (var p in Players)
             {
+                if (Players.IndexOf(p) == SkippedForJumpInIndex) continue; // Skipped player cannot jump in
                 if (p.Hand.Any(c => c.Color == TopCard.Color && c.Value == TopCard.Value))
                     return true;
             }
@@ -1031,12 +1048,14 @@ namespace UnoEngine
             catch (TaskCanceledException)
             {
                 // Timer was cancelled because someone jumped in! We do not pass the turn.
+                SkippedForJumpInIndex = -1;
                 return;
             }
 
             // If timer expired normally, check if we are still waiting
             if (Status == GameStatus.WaitingForJumpIn)
             {
+                SkippedForJumpInIndex = -1;
                 Status = GameStatus.Playing;
                 OnStateChanged?.Invoke();
                 await StartTurnAsync();
@@ -1226,13 +1245,15 @@ namespace UnoEngine
             switch (card.Value)
             {
                 case CardValue.Skip:
-                    if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"skip-{GetNextPlayerIndex()}");
+                    SkippedForJumpInIndex = GetNextPlayerIndex();
+                    if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"skip-{SkippedForJumpInIndex}");
                     _pendingExtraTurnAdvance = true; // Applied after the UNO risk check in EndPlayCardSequence
                     break;
                 case CardValue.Reverse:
                     if (Players.Count == 2)
                     {
-                        if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"skip-{GetNextPlayerIndex()}");
+                        SkippedForJumpInIndex = GetNextPlayerIndex();
+                        if (OnBoardAnimation != null) await OnBoardAnimation.Invoke($"skip-{SkippedForJumpInIndex}");
                         _pendingExtraTurnAdvance = true; // In 2 player, Reverse acts like Skip
                     }
                     else

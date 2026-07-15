@@ -303,6 +303,7 @@ else
                     bool canJumpIn = card != null
                                      && State.Status == "WaitingForJumpIn"
                                      && !State.IsMyTurn
+                                     && State.MyPlayerIndex != State.SkippedForJumpInIndex
                                      && State.TopCard != null
                                      && card.Color == State.TopCard.Color
                                      && card.Value == State.TopCard.Value
@@ -794,6 +795,22 @@ else
             return;
         }
 
+        // "wild-chosen-{color}" — used when a human plays a wild in MP. Shows the blank picker
+        // for 300 ms so guests see WaitingForColorSelection, then highlights the chosen colour for
+        // 800 ms so everyone sees what was picked before the game state advances.
+        if (animType.StartsWith("wild-chosen-") && Enum.TryParse<CardColor>(animType.Substring(12), out var chosenColor))
+        {
+            _highlightedColor = null;           // Blank picker visible first
+            await InvokeAsync(StateHasChanged);
+            await Task.Delay(300);              // Guests see the picker with no colour highlighted
+            _highlightedColor = chosenColor;   // Reveal the chosen colour
+            await InvokeAsync(StateHasChanged);
+            await Task.Delay(800);
+            _highlightedColor = null;
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
         if (animType.StartsWith("cpu-color-pick-") && Enum.TryParse<CardColor>(animType.Substring(15), out var pickedColor))
         {
             _highlightedColor = pickedColor;
@@ -819,6 +836,7 @@ else
         // Jump-in: human plays out-of-turn during the QTE window
         if (State.Status == "WaitingForJumpIn"
             && !State.IsMyTurn
+            && State.MyPlayerIndex != State.SkippedForJumpInIndex
             && State.TopCard != null
             && card.Color == State.TopCard.Color
             && card.Value == State.TopCard.Value

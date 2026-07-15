@@ -78,4 +78,10 @@ public class GameStateDto
 
     /// <summary>Player index that this DTO was built for (0 = human in SP, MyPlayerIndex in MP).</summary>
     public int MyPlayerIndex { get; set; }
+
+    /// <summary>
+    /// Index of the player who was just skipped (by a Skip or 2p Reverse) and therefore cannot
+    /// jump in on that same card. -1 when no player is currently skipped.
+    /// </summary>
+    public int SkippedForJumpInIndex { get; set; } = -1;
 }

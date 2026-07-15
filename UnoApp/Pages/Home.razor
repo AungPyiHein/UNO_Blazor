@@ -267,7 +267,7 @@
                                         <!-- Toggle grid -->
                                         <div class="lcr-toggles-grid">
                                             <button class="lcr-tile @(_lobbyCustomSettings.Stacking ? "lcr-tile-on" : "")"
-                                                    @onclick="() => { _lobbyCustomSettings.Stacking = !_lobbyCustomSettings.Stacking; }">
+                                                    @onclick="() => { _lobbyCustomSettings.Stacking = !_lobbyCustomSettings.Stacking; if (_lobbyCustomSettings.Stacking) _lobbyCustomSettings.EnableWildDraw4Challenge = false; }">
                                                 <span class="lcr-tile-icon">🔥</span>
                                                 <span class="lcr-tile-label">Stacking</span>
                                                 <span class="lcr-pip"></span>
@@ -284,8 +284,9 @@
                                                 <span class="lcr-tile-label">Forced Play</span>
                                                 <span class="lcr-pip"></span>
                                             </button>
-                                            <button class="lcr-tile @(_lobbyCustomSettings.EnableWildDraw4Challenge ? "lcr-tile-on" : "")"
-                                                    @onclick="() => { _lobbyCustomSettings.EnableWildDraw4Challenge = !_lobbyCustomSettings.EnableWildDraw4Challenge; }">
+                                            <button class="lcr-tile @(_lobbyCustomSettings.EnableWildDraw4Challenge ? "lcr-tile-on" : "") @(_lobbyCustomSettings.Stacking ? "lcr-tile-locked" : "")"
+                                                    disabled="@_lobbyCustomSettings.Stacking"
+                                                    @onclick="() => { if (!_lobbyCustomSettings.Stacking) _lobbyCustomSettings.EnableWildDraw4Challenge = !_lobbyCustomSettings.EnableWildDraw4Challenge; }">
                                                 <span class="lcr-tile-icon">⚔️</span>
                                                 <span class="lcr-tile-label">WD4 Challenge</span>
                                                 <span class="lcr-pip"></span>
@@ -641,7 +642,7 @@
                 <div class="rule-control">
                     <label class="switch">
                         <input type="checkbox" checked="@_editingSettings.Stacking" 
-                               @onchange="(e) => ToggleRule(val => _editingSettings.Stacking = val, e)" />
+                               @onchange="(e) => ToggleRule(val => { _editingSettings.Stacking = val; if (val) _editingSettings.EnableWildDraw4Challenge = false; }, e)" />
                         <span class="slider"></span>
                     </label>
                 </div>
@@ -695,17 +696,18 @@
 
                                     <!-- Wild Draw 4 Challenge -->
                                     <div class="wd4-section">
-                                        <div class="rule-card @(_editingSettings.EnableWildDraw4Challenge ? "active" : "")">
+                                        <div class="rule-card @(_editingSettings.EnableWildDraw4Challenge ? "active" : "") @(_editingSettings.Stacking ? "rule-disabled" : "")">
                                             <div class="rule-meta">
                                                 <span class="rule-icon">⚔️</span>
                                                 <div class="rule-text">
                                                     <span class="rule-title">Wild Draw 4 Challenge</span>
-                                                    <span class="rule-desc">Targets can challenge played +4s for illegal matching color.</span>
+                                                    <span class="rule-desc">Targets can challenge played +4s for illegal matching color. @(_editingSettings.Stacking ? "(Incompatible with Stacking)" : "")</span>
                                                 </div>
                                             </div>
                                             <div class="rule-control">
                                                 <label class="switch">
                                                     <input type="checkbox" checked="@_editingSettings.EnableWildDraw4Challenge" 
+                                                           disabled="@_editingSettings.Stacking"
                                                            @onchange="(e) => ToggleRule(val => _editingSettings.EnableWildDraw4Challenge = val, e)" />
                                                     <span class="slider"></span>
                                                 </label>
@@ -1208,6 +1210,7 @@
                                             <li>Stack +4 on +4 → penalty grows to +8, +12…</li>
                                             <li>You cannot stack a +4 on top of a +2.</li>
                                         </ul>
+                                        <div class="rb-info-box rb-info-warn">Stacking is incompatible with Wild Draw 4 Challenge. Enabling Stacking automatically disables the WD4 Challenge rule.</div>
                                     </div>
 
                                     <div class="rb-section">
@@ -1547,6 +1550,11 @@
     .rule-card.active {
         background: rgba(255, 255, 255, 0.04);
         border-color: rgba(255, 255, 255, 0.12);
+    }
+    .rule-card.rule-disabled {
+        opacity: 0.42;
+        pointer-events: none;
+        filter: grayscale(0.5);
     }
     .rule-meta { display: flex; gap: 12px; align-items: flex-start; }
     .rule-icon { font-size: 1.8rem; line-height: 1; }
@@ -2587,6 +2595,11 @@
         transform: translateX(14px);
         background: #fff;
         box-shadow: 0 0 6px rgba(99,102,241,0.6);
+    }
+    .lcr-tile-locked {
+        opacity: 0.38;
+        pointer-events: none;
+        filter: grayscale(0.6);
     }
     .lcr-slider-section {
         display: flex;
@@ -3680,6 +3693,7 @@
             Wd4BluffCards        = game.Wd4BluffRevealCards?.Select(c => new CardDto { Id = c.Id.ToString(), Color = c.Color.ToString(), Value = c.Value.ToString() }).ToList() ?? new(),
             Wd4BluffPlayerIndex  = game.Wd4BluffPlayer != null ? game.Players.IndexOf(game.Wd4BluffPlayer) : -1,
             MyPlayerIndex        = playerIndex,
+            SkippedForJumpInIndex = game.SkippedForJumpInIndex,
         };
     }
 
