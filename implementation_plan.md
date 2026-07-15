@@ -10,7 +10,7 @@ Add persistent storage via Supabase (PostgreSQL + Auth) so that player profiles,
 - [x] **Phase 4: New UI Pages**
 - [x] **Phase 5: Admin Panel**
 - [x] **Test Phase: Final Testing & Verification**
-- [ ] **Phase 6: Email OTP Auth (Brevo)**
+- [x] **Phase 6: Username Auth & Guest Lifecycle**
 
 ---
 
@@ -279,21 +279,57 @@ Before declaring the project complete, we must manually verify all systems end-t
 
 ---
 
-### [LEFT TO DO] Phase 6: Email OTP Auth (Brevo Integration)
+### [DONE] Phase 6: Username Auth & Guest Lifecycle
 
-The user wants to implement One-Time Password (OTP) email authentication for production. Supabase supports custom SMTP providers. Since the user wants a free, unlimited-ish tier for production, **Brevo** (formerly Sendinblue) is an excellent choice (300 emails/day for free).
+The user has decided to pivot away from Email OTP and instead implement a frictionless **Username + Password** system, while strictly managing the lifecycle of anonymous Guests.
 
-#### Goals
-- Guide the user on creating a Brevo account and obtaining SMTP credentials.
-- Guide the user on configuring Supabase Authentication to use Brevo's SMTP server.
-- Update `Login.razor` to support an "Email OTP" flow (Magic Link or 6-digit pin).
-- Update `SupabaseService.cs` to add methods for `SignInWithOtp()` and `VerifyOtp()`.
+#### Architecture
+Supabase Auth inherently requires an email address. To achieve a pure "Username + Password" login without modifying the underlying GoTrue engine, we will use a pseudo-email strategy:
+- When a user signs up with the username `CoolPlayer`, the app will secretly register them with Supabase Auth as `CoolPlayer@uno.local`.
+- When they sign in with `CoolPlayer`, the app will authenticate against `CoolPlayer@uno.local`.
+- If the user provides an optional real email during sign up, we will store it in a new `recovery_email` column in their `public.profiles` table for future use.
 
-#### UI Flow for OTP
-1. User enters their email address and clicks "Send Code".
-2. UI switches to a "Verification" state.
-3. User checks their email, enters the 6-digit code (or clicks the magic link).
-4. If code is valid, user is authenticated and redirected to `/home`.
+#### Objectives
 
-> [!IMPORTANT]
-> Since this involves setting up a 3rd party service (Brevo) and configuring the Supabase dashboard (which only the user has access to), the initial steps will involve step-by-step instructions for the user to follow in their browser.
+**1. Authentication Overhaul (`Login.razor` & `SupabaseService.cs`)** ✅
+- [x] Change "Email" input fields to "Username" across the login/signup forms.
+- [x] Add an "Optional Email" input field to the Sign Up form.
+- [x] Update `SupabaseService.SignUp` and `SignInWithEmail` to automatically append `@uno.local` to usernames.
+
+**2. Database Update (SQL)** ✅
+- [x] Add `recovery_email` column to `public.profiles`.
+- [x] Schedule `pg_cron` job for daily automatic deletion of Guest (`is_anonymous = true`) accounts older than 1 day.
+
+<details>
+<summary><b>Click to view the applied SQL</b></summary>
+
+```sql
+-- 1. Add recovery_email column to profiles
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS recovery_email text;
+
+-- 2. Enable pg_cron extension
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+
+-- 3. Schedule daily cleanup of guest accounts older than 24 hours
+-- Runs every day at midnight UTC. Cascading foreign keys will
+-- automatically wipe their profiles and player_stats rows too.
+SELECT cron.schedule(
+  'cleanup-guests-daily',
+  '0 0 * * *',
+  $$
+    DELETE FROM auth.users 
+    WHERE is_anonymous = true 
+    AND created_at < NOW() - INTERVAL '1 day';
+  $$
+);
+```
+</details>
+
+**3. Guest UI Restrictions (`Home.razor` & `Profile.razor`)** ✅
+- [x] Hide the "My Profile" button for Guests on the Main Menu.
+- [x] Display a prominent warning banner for Guests: *"Guest accounts and stats are permanently deleted after 24 hours. Sign up to save your progress!"*
+- [x] Redirect Guests from `/profile` back to `/home`.
+
+**4. Leaderboard Cleanup** ✅
+- [x] Filter leaderboard to only show players with `total_games > 0`.
+- [x] Map CPU names to cartoon names in memory.

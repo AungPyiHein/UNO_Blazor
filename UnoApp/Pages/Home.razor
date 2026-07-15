@@ -21,6 +21,13 @@
     {
         @if (!_showLobby)
         {
+            @if (Supabase.IsGuest)
+            {
+                <div class="guest-banner">
+                    ⚠️ Warning: Guest accounts and stats are permanently deleted after 24 hours. Sign up to save your progress!
+                </div>
+            }
+            
             <!-- Floating Header Action Buttons -->
             <div class="menu-header">
                 <button class="glass-btn rulebook-trigger" @onclick="() => _showRuleBookModal = true">
@@ -34,9 +41,12 @@
                     <span class="icon">🏆</span> Leaderboard
                     @if (_leaderboardUpdated) { <span class="lb-dot"></span> }
                 </button>
-                <button class="glass-btn" @onclick='() => Nav.NavigateTo("/profile")'>
-                    <span class="icon">👤</span> Profile
-                </button>
+                @if (!Supabase.IsGuest)
+                {
+                    <button class="glass-btn" @onclick='() => Nav.NavigateTo("/profile")'>
+                        <span class="icon">👤</span> Profile
+                    </button>
+                }
                 @if (_profile?.IsAdmin == true)
                 {
                     <button class="glass-btn" style="background: rgba(99, 102, 241, 0.2); border-color: rgba(99, 102, 241, 0.5); color: #a5b4fc;" @onclick='() => Nav.NavigateTo("/admin")'>
@@ -1289,6 +1299,13 @@
         overflow: hidden; z-index: 2000;
     }
 
+    .guest-banner {
+        position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+        background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3);
+        color: #fcd34d; padding: 10px 20px; border-radius: 8px; font-size: 14px;
+        z-index: 1000; backdrop-filter: blur(5px); box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+    
     /* Floating Header Buttons */
     .menu-header {
         position: absolute; top: 30px; left: 30px; right: 30px;

@@ -276,9 +276,9 @@
         NavigationState.IsArenaMode = true;
         
         var uid = Supabase.CurrentUserId;
-        if (uid == null)
+        if (uid == null || Supabase.IsGuest)
         {
-            Navigation.NavigateTo("/");
+            Navigation.NavigateTo("/home");
             return;
         }
 

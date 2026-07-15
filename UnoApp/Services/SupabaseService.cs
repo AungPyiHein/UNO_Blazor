@@ -194,6 +194,7 @@ public class SupabaseService
 
     public bool IsInitialized => _client != null;
     public bool IsLoggedIn => _client?.Auth?.CurrentUser != null;
+    public bool IsGuest => IsLoggedIn && string.IsNullOrEmpty(_client?.Auth?.CurrentUser?.Email);
     public string? CurrentUserId => _client?.Auth?.CurrentUser?.Id;
 
     // ── Initialization ───────────────────────────────────────
@@ -221,16 +222,18 @@ public class SupabaseService
         return session;
     }
 
-    public async Task<Supabase.Gotrue.Session?> SignInWithEmail(string email, string password)
+    public async Task<Supabase.Gotrue.Session?> SignInWithUsername(string username, string password)
     {
         EnsureInitialized();
-        var session = await _client!.Auth.SignIn(Supabase.Gotrue.Constants.SignInType.Email, email, password);
+        var fakeEmail = $"{username}@uno.local";
+        var session = await _client!.Auth.SignIn(Supabase.Gotrue.Constants.SignInType.Email, fakeEmail, password);
         return session;
     }
 
-    public async Task<Supabase.Gotrue.Session?> SignUp(string email, string password, string displayName)
+    public async Task<Supabase.Gotrue.Session?> SignUp(string username, string password, string displayName, string? optionalEmail = null)
     {
         EnsureInitialized();
+        var fakeEmail = $"{username}@uno.local";
         var options = new SignUpOptions
         {
             Data = new Dictionary<string, object>
@@ -238,7 +241,13 @@ public class SupabaseService
                 { "display_name", displayName }
             }
         };
-        var session = await _client!.Auth.SignUp(email, password, options);
+        
+        if (!string.IsNullOrWhiteSpace(optionalEmail))
+        {
+            options.Data.Add("recovery_email", optionalEmail);
+        }
+        
+        var session = await _client!.Auth.SignUp(fakeEmail, password, options);
         return session;
     }
 
@@ -374,8 +383,9 @@ public class SupabaseService
     {
         EnsureInitialized();
 
-        // Fetch top players by wins from player_stats
+        // Fetch top players by wins from player_stats who have actually played a match
         var stats = await _client!.From<PlayerStatsModel>()
+            .Filter("total_games", Supabase.Postgrest.Constants.Operator.GreaterThan, 0)
             .Order(s => s.TotalWins, Supabase.Postgrest.Constants.Ordering.Descending)
             .Limit(top)
             .Get();
@@ -597,7 +607,21 @@ public class SupabaseService
         var response = await _client!.From<ProfileModel>()
             .Where(p => p.IsCpu == true)
             .Get();
-        return response.Models ?? new List<ProfileModel>();
+        var cpus = response.Models ?? new List<ProfileModel>();
+        
+        // Ensure they have the correct cartoon names even if the DB wasn't hotfixed
+        var newNames = new[] { "Chairman Meow", "Brutus", "Cheddar", "Captain Splash", "Eggbert", "Sir Reginald" };
+        var index = 0;
+        foreach (var cpu in cpus.OrderBy(c => c.CreatedAt)) // Order by creation to ensure consistent mapping
+        {
+            if (index < newNames.Length && cpu.DisplayName.StartsWith("CPU "))
+            {
+                cpu.DisplayName = newNames[index];
+            }
+            index++;
+        }
+        
+        return cpus;
     }
 
     // ── Helpers ──────────────────────────────────────────────
