@@ -1,3 +1,15 @@
+window.UnoLeaveGuard = (() => {
+    function handler(e) {
+        e.preventDefault();
+        e.returnValue = '';
+        return '';
+    }
+    return {
+        enable:  function() { window.addEventListener('beforeunload', handler); },
+        disable: function() { window.removeEventListener('beforeunload', handler); }
+    };
+})();
+
 window.UnoAudio = (() => {
     let ctx = null;
     let masterGainNode = null;

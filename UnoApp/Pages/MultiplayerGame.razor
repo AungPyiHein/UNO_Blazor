@@ -2,6 +2,7 @@
 @inject UnoApp.Services.LobbyService LobbyService
 @inject UnoApp.Services.NavigationState NavigationState
 @inject NavigationManager Nav
+@inject IJSRuntime JSRuntime
 @implements IDisposable
 @using UnoApp.Multiplayer
 @using UnoApp.Components
@@ -58,6 +59,7 @@
     protected override void OnInitialized()
     {
         NavigationState.IsArenaMode = true;
+        _ = JSRuntime.InvokeVoidAsync("UnoLeaveGuard.enable");
         LobbyService.StateUpdated        += OnStateUpdated;
         LobbyService.PlayerLeft          += OnPlayerLeft;
         LobbyService.HubReconnecting     += OnHubReconnecting;
@@ -152,6 +154,7 @@
     public void Dispose()
     {
         NavigationState.IsArenaMode = false;
+        _ = JSRuntime.InvokeVoidAsync("UnoLeaveGuard.disable");
         LobbyService.StateUpdated        -= OnStateUpdated;
         LobbyService.PlayerLeft          -= OnPlayerLeft;
         LobbyService.HubReconnecting     -= OnHubReconnecting;

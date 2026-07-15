@@ -3646,6 +3646,7 @@
 
         _isMultiplayerHost = true;
         _isGameStarted = true;
+        await JSRuntime.InvokeVoidAsync("UnoLeaveGuard.enable");
 
         await _game.DealStartingCardsAsync();
         _spState = BuildStateForPlayer(0);
@@ -4102,6 +4103,7 @@
         };
 
         _isGameStarted = true;
+        await JSRuntime.InvokeVoidAsync("UnoLeaveGuard.enable");
         await _game.DealStartingCardsAsync();
         _spState = BuildSpState();
         await _game.StartTurnAsync();
@@ -4112,6 +4114,7 @@
         CancelAfkTimer();
         _leaderboardUpdated = false;
         _isGameStarted = false;
+        await JSRuntime.InvokeVoidAsync("UnoLeaveGuard.disable");
         _game = null;
         _spState = null;
         _spDrawnCardId = null;
@@ -4145,6 +4148,7 @@
         CancelAfkTimer();
         _leaderboardUpdated = false;
         _isGameStarted = false;
+        _ = JSRuntime.InvokeVoidAsync("UnoLeaveGuard.disable");
         _game = null;
         _spState = null;
         _spDrawnCardId = null;
