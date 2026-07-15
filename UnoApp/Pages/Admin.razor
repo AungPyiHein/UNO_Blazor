@@ -1,0 +1,389 @@
+@page "/admin"
+@using UnoApp.Services
+@inject SupabaseService Supabase
+@inject NavigationManager Nav
+@inject NavigationState NavigationState
+@implements IAsyncDisposable
+
+<div class="admin-container">
+    @if (_isLoading)
+    {
+        <div class="loading-state">
+            <span class="spinner"></span>
+            <p>Loading Admin Dashboard...</p>
+        </div>
+    }
+    else if (!_isAdmin)
+    {
+        <div class="loading-state">
+            <h2 class="text-danger">Access Denied</h2>
+            <p>You do not have permission to view this page.</p>
+            <button class="glass-btn mt-3" @onclick='() => Nav.NavigateTo("/home")'>Return Home</button>
+        </div>
+    }
+    else
+    {
+        <div class="admin-header">
+            <h2>⚙️ System Administration</h2>
+            <button class="glass-btn" @onclick='() => Nav.NavigateTo("/home")'>← Back to Game</button>
+        </div>
+
+        <div class="search-bar-container">
+            <input type="text" class="form-control glass-input search-input" placeholder="Search by name or ID..." @bind="_searchQuery" @bind:event="oninput" />
+        </div>
+
+        <div class="users-grid">
+            @foreach (var user in FilteredUsers)
+            {
+                var isBanned = user.Profile.IsBanned;
+                var isCpu = user.Profile.IsCpu;
+                var stats = user.Stats;
+
+                <div class="user-card glass-card @(isBanned ? "banned-card" : "")">
+                    <div class="user-card-header">
+                        @if (!string.IsNullOrEmpty(user.Profile.AvatarUrl))
+                        {
+                            <img src="@user.Profile.AvatarUrl" class="user-avatar" />
+                        }
+                        else
+                        {
+                            <div class="user-avatar placeholder">@(user.Profile.DisplayName?.FirstOrDefault() ?? '?')</div>
+                        }
+                        <div class="user-info">
+                            <h3>
+                                @user.Profile.DisplayName
+                                @if (isCpu) { <span class="badge badge-ai">AI</span> }
+                                @if (user.Profile.IsAdmin) { <span class="badge badge-admin">Admin</span> }
+                                @if (isBanned) { <span class="badge badge-banned">Banned</span> }
+                            </h3>
+                            <span class="user-id">@user.Profile.Id</span>
+                        </div>
+                        <button class="edit-btn" @onclick="() => EditUser(user)">✏️ Edit</button>
+                    </div>
+
+                    <div class="user-stats-mini">
+                        <div class="stat-item">
+                            <span class="stat-label">Wins</span>
+                            <span class="stat-value">@(stats?.TotalWins ?? 0)</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Win Rate</span>
+                            <span class="stat-value">@(stats?.WinRate ?? 0)%</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Score</span>
+                            <span class="stat-value text-success">@(stats?.TotalScore ?? 0)</span>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        @if (_editingUser != null)
+        {
+            <div class="modal-backdrop" @onclick="CloseEditor">
+                <div class="modal-card edit-modal" @onclick:stopPropagation>
+                    <div class="modal-header">
+                        <h2>Edit User: @_editingUser.Profile.DisplayName</h2>
+                        <button class="close-btn" @onclick="CloseEditor">×</button>
+                    </div>
+
+                    <div class="edit-form">
+                        <div class="form-group">
+                            <label>Display Name</label>
+                            <input type="text" class="form-control glass-input" @bind="_editProfile.DisplayName" />
+                        </div>
+                        <div class="form-group mt-3">
+                            <label>Avatar URL</label>
+                            <input type="text" class="form-control glass-input" @bind="_editProfile.AvatarUrl" />
+                        </div>
+
+                        @if (_editingUser.Profile.Id != Supabase.CurrentUserId)
+                        {
+                            <div class="form-group mt-3 ban-section">
+                                <label class="checkbox-container text-danger">
+                                    <input type="checkbox" @bind="_editProfile.IsBanned" />
+                                    <span class="checkmark"></span>
+                                    <strong>Ban this user from Multiplayer</strong>
+                                </label>
+                            </div>
+                        }
+
+                        <h4 class="mt-4 stats-header">Override Stats</h4>
+                        <div class="stats-edit-grid">
+                            <div class="form-group">
+                                <label>Wins</label>
+                                <input type="number" class="form-control glass-input" @bind="_editStats.TotalWins" />
+                            </div>
+                            <div class="form-group">
+                                <label>Losses</label>
+                                <input type="number" class="form-control glass-input" @bind="_editStats.TotalLosses" />
+                            </div>
+                            <div class="form-group">
+                                <label>Games</label>
+                                <input type="number" class="form-control glass-input" @bind="_editStats.TotalGames" />
+                            </div>
+                            <div class="form-group">
+                                <label>Win Rate (%)</label>
+                                <input type="number" step="0.01" class="form-control glass-input" @bind="_editStats.WinRate" />
+                            </div>
+                            <div class="form-group">
+                                <label>Total Score</label>
+                                <input type="number" class="form-control glass-input" @bind="_editStats.TotalScore" />
+                            </div>
+                            <div class="form-group">
+                                <label>Best Score</label>
+                                <input type="number" class="form-control glass-input" @bind="_editStats.BestScore" />
+                            </div>
+                        </div>
+
+                        <div class="modal-footer mt-4">
+                            <button class="glass-btn btn-secondary" @onclick="CloseEditor">Cancel</button>
+                            <button class="glass-btn btn-primary" @onclick="SaveChanges" disabled="@_isSaving">
+                                @if (_isSaving) { <span class="spinner-sm"></span> } else { <span>Save Changes</span> }
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private bool _isLoading = true;
+    private bool _isAdmin = false;
+    private bool _isSaving = false;
+    
+    private string _searchQuery = "";
+
+    public class UserViewModel
+    {
+        public ProfileModel Profile { get; set; } = new();
+        public PlayerStatsModel Stats { get; set; } = new();
+    }
+
+    private List<UserViewModel> _allUsers = new();
+    
+    private UserViewModel? _editingUser;
+    private ProfileModel _editProfile = new();
+    private PlayerStatsModel _editStats = new();
+
+    private IEnumerable<UserViewModel> FilteredUsers =>
+        string.IsNullOrWhiteSpace(_searchQuery)
+            ? _allUsers
+            : _allUsers.Where(u => 
+                (u.Profile.DisplayName?.Contains(_searchQuery, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (u.Profile.Id.Contains(_searchQuery, StringComparison.OrdinalIgnoreCase)));
+
+    protected override async Task OnInitializedAsync()
+    {
+        NavigationState.IsArenaMode = true;
+        
+        var profile = await Supabase.GetMyProfile();
+        if (profile == null)
+        {
+            Nav.NavigateTo("/");
+            return;
+        }
+
+        _isAdmin = profile.IsAdmin;
+        
+        if (_isAdmin)
+        {
+            await LoadData();
+        }
+        else
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task LoadData()
+    {
+        _isLoading = true;
+        try
+        {
+            var profiles = await Supabase.GetAllProfiles();
+            var stats = await Supabase.GetAllStats();
+
+            _allUsers = profiles.Select(p => new UserViewModel
+            {
+                Profile = p,
+                Stats = stats.FirstOrDefault(s => s.PlayerId == p.Id) ?? new PlayerStatsModel { PlayerId = p.Id }
+            }).OrderByDescending(u => u.Profile.IsAdmin).ThenBy(u => u.Profile.DisplayName).ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Admin load error: {ex.Message}");
+        }
+        _isLoading = false;
+    }
+
+    private void EditUser(UserViewModel user)
+    {
+        _editingUser = user;
+        
+        // Deep copy
+        _editProfile = new ProfileModel
+        {
+            Id = user.Profile.Id,
+            DisplayName = user.Profile.DisplayName,
+            AvatarUrl = user.Profile.AvatarUrl,
+            IsAdmin = user.Profile.IsAdmin,
+            IsBanned = user.Profile.IsBanned
+        };
+
+        _editStats = new PlayerStatsModel
+        {
+            PlayerId = user.Stats.PlayerId,
+            TotalWins = user.Stats.TotalWins,
+            TotalLosses = user.Stats.TotalLosses,
+            TotalGames = user.Stats.TotalGames,
+            TotalScore = user.Stats.TotalScore,
+            BestScore = user.Stats.BestScore,
+            WinStreak = user.Stats.WinStreak,
+            BestWinStreak = user.Stats.BestWinStreak,
+            WinRate = user.Stats.WinRate
+        };
+    }
+
+    private void CloseEditor()
+    {
+        _editingUser = null;
+    }
+
+    private async Task SaveChanges()
+    {
+        if (_editingUser == null) return;
+        _isSaving = true;
+
+        try
+        {
+            // 1. Update Profile (Name, Avatar, Ban)
+            await Supabase.UpdateProfileAdmin(_editProfile.Id, _editProfile.DisplayName ?? "", _editProfile.AvatarUrl, _editProfile.IsBanned);
+            
+            // 2. Update Stats
+            await Supabase.UpdateStatsAdmin(_editStats);
+
+            // Update local memory
+            _editingUser.Profile.DisplayName = _editProfile.DisplayName;
+            _editingUser.Profile.AvatarUrl = _editProfile.AvatarUrl;
+            _editingUser.Profile.IsBanned = _editProfile.IsBanned;
+            
+            _editingUser.Stats.TotalWins = _editStats.TotalWins;
+            _editingUser.Stats.TotalLosses = _editStats.TotalLosses;
+            _editingUser.Stats.TotalGames = _editStats.TotalGames;
+            _editingUser.Stats.WinRate = _editStats.WinRate;
+            _editingUser.Stats.TotalScore = _editStats.TotalScore;
+            _editingUser.Stats.BestScore = _editStats.BestScore;
+            
+            CloseEditor();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Save error: {ex.Message}");
+        }
+        
+        _isSaving = false;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        NavigationState.IsArenaMode = false;
+        await Task.CompletedTask;
+    }
+}
+
+<style>
+    .admin-container {
+        color: white;
+        max-width: 1200px;
+        margin: 80px auto;
+        padding: 0 20px;
+        padding-bottom: 50px;
+    }
+
+    .admin-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+    }
+
+    .admin-header h2 { margin: 0; font-weight: 800; background: linear-gradient(135deg, #fff 0%, #a5b4fc 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+    .search-bar-container { margin-bottom: 30px; }
+    .search-input { width: 100%; max-width: 500px; font-size: 1.1rem; padding: 12px 20px; border-radius: 20px; }
+
+    /* Glassmorphism */
+    .glass-card { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 20px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
+    .banned-card { border-color: rgba(239, 68, 68, 0.5); background: rgba(239, 68, 68, 0.05); }
+
+    .glass-btn { background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: white; padding: 10px 20px; border-radius: 12px; cursor: pointer; font-weight: 600; transition: all 0.2s; }
+    .glass-btn:hover { background: rgba(255, 255, 255, 0.2); transform: translateY(-2px); }
+    .glass-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    
+    .btn-primary { background: rgba(99, 102, 241, 0.8); border-color: rgba(99, 102, 241, 1); }
+    .btn-primary:hover { background: rgba(99, 102, 241, 1); }
+    
+    .glass-input { background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1); color: white; border-radius: 10px; padding: 10px; width: 100%; }
+    .glass-input:focus { outline: none; border-color: #6366f1; background: rgba(0, 0, 0, 0.5); }
+
+    /* Users Grid */
+    .users-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
+    
+    .user-card-header { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; position: relative; }
+    .user-avatar { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(255, 255, 255, 0.2); }
+    .user-avatar.placeholder { background: linear-gradient(135deg, #6366f1, #3b82f6); display: flex; align-items: center; justify-content: center; font-size: 1.5rem; font-weight: bold; }
+    
+    .user-info h3 { margin: 0; font-size: 1.1rem; font-weight: 700; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .user-id { font-size: 0.7rem; color: #64748b; font-family: monospace; }
+    
+    .badge { font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; font-weight: bold; text-transform: uppercase; }
+    .badge-ai { background: rgba(168, 85, 247, 0.2); color: #d8b4fe; border: 1px solid rgba(168, 85, 247, 0.4); }
+    .badge-admin { background: rgba(59, 130, 246, 0.2); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.4); }
+    .badge-banned { background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.4); }
+    
+    .edit-btn { position: absolute; right: 0; top: 0; background: none; border: none; color: #94a3b8; cursor: pointer; padding: 5px; font-size: 0.9rem; transition: color 0.2s; }
+    .edit-btn:hover { color: white; }
+
+    .user-stats-mini { display: flex; justify-content: space-between; background: rgba(0, 0, 0, 0.2); padding: 12px; border-radius: 12px; }
+    .stat-item { display: flex; flex-direction: column; align-items: center; }
+    .stat-label { font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; font-weight: bold; margin-bottom: 4px; }
+    .stat-value { font-size: 1.1rem; font-weight: 700; }
+    .text-success { color: #34d399; }
+    .text-danger { color: #f87171; }
+
+    /* Modal */
+    .modal-backdrop { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(5px); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+    .modal-card { width: 90%; max-width: 600px; max-height: 90vh; overflow-y: auto; background: #1e1e2d; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; padding: 30px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8); }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 15px; }
+    .modal-header h2 { margin: 0; font-size: 1.5rem; }
+    .close-btn { background: none; border: none; color: white; font-size: 2rem; cursor: pointer; line-height: 1; }
+    .close-btn:hover { color: #f87171; }
+    .modal-footer { display: flex; justify-content: flex-end; gap: 15px; margin-top: 30px; border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 20px; }
+    
+    .form-group label { display: block; margin-bottom: 8px; color: #cbd5e1; font-size: 0.9rem; }
+    .mt-3 { margin-top: 15px; }
+    .mt-4 { margin-top: 30px; }
+    
+    .stats-header { border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 10px; margin-bottom: 20px; color: #a5b4fc; }
+    .stats-edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+
+    /* Checkbox */
+    .checkbox-container { display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none; }
+    .checkbox-container input { position: absolute; opacity: 0; cursor: pointer; height: 0; width: 0; }
+    .checkmark { height: 24px; width: 24px; background-color: rgba(0, 0, 0, 0.3); border: 2px solid rgba(255, 255, 255, 0.2); border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+    .checkbox-container:hover input ~ .checkmark { background-color: rgba(0, 0, 0, 0.5); }
+    .checkbox-container input:checked ~ .checkmark { background-color: #ef4444; border-color: #ef4444; }
+    .checkmark:after { content: ""; position: absolute; display: none; }
+    .checkbox-container input:checked ~ .checkmark:after { display: block; }
+    .checkbox-container .checkmark:after { width: 6px; height: 12px; border: solid white; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+    .ban-section { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); padding: 15px; border-radius: 12px; }
+
+    .loading-state { text-align: center; margin-top: 100px; color: white; }
+    .spinner { display: inline-block; width: 50px; height: 50px; border: 4px solid rgba(255, 255, 255, 0.1); border-top-color: #6366f1; border-radius: 50%; animation: spin 1s ease-in-out infinite; }
+    .spinner-sm { display: inline-block; width: 20px; height: 20px; border: 2px solid rgba(255, 255, 255, 0.1); border-top-color: white; border-radius: 50%; animation: spin 1s ease-in-out infinite; }
+    @@keyframes spin { to { transform: rotate(360deg); } }
+</style>

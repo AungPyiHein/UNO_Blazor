@@ -37,12 +37,25 @@
                 <button class="glass-btn" @onclick='() => Nav.NavigateTo("/profile")'>
                     <span class="icon">👤</span> Profile
                 </button>
+                @if (_profile?.IsAdmin == true)
+                {
+                    <button class="glass-btn" style="background: rgba(99, 102, 241, 0.2); border-color: rgba(99, 102, 241, 0.5); color: #a5b4fc;" @onclick='() => Nav.NavigateTo("/admin")'>
+                        <span class="icon">🛠️</span> Admin
+                    </button>
+                }
             </div>
 
             <!-- Middle Tier: The Power Center -->
             <div class="center-stage">
                 <button class="mega-start-btn" @onclick="StartMatch">START MATCH</button>
-                <button class="mega-start-btn mega-start-btn-mp" @onclick="OpenLobby">🌐 MULTIPLAYER</button>
+                @if (_profile?.IsBanned == true)
+                {
+                    <button class="mega-start-btn mega-start-btn-mp" style="background: rgba(239, 68, 68, 0.2); border-color: rgba(239, 68, 68, 0.5); color: #fca5a5; cursor: not-allowed;" disabled title="You have been banned from multiplayer features.">🚫 BANNED FROM MULTIPLAYER</button>
+                }
+                else
+                {
+                    <button class="mega-start-btn mega-start-btn-mp" @onclick="OpenLobby">🌐 MULTIPLAYER</button>
+                }
             </div>
 
             <!-- Bottom Tier: Player Identity & Setup -->
@@ -2670,6 +2683,7 @@
     private bool _isGameStarted = false;
     private bool _hubReconnecting = false;
     private string _playerName = "PLAYER";
+    private ProfileModel? _profile;
     private int _playerCount = 4;
     private UnoGame? _game;
 
@@ -2959,6 +2973,12 @@
         InitializeRuleItems();
         
         try {
+            _profile = await Supabase.GetMyProfile();
+            if (_profile != null && !string.IsNullOrWhiteSpace(_profile.DisplayName))
+            {
+                _playerName = _profile.DisplayName;
+            }
+            
             _cpuProfiles = await Supabase.GetCpuProfiles();
             _globalLeaderboard = await Supabase.GetGlobalLeaderboard(20);
         } catch {
@@ -3065,6 +3085,11 @@
 
     private void OpenLobby()
     {
+        if (_profile?.IsBanned == true)
+        {
+            return;
+        }
+        
         _lobbyMode = "entry";
         _lobbyError = "";
         _showLobby = true;

@@ -256,9 +256,53 @@ public class SupabaseService
     {
         EnsureInitialized();
         var response = await _client!.From<ProfileModel>()
-            .Where(p => p.Id == userId)
+            .Filter("id", Supabase.Postgrest.Constants.Operator.Equals, userId)
             .Single();
         return response;
+    }
+
+    // ── Admin Functions ──────────────────────────────────────
+
+    public async Task<List<ProfileModel>> GetAllProfiles()
+    {
+        EnsureInitialized();
+        var response = await _client!.From<ProfileModel>().Get();
+        return response.Models ?? new List<ProfileModel>();
+    }
+
+    public async Task<List<PlayerStatsModel>> GetAllStats()
+    {
+        EnsureInitialized();
+        var response = await _client!.From<PlayerStatsModel>().Get();
+        return response.Models ?? new List<PlayerStatsModel>();
+    }
+
+    public async Task UpdateProfileAdmin(string id, string newName, string? avatarUrl, bool isBanned)
+    {
+        EnsureInitialized();
+        await _client!.From<ProfileModel>()
+            .Where(p => p.Id == id)
+            .Set(p => p.DisplayName, newName)
+            .Set(p => p.AvatarUrl, avatarUrl)
+            .Set(p => p.IsBanned, isBanned)
+            .Set(p => p.UpdatedAt, DateTimeOffset.UtcNow)
+            .Update();
+    }
+
+    public async Task UpdateStatsAdmin(PlayerStatsModel updatedStats)
+    {
+        EnsureInitialized();
+        await _client!.From<PlayerStatsModel>()
+            .Where(s => s.PlayerId == updatedStats.PlayerId)
+            .Set(s => s.TotalWins, updatedStats.TotalWins)
+            .Set(s => s.TotalLosses, updatedStats.TotalLosses)
+            .Set(s => s.TotalGames, updatedStats.TotalGames)
+            .Set(s => s.TotalScore, updatedStats.TotalScore)
+            .Set(s => s.BestScore, updatedStats.BestScore)
+            .Set(s => s.WinStreak, updatedStats.WinStreak)
+            .Set(s => s.BestWinStreak, updatedStats.BestWinStreak)
+            .Set(s => s.WinRate, updatedStats.WinRate)
+            .Update();
     }
 
     public async Task<ProfileModel?> GetMyProfile()
