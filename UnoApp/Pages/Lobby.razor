@@ -364,6 +364,7 @@
     private List<string> _players = new();
     private int _cpuCount = 1;
     private int _totalPlayers = 4;
+    private bool _isBanned = false;
 
     private void SetTotalPlayers(int n)
     {
@@ -377,6 +378,13 @@
         LobbyService.PlayersUpdated += OnPlayersUpdated;
         LobbyService.GameStarted   += OnGameStarted;
         LobbyService.RoomClosed    += OnRoomClosed;
+
+        var profile = await Supabase.GetMyProfile();
+        if (profile?.IsBanned == true)
+        {
+            _isBanned = true;
+            _error = "🚫 You have been banned from multiplayer lobbies.";
+        }
 
         if (!LobbyService.IsConnected)
         {
@@ -410,6 +418,7 @@
     private async Task CreateRoom()
     {
         _error = "";
+        if (_isBanned) { _error = "🚫 You have been banned from multiplayer lobbies."; return; }
         if (string.IsNullOrWhiteSpace(_playerName)) { _error = "Enter your name."; return; }
         if (string.IsNullOrWhiteSpace(_roomCode))   { GenerateRoomCode(); }
 
@@ -436,6 +445,7 @@
     private async Task JoinRoom()
     {
         _error = "";
+        if (_isBanned) { _error = "🚫 You have been banned from multiplayer lobbies."; return; }
         if (string.IsNullOrWhiteSpace(_playerName)) { _error = "Enter your name."; return; }
         if (string.IsNullOrWhiteSpace(_roomCode))   { _error = "Enter a room code."; return; }
 
