@@ -1,4 +1,4 @@
-@page "/"
+@page "/home"
 @using UnoEngine
 @using UnoEngine.Models
 @using UnoApp.Components
@@ -7,6 +7,7 @@
 @using System.Text.Json
 @inject NavigationState NavigationState
 @inject LobbyService LobbyService
+@inject SupabaseService Supabase
 @inject NavigationManager Nav
 @inject IJSRuntime JSRuntime
 @implements IAsyncDisposable
@@ -29,7 +30,7 @@
                     <span class="icon">⚙️</span> Manage Rules
                     <span class="active-preset-badge">@_selectedPreset.Name</span>
                 </button>
-                @if (_leaderboard.Count > 0)
+                @if (_globalLeaderboard.Count > 0)
                 {
                     <button class="glass-btn leaderboard-trigger @(_leaderboardUpdated ? "leaderboard-updated" : "")"
                             @onclick="() => { _showLeaderboard = true; _leaderboardUpdated = false; }">
@@ -956,20 +957,30 @@
                     <div class="leaderboard-body">
                         <table class="lb-table">
                             <thead>
-                                <tr><th>#</th><th>Player</th><th>W</th><th>L</th><th>Games</th><th>Last Played</th></tr>
+                                <tr><th>#</th><th>Player</th><th>W</th><th>L</th><th>Games</th><th>Total Score</th></tr>
                             </thead>
                             <tbody>
-                                @for (int ri = 0; ri < _leaderboard.Count; ri++)
+                                @for (int ri = 0; ri < _globalLeaderboard.Count; ri++)
                                 {
-                                    var e = _leaderboard[ri];
+                                    var e = _globalLeaderboard[ri];
                                     int rank = ri + 1;
                                     <tr class="@(rank == 1 ? "lb-top" : "")">
                                         <td>@(rank == 1 ? "🥇" : rank == 2 ? "🥈" : rank == 3 ? "🥉" : rank.ToString())</td>
-                                        <td>@e.Name</td>
-                                        <td class="lb-win">@e.Wins</td>
-                                        <td class="lb-lose">@e.Losses</td>
-                                        <td>@e.GamesPlayed</td>
-                                        <td class="lb-date">@e.LastPlayed.ToString("HH:mm")</td>
+                                        <td>
+                                            @if (!string.IsNullOrEmpty(e.AvatarUrl))
+                                            {
+                                                <img src="@e.AvatarUrl" class="lb-avatar" style="width: 20px; height: 20px; border-radius: 50%; vertical-align: middle; margin-right: 5px;" />
+                                            }
+                                            @e.DisplayName
+                                            @if (e.IsCpu)
+                                            {
+                                                <span class="lobby-badge lobby-badge-cpu" style="margin-left:5px;">AI</span>
+                                            }
+                                        </td>
+                                        <td class="lb-win">@e.TotalWins</td>
+                                        <td class="lb-lose">@e.TotalLosses</td>
+                                        <td>@e.TotalGames</td>
+                                        <td class="lb-date">@e.TotalScore</td>
                                     </tr>
                                 }
                             </tbody>
@@ -2720,6 +2731,9 @@
     private string _pendingAnimTrigger = "";
     private int _animSeq = 0;
 
+    private bool _showSpVictory;
+
+    private List<UnoApp.Services.ProfileModel> _cpuProfiles = new();
     private bool _showRulesModal = false;
     private bool _showRuleBookModal = false;
 
@@ -2734,15 +2748,7 @@
     private GameStatus? _afkTimerStatus;
 
     // Leaderboard
-    private class LeaderboardEntry
-    {
-        public string Name { get; set; } = "";
-        public int Wins { get; set; }
-        public int Losses { get; set; }
-        public int GamesPlayed => Wins + Losses;
-        public DateTime LastPlayed { get; set; }
-    }
-    private List<LeaderboardEntry> _leaderboard = new();
+    private List<UnoApp.Services.LeaderboardEntryDto> _globalLeaderboard = new();
     private bool _showLeaderboard = false;
     private bool _leaderboardUpdated = false;
 
@@ -2997,6 +3003,13 @@
     {
         NavigationState.IsArenaMode = true;
         InitializeRuleItems();
+        
+        try {
+            _cpuProfiles = await Supabase.GetCpuProfiles();
+            _globalLeaderboard = await Supabase.GetGlobalLeaderboard(20);
+        } catch {
+            // fallback if DB fails
+        }
 
         LobbyService.PlayersUpdated += LobbyOnPlayersUpdated;
         LobbyService.CpuCountUpdated += LobbyOnCpuCountUpdated;
@@ -3157,7 +3170,8 @@
         {
             if (!LobbyService.IsConnected)
                 await LobbyService.ConnectAsync(Nav.BaseUri);
-            await LobbyService.JoinRoomAsync(_lobbyRoomCode, _lobbyPlayerName);
+            var pid = Supabase.CurrentUserId ?? Guid.NewGuid().ToString();
+            await LobbyService.JoinRoomAsync(_lobbyRoomCode, _lobbyPlayerName, pid);
             _lobbyIsHost = true;
             _lobbyMode = "waiting";
             await BroadcastLobbyRules();
@@ -3277,7 +3291,8 @@
         {
             if (!LobbyService.IsConnected)
                 await LobbyService.ConnectAsync(Nav.BaseUri);
-            await LobbyService.JoinRoomAsync(_lobbyRoomCode, _lobbyPlayerName);
+            var pid = Supabase.CurrentUserId ?? Guid.NewGuid().ToString();
+            await LobbyService.JoinRoomAsync(_lobbyRoomCode, _lobbyPlayerName, pid);
             _lobbyMode = "waiting";
         }
         catch (Exception ex)
@@ -3305,7 +3320,7 @@
         await Task.CompletedTask;
     }
 
-    private void LobbyOnPlayersUpdated(string roomCode, List<string> players)
+    private void LobbyOnPlayersUpdated(string roomCode, List<string> players, List<string> ids)
     {
         _lobbyPlayers = players;
         if (!_lobbyIsHost)
@@ -3322,10 +3337,10 @@
         InvokeAsync(StateHasChanged);
     }
 
-    private void LobbyOnGameStarted(string[] players, int cpuCount)
+    private void LobbyOnGameStarted(string[] players, string[] ids, int cpuCount)
     {
         int idx = Array.IndexOf(players, _lobbyPlayerName.Trim());
-        LobbyService.SetPlayerInfo(idx, players, cpuCount);
+        LobbyService.SetPlayerInfo(idx, players, ids, cpuCount);
 
         InvokeAsync(async () =>
         {
@@ -3504,25 +3519,55 @@
         _afkTimerStatus = null;
     }
 
-    // ── Leaderboard ────────────────────────────────────────────────────────────
-    private void UpdateLeaderboard()
+    // ── Leaderboard & Match Saving ─────────────────────────────────────────────
+    private async Task UpdateLeaderboardAsync()
     {
         if (_game == null) return;
         var winner = _game.Winner;
-        foreach (var player in _game.Players)
+
+        // 2. Save match to Supabase if we are the host (or playing local)
+        if (_isMultiplayerHost || !_showLobby)
         {
-            if (!player.IsHuman) continue;
-            var entry = _leaderboard.FirstOrDefault(e => e.Name == player.Name);
-            if (entry == null)
+            try
             {
-                entry = new LeaderboardEntry { Name = player.Name };
-                _leaderboard.Add(entry);
+                var matchPlayers = _game.Players.Select((p, idx) => new MatchPlayerData
+                {
+                    PlayerId = p.Id,
+                    PlayerName = p.Name,
+                    PlayerIndex = idx,
+                    IsWinner = p == winner,
+                    TotalScore = p.TotalScore,
+                    RoundScore = p.RoundScore,
+                    CardsRemaining = p.Hand.Count,
+                    FinalPlacement = p == winner ? 1 : 2 // simplified placement
+                }).ToList();
+
+                var winnerId = winner?.Id;
+                // Currently UnoGame doesn't track start time, so we just use Now for both (or Now - some minutes)
+                var endedAt = DateTimeOffset.UtcNow;
+                var startedAt = endedAt.AddMinutes(-5); // rough estimate if not tracked
+                var settingsJson = JsonSerializer.Serialize(_game.Settings);
+
+                await Supabase.SaveMatchResult(
+                    playerCount: _game.Players.Count,
+                    roundCount: _game.RoundNumber,
+                    gameSettingsJson: settingsJson,
+                    winnerId: winnerId,
+                    startedAt: startedAt,
+                    endedAt: endedAt,
+                    players: matchPlayers
+                );
             }
-            if (player == winner) entry.Wins++;
-            else entry.Losses++;
-            entry.LastPlayed = DateTime.Now;
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error saving match to Supabase: {ex.Message}");
+            }
         }
-        _leaderboard = _leaderboard.OrderByDescending(e => e.Wins).ThenBy(e => e.Losses).ToList();
+        
+        // Fetch latest leaderboard after saving match
+        try {
+            _globalLeaderboard = await Supabase.GetGlobalLeaderboard(20);
+        } catch { }
     }
 
     private async Task LobbyChatKeyDown(KeyboardEventArgs e)
@@ -3536,21 +3581,24 @@
         int cpuCount = LobbyService.CpuCount;
 
         var players = new List<Player>();
+        var humanIds = LobbyService.AllPlayerIds;
         for (int i = 0; i < humanNames.Length; i++)
         {
             players.Add(new Player
             {
-                Id = Guid.NewGuid(),
+                Id = humanIds != null && humanIds.Length > i ? humanIds[i] : Guid.NewGuid().ToString(),
                 Name = humanNames[i],
                 IsHuman = true
             });
         }
         for (int i = 0; i < cpuCount; i++)
         {
+            var cpu = i < _cpuProfiles.Count ? _cpuProfiles[i] : null;
             players.Add(new Player
             {
-                Id = Guid.NewGuid(),
-                Name = $"CPU {i + 1}",
+                Id = cpu?.Id ?? Guid.NewGuid().ToString(),
+                Name = cpu?.DisplayName ?? $"CPU {i + 1}",
+                AvatarUrl = cpu?.AvatarUrl ?? "",
                 IsHuman = false
             });
         }
@@ -3574,7 +3622,7 @@
             ManageAfkTimer();
             if (_game.Status == GameStatus.GameOver && !_leaderboardUpdated)
             {
-                UpdateLeaderboard();
+                _ = UpdateLeaderboardAsync();
                 _leaderboardUpdated = true;
             }
             _spState = BuildStateForPlayer(0);
@@ -4003,12 +4051,20 @@
         _pendingAnimTrigger = "";
         var players = new List<Player>
         {
-            new Player { Id = Guid.NewGuid(), Name = string.IsNullOrWhiteSpace(_playerName) ? "PLAYER" : _playerName.ToUpper(), IsHuman = true }
+            new Player { Id = Guid.NewGuid().ToString(), Name = string.IsNullOrWhiteSpace(_playerName) ? "PLAYER" : _playerName.ToUpper(), IsHuman = true }
         };
 
         for (int i = 1; i < _playerCount; i++)
         {
-            players.Add(new Player { Id = Guid.NewGuid(), Name = $"CPU {i}", IsHuman = false });
+            var cpuIdx = i - 1;
+            var cpu = cpuIdx < _cpuProfiles.Count ? _cpuProfiles[cpuIdx] : null;
+            players.Add(new Player 
+            { 
+                Id = cpu?.Id ?? Guid.NewGuid().ToString(), 
+                Name = cpu?.DisplayName ?? $"CPU {i}", 
+                AvatarUrl = cpu?.AvatarUrl ?? "",
+                IsHuman = false 
+            });
         }
 
         // Pass the settings of the active selected preset directly to the game session!
@@ -4025,7 +4081,7 @@
             ManageAfkTimer();
             if (_game.Status == GameStatus.GameOver && !_leaderboardUpdated)
             {
-                UpdateLeaderboard();
+                _ = UpdateLeaderboardAsync();
                 _leaderboardUpdated = true;
             }
             _spState = BuildSpState();
@@ -4249,7 +4305,7 @@
 
         var prevPlayers = _game.Players.Select(p => new UnoEngine.Models.Player
         {
-            Id = Guid.NewGuid(),
+            Id = Guid.NewGuid().ToString(),
             Name = p.Name,
             IsHuman = p.IsHuman,
             TotalScore = p.TotalScore
@@ -4283,7 +4339,7 @@
                 ManageAfkTimer();
                 if (_game.Status == GameStatus.GameOver && !_leaderboardUpdated)
                 {
-                    UpdateLeaderboard();
+                    _ = UpdateLeaderboardAsync();
                     _leaderboardUpdated = true;
                     
                     if (_isMultiplayerHost)
@@ -4325,7 +4381,7 @@
                 ManageAfkTimer();
                 if (_game.Status == GameStatus.GameOver && !_leaderboardUpdated)
                 {
-                    UpdateLeaderboard();
+                    _ = UpdateLeaderboardAsync();
                     _leaderboardUpdated = true;
                 }
                 _spState = BuildSpState();

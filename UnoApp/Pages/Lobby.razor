@@ -1,5 +1,6 @@
 @page "/lobby"
 @inject UnoApp.Services.LobbyService LobbyService
+@inject UnoApp.Services.SupabaseService Supabase
 @inject NavigationManager Nav
 @inject IJSRuntime JSRuntime
 @implements IDisposable
@@ -417,7 +418,8 @@
         {
             if (!LobbyService.IsConnected)
                 await LobbyService.ConnectAsync(Nav.BaseUri);
-            await LobbyService.JoinRoomAsync(_roomCode, _playerName);
+            var pid = Supabase.CurrentUserId ?? Guid.NewGuid().ToString();
+            await LobbyService.JoinRoomAsync(_roomCode, _playerName, pid);
             _isHost = true;
             _mode = "waiting";
         }
@@ -442,7 +444,8 @@
         {
             if (!LobbyService.IsConnected)
                 await LobbyService.ConnectAsync(Nav.BaseUri);
-            await LobbyService.JoinRoomAsync(_roomCode, _playerName);
+            var pid = Supabase.CurrentUserId ?? Guid.NewGuid().ToString();
+            await LobbyService.JoinRoomAsync(_roomCode, _playerName, pid);
             _mode = "waiting";
         }
         catch (Exception ex)
@@ -473,7 +476,7 @@
         Nav.NavigateTo("/");
     }
 
-    private void OnPlayersUpdated(string roomCode, List<string> players)
+    private void OnPlayersUpdated(string roomCode, List<string> players, List<string> ids)
     {
         _players = players;
         if (!_isHost)
@@ -481,10 +484,10 @@
         InvokeAsync(StateHasChanged);
     }
 
-    private void OnGameStarted(string[] players, int cpuCount)
+    private void OnGameStarted(string[] players, string[] ids, int cpuCount)
     {
         int idx = Array.IndexOf(players, _playerName.Trim());
-        LobbyService.SetPlayerInfo(idx, players, cpuCount);
+        LobbyService.SetPlayerInfo(idx, players, ids, cpuCount);
 
         InvokeAsync(() =>
         {

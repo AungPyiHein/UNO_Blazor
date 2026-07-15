@@ -10,5 +10,12 @@ builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.
 builder.Services.AddSingleton<UnoApp.Services.NavigationState>();
 builder.Services.AddSingleton<UnoApp.Services.LobbyService>();
 builder.Services.AddScoped<UnoApp.Services.AudioService>();
+builder.Services.AddSingleton<UnoApp.Services.SupabaseService>();
 
-await builder.Build().RunAsync();
+var host = builder.Build();
+
+// Initialize Supabase on startup
+var supabase = host.Services.GetRequiredService<UnoApp.Services.SupabaseService>();
+await supabase.InitializeAsync();
+
+await host.RunAsync();

@@ -1,0 +1,496 @@
+@page "/"
+@using UnoApp.Services
+@inject SupabaseService Supabase
+@inject NavigationManager Nav
+
+@if (_isLoading)
+{
+    <div class="login-screen">
+        <div class="login-loader">
+            <div class="spinner"></div>
+            <p>Loading...</p>
+        </div>
+    </div>
+}
+else
+{
+    <div class="login-screen">
+        <div class="login-container">
+            <!-- Logo / Title -->
+            <div class="login-header">
+                <div class="uno-logo-glow">🃏</div>
+                <h1 class="login-title">UNO</h1>
+                <p class="login-subtitle">Blazor Edition</p>
+            </div>
+
+            @if (!_showSignIn && !_showSignUp)
+            {
+                <!-- Main Menu -->
+                <div class="login-options">
+                    <button class="login-btn btn-guest" @onclick="PlayAsGuest">
+                        <span class="btn-icon">👤</span>
+                        <div class="btn-text">
+                            <span class="btn-label">Play as Guest</span>
+                            <span class="btn-desc">Jump right in — no account needed</span>
+                        </div>
+                    </button>
+
+                    <button class="login-btn btn-signin" @onclick="() => _showSignIn = true">
+                        <span class="btn-icon">🔑</span>
+                        <div class="btn-text">
+                            <span class="btn-label">Sign In</span>
+                            <span class="btn-desc">Access your profile & stats</span>
+                        </div>
+                    </button>
+
+                    <button class="login-btn btn-signup" @onclick="() => _showSignUp = true">
+                        <span class="btn-icon">✨</span>
+                        <div class="btn-text">
+                            <span class="btn-label">Create Account</span>
+                            <span class="btn-desc">Keep your scores forever</span>
+                        </div>
+                    </button>
+                </div>
+
+                <div class="guest-warning">
+                    ⚠️ Guest data is lost if you clear browser data or switch devices.
+                </div>
+            }
+            else if (_showSignIn)
+            {
+                <!-- Sign In Form -->
+                <div class="login-form">
+                    <h2>Sign In</h2>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" @bind="_email" placeholder="you@example.com" />
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" @bind="_password" placeholder="••••••••" />
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(_errorMessage))
+                    {
+                        <div class="error-msg">@_errorMessage</div>
+                    }
+
+                    <button class="login-btn btn-signin" @onclick="SignIn" disabled="@_isSubmitting">
+                        @if (_isSubmitting) { <span class="spinner-sm"></span> }
+                        else { <span>Sign In</span> }
+                    </button>
+                    <button class="back-btn" @onclick="ResetForm">← Back</button>
+                </div>
+            }
+            else if (_showSignUp)
+            {
+                <!-- Sign Up Form -->
+                <div class="login-form">
+                    <h2>Create Account</h2>
+                    <div class="form-group">
+                        <label>Display Name</label>
+                        <input type="text" @bind="_displayName" placeholder="Your name (2-20 chars)" maxlength="20" />
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" @bind="_email" placeholder="you@example.com" />
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" @bind="_password" placeholder="Min 6 characters" />
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(_errorMessage))
+                    {
+                        <div class="error-msg">@_errorMessage</div>
+                    }
+
+                    <button class="login-btn btn-signup" @onclick="SignUp" disabled="@_isSubmitting">
+                        @if (_isSubmitting) { <span class="spinner-sm"></span> }
+                        else { <span>Create Account</span> }
+                    </button>
+                    <button class="back-btn" @onclick="ResetForm">← Back</button>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+<style>
+    /* ── Login Screen ─────────────────────────────────────── */
+    .login-screen {
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #0a0a1a 0%, #1a1a3e 40%, #0d0d2b 100%);
+        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        overflow: hidden;
+        position: relative;
+    }
+
+    .login-screen::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background:
+            radial-gradient(circle at 20% 30%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
+            radial-gradient(circle at 80% 70%, rgba(244, 63, 94, 0.1) 0%, transparent 50%),
+            radial-gradient(circle at 50% 50%, rgba(59, 130, 246, 0.08) 0%, transparent 60%);
+        pointer-events: none;
+    }
+
+    .login-container {
+        position: relative;
+        z-index: 1;
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 24px;
+        padding: 48px 40px;
+        width: 420px;
+        max-width: 90vw;
+        box-shadow:
+            0 20px 60px rgba(0, 0, 0, 0.5),
+            inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+
+    /* ── Header ───────────────────────────────────────────── */
+    .login-header {
+        text-align: center;
+        margin-bottom: 36px;
+    }
+
+    .uno-logo-glow {
+        font-size: 64px;
+        filter: drop-shadow(0 0 20px rgba(99, 102, 241, 0.6));
+        animation: float 3s ease-in-out infinite;
+    }
+
+    @@keyframes float {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-8px); }
+    }
+
+    .login-title {
+        font-size: 48px;
+        font-weight: 900;
+        letter-spacing: 8px;
+        background: linear-gradient(135deg, #f43f5e, #f59e0b, #10b981, #3b82f6);
+        background-size: 300% 300%;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        animation: gradientShift 4s ease-in-out infinite;
+        margin: 8px 0 0 0;
+    }
+
+    @@keyframes gradientShift {
+        0%, 100% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+    }
+
+    .login-subtitle {
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 14px;
+        letter-spacing: 4px;
+        text-transform: uppercase;
+        margin: 4px 0 0 0;
+    }
+
+    /* ── Buttons ──────────────────────────────────────────── */
+    .login-options {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .login-btn {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        width: 100%;
+        padding: 16px 20px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.05);
+        color: #fff;
+        cursor: pointer;
+        transition: all 0.25s ease;
+        text-align: left;
+        font-family: inherit;
+    }
+
+    .login-btn:hover {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.2);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+
+    .login-btn:active {
+        transform: translateY(0);
+    }
+
+    .btn-icon {
+        font-size: 28px;
+        flex-shrink: 0;
+    }
+
+    .btn-text {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .btn-label {
+        font-size: 16px;
+        font-weight: 600;
+    }
+
+    .btn-desc {
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.45);
+        margin-top: 2px;
+    }
+
+    .btn-guest { border-color: rgba(156, 163, 175, 0.3); }
+    .btn-guest:hover { border-color: rgba(156, 163, 175, 0.5); background: rgba(156, 163, 175, 0.1); }
+
+    .btn-signin { border-color: rgba(99, 102, 241, 0.3); }
+    .btn-signin:hover { border-color: rgba(99, 102, 241, 0.5); background: rgba(99, 102, 241, 0.1); }
+
+    .btn-signup { border-color: rgba(16, 185, 129, 0.3); }
+    .btn-signup:hover { border-color: rgba(16, 185, 129, 0.5); background: rgba(16, 185, 129, 0.1); }
+
+    .guest-warning {
+        text-align: center;
+        font-size: 11px;
+        color: rgba(251, 191, 36, 0.7);
+        margin-top: 20px;
+        padding: 8px;
+        border-radius: 8px;
+        background: rgba(251, 191, 36, 0.05);
+        border: 1px solid rgba(251, 191, 36, 0.15);
+    }
+
+    /* ── Forms ────────────────────────────────────────────── */
+    .login-form {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .login-form h2 {
+        color: #fff;
+        font-size: 22px;
+        font-weight: 700;
+        margin: 0 0 8px 0;
+        text-align: center;
+    }
+
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .form-group label {
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.5);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        font-weight: 600;
+    }
+
+    .form-group input {
+        padding: 12px 16px;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.05);
+        color: #fff;
+        font-size: 15px;
+        font-family: inherit;
+        outline: none;
+        transition: border-color 0.2s;
+    }
+
+    .form-group input:focus {
+        border-color: rgba(99, 102, 241, 0.5);
+        background: rgba(99, 102, 241, 0.05);
+    }
+
+    .form-group input::placeholder {
+        color: rgba(255, 255, 255, 0.25);
+    }
+
+    .error-msg {
+        color: #f43f5e;
+        font-size: 13px;
+        padding: 8px 12px;
+        background: rgba(244, 63, 94, 0.1);
+        border: 1px solid rgba(244, 63, 94, 0.2);
+        border-radius: 8px;
+    }
+
+    .back-btn {
+        background: none;
+        border: none;
+        color: rgba(255, 255, 255, 0.5);
+        cursor: pointer;
+        font-size: 14px;
+        padding: 8px;
+        transition: color 0.2s;
+        font-family: inherit;
+    }
+
+    .back-btn:hover {
+        color: #fff;
+    }
+
+    /* ── Loading ──────────────────────────────────────────── */
+    .login-loader {
+        text-align: center;
+        color: rgba(255, 255, 255, 0.6);
+    }
+
+    .spinner {
+        width: 40px;
+        height: 40px;
+        border: 3px solid rgba(255, 255, 255, 0.1);
+        border-top-color: #6366f1;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        margin: 0 auto 16px;
+    }
+
+    .spinner-sm {
+        display: inline-block;
+        width: 18px;
+        height: 18px;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+
+    @@keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    .login-btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none !important;
+    }
+</style>
+
+@code {
+    private bool _isLoading = true;
+    private bool _showSignIn = false;
+    private bool _showSignUp = false;
+    private bool _isSubmitting = false;
+
+    private string _email = "";
+    private string _password = "";
+    private string _displayName = "";
+    private string _errorMessage = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        // If user is already logged in, redirect straight to home
+        if (Supabase.IsLoggedIn)
+        {
+            Nav.NavigateTo("/home");
+            return;
+        }
+        _isLoading = false;
+    }
+
+    private async Task PlayAsGuest()
+    {
+        _isSubmitting = true;
+        _errorMessage = "";
+        try
+        {
+            await Supabase.SignInAnonymously();
+            Nav.NavigateTo("/home");
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Failed to sign in as guest: {ex.Message}";
+            _isSubmitting = false;
+        }
+    }
+
+    private async Task SignIn()
+    {
+        if (string.IsNullOrWhiteSpace(_email) || string.IsNullOrWhiteSpace(_password))
+        {
+            _errorMessage = "Please fill in all fields.";
+            return;
+        }
+
+        _isSubmitting = true;
+        _errorMessage = "";
+        try
+        {
+            await Supabase.SignInWithEmail(_email, _password);
+            Nav.NavigateTo("/home");
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = "Invalid email or password.";
+            _isSubmitting = false;
+        }
+    }
+
+    private async Task SignUp()
+    {
+        if (string.IsNullOrWhiteSpace(_displayName))
+        {
+            _errorMessage = "Please enter a display name.";
+            return;
+        }
+        if (_displayName.Length < 2 || _displayName.Length > 20)
+        {
+            _errorMessage = "Display name must be 2-20 characters.";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(_email) || string.IsNullOrWhiteSpace(_password))
+        {
+            _errorMessage = "Please fill in all fields.";
+            return;
+        }
+        if (_password.Length < 6)
+        {
+            _errorMessage = "Password must be at least 6 characters.";
+            return;
+        }
+
+        _isSubmitting = true;
+        _errorMessage = "";
+        try
+        {
+            await Supabase.SignUp(_email, _password, _displayName);
+            Nav.NavigateTo("/home");
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Sign up failed: {ex.Message}";
+            _isSubmitting = false;
+        }
+    }
+
+    private void ResetForm()
+    {
+        _showSignIn = false;
+        _showSignUp = false;
+        _errorMessage = "";
+        _email = "";
+        _password = "";
+        _displayName = "";
+        _isSubmitting = false;
+    }
+}

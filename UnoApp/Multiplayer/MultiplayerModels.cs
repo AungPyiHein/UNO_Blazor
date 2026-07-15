@@ -25,6 +25,7 @@ public class GameStateDto
     public string? ActiveColor { get; set; }
     public int[] HandCounts { get; set; } = Array.Empty<int>();
     public string[] PlayerNames { get; set; } = Array.Empty<string>();
+    public string[] PlayerIds { get; set; } = Array.Empty<string>();
     public List<CardDto> MyHand { get; set; } = new();
     public bool IsMyTurn { get; set; }
     public string Status { get; set; } = "";

@@ -8,9 +8,9 @@ public class LobbyService : IAsyncDisposable
 {
     private HubConnection? _hub;
 
-    public event Action<string, List<string>>? PlayersUpdated;
+    public event Action<string, List<string>, List<string>>? PlayersUpdated;
     public event Action<int>? CpuCountUpdated;
-    public event Action<string[], int>? GameStarted;
+    public event Action<string[], string[], int>? GameStarted;
     public event Action? RoomClosed;
     public event Action? PlayerKicked;
     public event Action<string, string>? ChatMessageReceived;
@@ -35,6 +35,7 @@ public class LobbyService : IAsyncDisposable
     public bool IsHost => MyPlayerIndex == 0;
     public bool IsGameStarted { get; private set; }
     public string[] AllPlayerNames { get; private set; } = Array.Empty<string>();
+    public string[] AllPlayerIds { get; private set; } = Array.Empty<string>();
     public int CpuCount { get; private set; }
 
     public async Task ConnectAsync(string baseUri)
@@ -52,16 +53,16 @@ public class LobbyService : IAsyncDisposable
             .WithAutomaticReconnect()
             .Build();
 
-        _hub.On<string, List<string>>("PlayersUpdated", (room, players) =>
-            PlayersUpdated?.Invoke(room, players));
+        _hub.On<string, List<string>, List<string>>("PlayersUpdated", (room, players, ids) =>
+            PlayersUpdated?.Invoke(room, players, ids));
 
         _hub.On<int>("CpuCountUpdated", (cpuCount) => {
             CpuCount = cpuCount;
             CpuCountUpdated?.Invoke(cpuCount);
         });
 
-        _hub.On<string[], int>("GameStarted", (players, cpuCount) =>
-            GameStarted?.Invoke(players, cpuCount));
+        _hub.On<string[], string[], int>("GameStarted", (players, ids, cpuCount) =>
+            GameStarted?.Invoke(players, ids, cpuCount));
 
         _hub.On("RoomClosed", () =>
             RoomClosed?.Invoke());
@@ -119,12 +120,12 @@ public class LobbyService : IAsyncDisposable
         await _hub.InvokeAsync("SendChatMessage", MyRoomCode, MyPlayerName, message);
     }
 
-    public async Task JoinRoomAsync(string roomCode, string playerName)
+    public async Task JoinRoomAsync(string roomCode, string playerName, string playerId)
     {
         if (_hub == null) return;
         MyRoomCode = roomCode.Trim().ToUpperInvariant();
         MyPlayerName = playerName.Trim();
-        await _hub.InvokeAsync("JoinRoom", MyRoomCode, MyPlayerName);
+        await _hub.InvokeAsync("JoinRoom", MyRoomCode, MyPlayerName, playerId);
     }
 
     public async Task SetCpuCountAsync(int cpuCount)
@@ -176,10 +177,11 @@ public class LobbyService : IAsyncDisposable
         await _hub.InvokeAsync("SendStateToPlayer", MyRoomCode, playerIndex, stateJson);
     }
 
-    public void SetPlayerInfo(int myIndex, string[] allPlayerNames, int cpuCount = 0)
+    public void SetPlayerInfo(int myIndex, string[] allPlayerNames, string[] allPlayerIds, int cpuCount = 0)
     {
         MyPlayerIndex = myIndex;
         AllPlayerNames = allPlayerNames;
+        AllPlayerIds = allPlayerIds;
         CpuCount = cpuCount;
         IsGameStarted = true;
     }
@@ -189,6 +191,7 @@ public class LobbyService : IAsyncDisposable
         IsGameStarted = false;
         MyPlayerIndex = -1;
         AllPlayerNames = Array.Empty<string>();
+        AllPlayerIds = Array.Empty<string>();
         CpuCount = 0;
     }
 

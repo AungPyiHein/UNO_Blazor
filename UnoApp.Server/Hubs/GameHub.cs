@@ -5,27 +5,28 @@ namespace UnoApp.Server.Hubs;
 
 public class GameHub : Hub
 {
-    private static readonly ConcurrentDictionary<string, List<string>> _rooms = new();
+    private static readonly ConcurrentDictionary<string, List<(string Name, string Id)>> _rooms = new();
     private static readonly ConcurrentDictionary<string, int> _roomCpuCount = new();
-    private static readonly ConcurrentDictionary<string, (string RoomCode, string PlayerName)> _connections = new();
+    private static readonly ConcurrentDictionary<string, (string RoomCode, string PlayerName, string PlayerId)> _connections = new();
     private static readonly ConcurrentDictionary<string, string> _roomRules = new();
 
-    public async Task JoinRoom(string roomCode, string playerName)
+    public async Task JoinRoom(string roomCode, string playerName, string playerId)
     {
         roomCode   = roomCode.Trim().ToUpperInvariant();
         playerName = playerName.Trim();
+        playerId   = playerId.Trim();
 
         if (string.IsNullOrWhiteSpace(roomCode) || string.IsNullOrWhiteSpace(playerName))
             return;
 
-        _connections[Context.ConnectionId] = (roomCode, playerName);
+        _connections[Context.ConnectionId] = (roomCode, playerName, playerId);
         await Groups.AddToGroupAsync(Context.ConnectionId, roomCode);
 
-        var players = _rooms.GetOrAdd(roomCode, _ => new List<string>());
+        var players = _rooms.GetOrAdd(roomCode, _ => new List<(string Name, string Id)>());
         lock (players)
         {
-            if (!players.Contains(playerName))
-                players.Add(playerName);
+            if (!players.Any(p => p.Name == playerName))
+                players.Add((playerName, playerId));
         }
 
         await BroadcastPlayers(roomCode, players);
@@ -52,11 +53,11 @@ public class GameHub : Hub
         if (!_rooms.TryGetValue(roomCode, out var players))
             return;
 
-        List<string> snapshot;
+        List<(string Name, string Id)> snapshot;
         lock (players) { snapshot = players.ToList(); }
 
         // Only host can set CPU count
-        if (!_connections.TryGetValue(Context.ConnectionId, out var callerInfo) || snapshot.Count == 0 || snapshot[0] != callerInfo.PlayerName)
+        if (!_connections.TryGetValue(Context.ConnectionId, out var callerInfo) || snapshot.Count == 0 || snapshot[0].Name != callerInfo.PlayerName)
             return;
 
         _roomCpuCount[roomCode] = cpuCount;
@@ -86,12 +87,12 @@ public class GameHub : Hub
 
         if (!_rooms.TryGetValue(roomCode, out var players)) return;
 
-        List<string> snapshot;
+        List<(string Name, string Id)> snapshot;
         lock (players) { snapshot = players.ToList(); }
 
         // Only the host (index 0) may kick
         if (!_connections.TryGetValue(Context.ConnectionId, out var callerInfo)) return;
-        if (snapshot.Count == 0 || snapshot[0] != callerInfo.PlayerName) return;
+        if (snapshot.Count == 0 || snapshot[0].Name != callerInfo.PlayerName) return;
 
         // Find the kicked player's connection
         var kickedConnId = _connections
@@ -115,10 +116,12 @@ public class GameHub : Hub
 
         _roomCpuCount[roomCode] = cpuCount;
 
-        List<string> snapshot;
+        List<(string Name, string Id)> snapshot;
         lock (players) { snapshot = players.ToList(); }
 
-        await Clients.Group(roomCode).SendAsync("GameStarted", snapshot.ToArray(), cpuCount);
+        var names = snapshot.Select(p => p.Name).ToArray();
+        var ids = snapshot.Select(p => p.Id).ToArray();
+        await Clients.Group(roomCode).SendAsync("GameStarted", names, ids, cpuCount);
     }
 
     public async Task SendMove(string roomCode, string moveJson)
@@ -126,13 +129,13 @@ public class GameHub : Hub
         roomCode = roomCode.Trim().ToUpperInvariant();
         if (!_rooms.TryGetValue(roomCode, out var players)) return;
 
-        List<string> snapshot;
+        List<(string Name, string Id)> snapshot;
         lock (players) { snapshot = players.ToList(); }
 
         if (snapshot.Count == 0) return;
 
         var hostConnectionId = _connections
-            .FirstOrDefault(kv => kv.Value.RoomCode == roomCode && kv.Value.PlayerName == snapshot[0])
+            .FirstOrDefault(kv => kv.Value.RoomCode == roomCode && kv.Value.PlayerName == snapshot[0].Name)
             .Key;
 
         if (hostConnectionId != null)
@@ -144,13 +147,13 @@ public class GameHub : Hub
         roomCode = roomCode.Trim().ToUpperInvariant();
         if (!_rooms.TryGetValue(roomCode, out var players)) return;
 
-        List<string> snapshot;
+        List<(string Name, string Id)> snapshot;
         lock (players) { snapshot = players.ToList(); }
 
         if (snapshot.Count == 0) return;
 
         var hostConnectionId = _connections
-            .FirstOrDefault(kv => kv.Value.RoomCode == roomCode && kv.Value.PlayerName == snapshot[0])
+            .FirstOrDefault(kv => kv.Value.RoomCode == roomCode && kv.Value.PlayerName == snapshot[0].Name)
             .Key;
 
         if (hostConnectionId != null)
@@ -170,13 +173,13 @@ public class GameHub : Hub
         if (!_rooms.TryGetValue(roomCode, out var players)) return;
         if (!_connections.TryGetValue(Context.ConnectionId, out var callerInfo)) return;
 
-        List<string> snapshot;
+        List<(string Name, string Id)> snapshot;
         lock (players) { snapshot = players.ToList(); }
 
         if (snapshot.Count == 0) return;
 
         var hostConnectionId = _connections
-            .FirstOrDefault(kv => kv.Value.RoomCode == roomCode && kv.Value.PlayerName == snapshot[0])
+            .FirstOrDefault(kv => kv.Value.RoomCode == roomCode && kv.Value.PlayerName == snapshot[0].Name)
             .Key;
 
         if (hostConnectionId != null)
@@ -195,12 +198,12 @@ public class GameHub : Hub
         roomCode = roomCode.Trim().ToUpperInvariant();
         if (!_rooms.TryGetValue(roomCode, out var players)) return;
 
-        List<string> snapshot;
+        List<(string Name, string Id)> snapshot;
         lock (players) { snapshot = players.ToList(); }
 
         if (playerIndex < 0 || playerIndex >= snapshot.Count) return;
 
-        var targetName = snapshot[playerIndex];
+        var targetName = snapshot[playerIndex].Name;
         var targetConnectionId = _connections
             .FirstOrDefault(kv => kv.Value.RoomCode == roomCode && kv.Value.PlayerName == targetName)
             .Key;
@@ -225,8 +228,8 @@ public class GameHub : Hub
         bool wasHost;
         lock (players)
         {
-            wasHost = players.Count > 0 && players[0] == playerName;
-            players.Remove(playerName);
+            wasHost = players.Count > 0 && players[0].Name == playerName;
+            players.RemoveAll(p => p.Name == playerName);
         }
 
         if (players.Count == 0)
@@ -241,10 +244,14 @@ public class GameHub : Hub
         await BroadcastPlayers(roomCode, players);
     }
 
-    private async Task BroadcastPlayers(string roomCode, List<string> players)
+    private async Task BroadcastPlayers(string roomCode, List<(string Name, string Id)> players)
     {
-        List<string> snapshot;
+        List<(string Name, string Id)> snapshot;
         lock (players) { snapshot = players.ToList(); }
-        await Clients.Group(roomCode).SendAsync("PlayersUpdated", roomCode, snapshot);
+        
+        var names = snapshot.Select(p => p.Name).ToList();
+        var ids = snapshot.Select(p => p.Id).ToList();
+        
+        await Clients.Group(roomCode).SendAsync("PlayersUpdated", roomCode, names, ids);
     }
 }
