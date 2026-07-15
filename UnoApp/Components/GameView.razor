@@ -321,7 +321,7 @@ else
                        which resets the in-flight CSS animation and looks like the hand "blinking" a few times.
                        Key by stable slot index for the whole vortex window instead, and only key by card identity
                        once the vortex has fully settled. *@
-                    <div @key="@(_isSwallowingCards || _isSpittingCards || _vortexHandSnapshot != null ? $"vortex-slot-{i}" : (card != null ? (object)card.Id : $"ghost-{i}"))"
+                    <div @key="@(_isSwallowingCards || _isSpittingCards || _zeroRotateActive || _swapAffectsMyHand ? $"vortex-slot-{i}" : (card != null ? (object)card.Id : $"ghost-{i}"))"
                          class="hand-card-wrapper @(_isSwallowingCards ? "vortex-ingest" : "") @(_isSpittingCards ? "vortex-eject" : "") @(card != null && _vortexSettledCardIds.Contains(card.Id) ? "vortex-settled" : "") @(isDrawnCard ? "drawn-card-highlight" : "") @(canJumpIn ? "jump-in-highlight" : "")"
                          style="--card-rot:@((off * hAng).ToString("0.00", IC))deg; --card-ty:@((Math.Pow(off, 2) * hTyF).ToString("0.00", IC))px; z-index:@(isDrawnCard ? 1000 : i); @GetVortexDelayStyle(i)"
                          @onclick="() => { if (card != null) OnCardClickedAsync(card); }">
@@ -659,6 +659,9 @@ else
     private bool    _sevenOverlayActive   = false;
     private int     _sevenActorIndex      = -1;
     private int     _sevenCpuTargetIndex  = -1;
+    // True only when the swap involves the local player — used to slot-key the local hand
+    // during the swap animation without disturbing unrelated players' key scheme.
+    private bool    _swapAffectsMyHand    = false;
     private int     _drawFlyTarget        = -1;
     private string  _drawFlyStyle         = "";
     private Dictionary<int, int> _penaltyBadges = new();
@@ -773,13 +776,26 @@ else
             if (parts.Length == 3 && int.TryParse(parts[1], out int p1) && int.TryParse(parts[2], out int p2))
             {
                 _swapP1 = p1; _swapP2 = p2; _isAnimating = true;
+                // Only switch the local player's hand to slot-key when they are one of the
+                // swap participants. If it's two other players swapping, the local hand is
+                // completely unaffected and we must NOT change its @key — doing so causes
+                // Blazor to destroy/recreate every card node and replays the pop-in CSS
+                // animation, which looks like the hand "blinking" or resetting.
+                _swapAffectsMyHand = (State?.MyPlayerIndex == p1 || State?.MyPlayerIndex == p2);
                 // Snapshot hand counts and zero out both participants so cards visually clear immediately
                 _vortexHandSnapshot = State?.HandCounts.ToArray() ?? Array.Empty<int>();
                 if (p1 < _vortexHandSnapshot.Length) _vortexHandSnapshot[p1] = 0;
                 if (p2 < _vortexHandSnapshot.Length) _vortexHandSnapshot[p2] = 0;
                 await InvokeAsync(StateHasChanged);
                 await Task.Delay(1050);
+                // If the local player was involved in the swap, their new cards have already
+                // arrived in State.MyHand. Mark them as settled before the @key switches back
+                // so the recreated wrappers don't replay the pop-in animation.
+                if (_swapAffectsMyHand)
+                    foreach (var c in State?.MyHand ?? Enumerable.Empty<CardDto>())
+                        _vortexSettledCardIds.Add(c.Id);
                 _vortexHandSnapshot = null;
+                _swapAffectsMyHand = false;
                 _swapP1 = -1; _swapP2 = -1; _isAnimating = false;
                 await InvokeAsync(StateHasChanged);
             }
@@ -799,6 +815,14 @@ else
             await InvokeAsync(StateHasChanged);
             await Task.Delay(1100);
 
+            // Before clearing _zeroRotateActive (which controls the slot-key for the local
+            // hand), mark every incoming card as settled. This means when the @key switches
+            // from "vortex-slot-{i}" back to card.Id and Blazor recreates those wrappers,
+            // the vortex-settled class suppresses the pop-in animation — no blink/reset.
+            foreach (var c in State?.MyHand ?? Enumerable.Empty<CardDto>())
+                _vortexSettledCardIds.Add(c.Id);
+
+            // Clear atomically: one render → one @key transition → no intermediate blink.
             _vortexHandSnapshot = null;
             _zeroRotateActive = false;
             _animClass = "zero-reveal";
