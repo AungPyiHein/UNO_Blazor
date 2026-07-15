@@ -725,7 +725,7 @@ namespace UnoEngine
             }
             
             // Handle Wild requiring color selection (Vortex is Color Nullified and skips selection)
-            if (card.Color == CardColor.Wild && card.Value != CardValue.Vortex && declaredColor == null)
+            if (card.Color == CardColor.Wild && card.Value != CardValue.Vortex)
             {
                 if (player.Hand.Contains(card)) player.Hand.Remove(card);
                 else if (card == PendingCard) PendingCard = null;
@@ -736,9 +736,18 @@ namespace UnoEngine
                 PendingColorSelector = player;
                 LastPlayerIndex = Players.IndexOf(player);
                 Status = GameStatus.WaitingForColorSelection;
+                // Always broadcast WaitingForColorSelection so all players (guests included)
+                // see the color-picker overlay before the color is finalized.
                 OnStateChanged?.Invoke();
 
-                if (!player.IsHuman)
+                if (declaredColor != null)
+                {
+                    // Human already chose a colour (local host or guest colour was bundled with the move).
+                    // InternalFinalizeWildColor is called directly here — we're already inside
+                    // _actionLock, so we call the internal method rather than the public wrappers.
+                    await InternalFinalizeWildColor(declaredColor.Value, player);
+                }
+                else if (!player.IsHuman)
                 {
                     SafeFireAndForget(() => HandleCpuColorSelectionAsync(player));
                 }

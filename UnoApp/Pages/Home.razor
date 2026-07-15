@@ -2705,6 +2705,7 @@
     private GameView? _gameViewRef;
     private string? _spDrawnCardId;
     private string _pendingAnimTrigger = "";
+    private int _animSeq = 0;
 
     private bool _showRulesModal = false;
     private bool _showRuleBookModal = false;
@@ -3520,7 +3521,7 @@
         _leaderboardUpdated = false;
         _game.OnBoardAnimation += async (anim) =>
         {
-            _pendingAnimTrigger = anim;
+            _pendingAnimTrigger = $"{anim}#{++_animSeq}";
             await BroadcastStateAsync();   // send trigger to guests immediately
             _pendingAnimTrigger = "";      // clear before host anim so OnStateChanged doesn't re-broadcast
             if (_gameViewRef != null) await _gameViewRef.TriggerAnimation(anim);
@@ -4108,7 +4109,7 @@
             _game.GetRemoteHumanMove = GetRemoteMoveAsync;
             _game.OnBoardAnimation += async (anim) =>
             {
-                _pendingAnimTrigger = anim;
+                _pendingAnimTrigger = $"{anim}#{++_animSeq}";
                 await BroadcastStateAsync();   // send trigger to guests immediately
                 _pendingAnimTrigger = "";      // clear before host anim so OnStateChanged doesn't re-broadcast
                 if (_gameViewRef != null) await _gameViewRef.TriggerAnimation(anim);
@@ -4133,7 +4134,7 @@
         {
             _game.OnBoardAnimation += async (anim) =>
             {
-                _pendingAnimTrigger = anim;
+                _pendingAnimTrigger = $"{anim}#{++_animSeq}";
                 if (_gameViewRef != null) await _gameViewRef.TriggerAnimation(anim);
                 _pendingAnimTrigger = "";
             };

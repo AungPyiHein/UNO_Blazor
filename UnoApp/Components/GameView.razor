@@ -631,11 +631,15 @@ else
     public async Task TriggerAnimation(string animType)
     {
         if (string.IsNullOrEmpty(animType)) return;
-        if (animType == _activeAnimType) return; // duplicate call for an animation already in flight
-        _activeAnimType = animType;
+        // Strip unique sequence suffix added by the host (e.g. "draw-2#5" → "draw-2")
+        // The suffix makes each broadcast distinct so the deduplication check in OnParametersSetAsync
+        // doesn't swallow consecutive same-type triggers (e.g. 12 sequential draw animations).
+        var baseType = animType.Contains('#') ? animType[..animType.IndexOf('#')] : animType;
+        if (baseType == _activeAnimType) return; // duplicate call for an animation already in flight
+        _activeAnimType = baseType;
         try
         {
-            await RunAnimationAsync(animType);
+            await RunAnimationAsync(baseType);
         }
         finally
         {
