@@ -38,6 +38,10 @@ public class GameStateDto
     public int[] TotalScores { get; set; } = Array.Empty<int>();
     public int[] RoundScores { get; set; } = Array.Empty<int>();
     public string[] PlayerStatuses { get; set; } = Array.Empty<string>();
+    
+    public Dictionary<string, string> EndGameVotes { get; set; } = new();
+    public string? GameOverDeadline { get; set; }
+    public bool HostProposedNextRound { get; set; }
 
     // ── New unified fields ────────────────────────────────────────────────────
     /// <summary>Last 8 cards on the discard pile (oldest first, newest last).</summary>

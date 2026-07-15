@@ -12,19 +12,9 @@
               OnMove="OnGuestMove"
               OnNextRound="OnGuestNextRound"
               OnStartGame="OnGuestLeave"
+              OnVoteNextRound="OnGuestVoteNextRound"
+              OnVoteEndGame="OnGuestVoteEndGame"
               ShowPauseButton="false" />
-
-    @if (_rematchRequested)
-    {
-        <div style="position:absolute;inset:0;z-index:200;background:rgba(0,0,0,0.72);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.2rem;">
-            <div style="font-size:2.2rem;color:#fff;font-weight:700;letter-spacing:.04em;">⏳ Waiting for host…</div>
-            <div style="font-size:1rem;color:rgba(255,255,255,.65);">Next round will start automatically when the host is ready.</div>
-            <button @onclick="OnGuestLeave"
-                    style="margin-top:.5rem;padding:.55rem 1.8rem;border-radius:999px;border:none;background:#ef4444;color:#fff;font-size:1rem;font-weight:700;cursor:pointer;">
-                Leave Game
-            </button>
-        </div>
-    }
 
     @if (_hostDisconnected)
     {
@@ -61,7 +51,6 @@
 
 @code {
     private GameStateDto? _state;
-    private bool _rematchRequested = false;
     private bool _hostDisconnected = false;
     private bool _connectionLost = false;
     private static readonly JsonSerializerOptions _jsonOpts = new() { PropertyNameCaseInsensitive = true };
@@ -74,6 +63,7 @@
         LobbyService.HubReconnecting     += OnHubReconnecting;
         LobbyService.HubReconnected      += OnHubReconnected;
         LobbyService.HubConnectionClosed += OnHubClosed;
+        LobbyService.ReturnedToLobby     += OnReturnedToLobby;
     }
 
     private void OnStateUpdated(string json)
@@ -84,8 +74,6 @@
             if (_state != null)
             {
                 _state.MyPlayerIndex = LobbyService.MyPlayerIndex;
-                if (!_state.IsGameOver)
-                    _rematchRequested = false;
             }
             InvokeAsync(StateHasChanged);
         }
@@ -136,10 +124,23 @@
 
     private async Task OnGuestNextRound()
     {
-        if (_rematchRequested) return;
-        _rematchRequested = true;
         await LobbyService.SendNextRoundRequestAsync();
         StateHasChanged();
+    }
+
+    private async Task OnGuestVoteNextRound()
+    {
+        await LobbyService.SendEndGameVoteAsync("NextRound");
+    }
+
+    private async Task OnGuestVoteEndGame()
+    {
+        await LobbyService.SendEndGameVoteAsync("EndGame");
+    }
+
+    private void OnReturnedToLobby()
+    {
+        Nav.NavigateTo("/lobby");
     }
 
     private void OnGuestLeave()
@@ -156,5 +157,6 @@
         LobbyService.HubReconnecting     -= OnHubReconnecting;
         LobbyService.HubReconnected      -= OnHubReconnected;
         LobbyService.HubConnectionClosed -= OnHubClosed;
+        LobbyService.ReturnedToLobby     -= OnReturnedToLobby;
     }
 }

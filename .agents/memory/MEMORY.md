@@ -1,2 +1,0 @@
-- [Blazor animation re-entrancy via dual trigger paths](blazor-animation-dual-trigger-reentrancy.md) — a direct component method call plus a later state-DTO-driven re-trigger of the same event can overlap and double-play.
-- [Wild-card subtype UI gating](uno-wild-subtype-ui-gating.md) — don't gate client UI on a card's broad Color/Category alone when a specific Value subtype (e.g. Vortex) has different server-side rules.

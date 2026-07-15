@@ -14,7 +14,7 @@
 <div class="menu-screen @(_isGameStarted ? "game-active" : "")">
     @if (_isGameStarted)
     {
-        <GameView @ref="_gameViewRef" State="@_spState" OnMove="HandleSpMove" OnNextRound="HandleNextRound" OnStartGame="ResetGame" OnAnimationMidpoint="HandleAnimMidpoint" ShowPauseButton="@(!_isMultiplayerHost)" OnPauseChanged="HandlePauseChanged" />
+        <GameView @ref="_gameViewRef" State="@_spState" OnMove="HandleSpMove" OnNextRound="HandleNextRound" OnStartGame="ReturnToLobbyAsync" OnAnimationMidpoint="HandleAnimMidpoint" ShowPauseButton="@(!_isMultiplayerHost)" OnPauseChanged="HandlePauseChanged" />
     }
     else
     {
@@ -2725,6 +2725,11 @@
 
     // AFK timer
     private CancellationTokenSource? _afkCts;
+
+    private Dictionary<string, string> _endGameVotes = new();
+    private string? _gameOverDeadline = null;
+    private int _gameOverTimerId = 0;
+    private bool _hostProposedNextRound = false;
     private int _afkTimerPlayerIndex = -1;
     private GameStatus? _afkTimerStatus;
 
@@ -3001,6 +3006,7 @@
         LobbyService.PlayerKicked        += LobbyOnPlayerKicked;
         LobbyService.ChatMessageReceived += LobbyOnChatMessage;
         LobbyService.NextRoundRequested  += LobbyOnNextRoundRequested;
+        LobbyService.EndGameVoteReceived += LobbyOnEndGameVoteReceived;
         LobbyService.PlayerLeft          += LobbyOnPlayerLeft;
         LobbyService.HubReconnecting     += LobbyOnHubReconnecting;
         LobbyService.HubReconnected      += LobbyOnHubReconnected;
@@ -3694,6 +3700,9 @@
             Wd4BluffPlayerIndex  = game.Wd4BluffPlayer != null ? game.Players.IndexOf(game.Wd4BluffPlayer) : -1,
             MyPlayerIndex        = playerIndex,
             SkippedForJumpInIndex = game.SkippedForJumpInIndex,
+            EndGameVotes         = _endGameVotes,
+            GameOverDeadline     = _gameOverDeadline,
+            HostProposedNextRound = _hostProposedNextRound,
         };
     }
 
@@ -3702,6 +3711,7 @@
         if (_game == null) return new GameStateDto();
         var dto = BuildStateForPlayer(0);
         dto.DrawnCardId = _spDrawnCardId;
+        dto.HostProposedNextRound = _hostProposedNextRound;
         return dto;
     }
 
@@ -3999,6 +4009,39 @@
         await _game.StartTurnAsync();
     }
 
+    private async Task ReturnToLobbyAsync()
+    {
+        CancelAfkTimer();
+        _leaderboardUpdated = false;
+        _isGameStarted = false;
+        _game = null;
+        _spState = null;
+        _spDrawnCardId = null;
+        _pendingAnimTrigger = "";
+        _endGameVotes.Clear();
+        _gameOverDeadline = null;
+        _gameOverTimerId++;
+        _hostProposedNextRound = false;
+
+        if (_isMultiplayerHost)
+        {
+            // Unsubscribe from game-specific events, but keep lobby connection alive
+            LobbyService.MoveReceived -= OnRemoteMoveReceived;
+            foreach (var tcs in _pendingRemoteMoves.Values) tcs.TrySetResult(null);
+            _pendingRemoteMoves.Clear();
+
+            await LobbyService.SendReturnToLobbyAsync();
+            _lobbyMode = "waiting";
+            _showLobby = true;
+            _isMultiplayerHost = false;
+            await InvokeAsync(StateHasChanged);
+        }
+        else
+        {
+            ResetGame();
+        }
+    }
+
     private void ResetGame()
     {
         CancelAfkTimer();
@@ -4008,6 +4051,11 @@
         _spState = null;
         _spDrawnCardId = null;
         _pendingAnimTrigger = "";
+        _endGameVotes.Clear();
+        _gameOverDeadline = null;
+        _gameOverTimerId++;
+        _hostProposedNextRound = false;
+        
         if (_isMultiplayerHost)
         {
             LobbyService.MoveReceived -= OnRemoteMoveReceived;
@@ -4028,6 +4076,7 @@
         LobbyService.PlayerKicked        -= LobbyOnPlayerKicked;
         LobbyService.ChatMessageReceived -= LobbyOnChatMessage;
         LobbyService.NextRoundRequested  -= LobbyOnNextRoundRequested;
+        LobbyService.EndGameVoteReceived -= LobbyOnEndGameVoteReceived;
         LobbyService.PlayerLeft          -= LobbyOnPlayerLeft;
         LobbyService.HubReconnecting     -= LobbyOnHubReconnecting;
         LobbyService.HubReconnected      -= LobbyOnHubReconnected;
@@ -4097,7 +4146,74 @@
         finally { _nextRoundInProgress = false; }
     }
 
+    private void CheckEndGameVotes()
+    {
+        if (_game == null || !_isMultiplayerHost) return;
+
+        int requiredVotes = _game.RemotePlayerIndices.Count + 1; // +1 for host
+        if (_endGameVotes.Count >= requiredVotes)
+        {
+            var yesCount = _endGameVotes.Values.Count(v => v == "NextRound");
+            var noCount = _endGameVotes.Values.Count(v => v == "EndGame");
+
+            if (yesCount > noCount)
+            {
+                InvokeAsync(async () =>
+                {
+                    await ExecuteNextRound();
+                    StateHasChanged();
+                });
+            }
+            else if (noCount > yesCount)
+            {
+                InvokeAsync(async () =>
+                {
+                    await ReturnToLobbyAsync();
+                    StateHasChanged();
+                });
+            }
+            else
+            {
+                // Tie: revote
+                InvokeAsync(async () =>
+                {
+                    _endGameVotes.Clear();
+                    _hostProposedNextRound = false;
+                    _spState = BuildStateForPlayer(0);
+                    await BroadcastStateAsync();
+                    StateHasChanged();
+                });
+            }
+        }
+    }
+
+    private async void LobbyOnEndGameVoteReceived(string playerName, string voteType)
+    {
+        if (!_isMultiplayerHost || _game?.Status != GameStatus.GameOver) return;
+        _endGameVotes[playerName] = voteType;
+        _spState = BuildStateForPlayer(0);
+        await BroadcastStateAsync();
+        await InvokeAsync(StateHasChanged);
+        CheckEndGameVotes();
+    }
+
     private async Task HandleNextRound()
+    {
+        if (_game == null) return;
+        if (_isMultiplayerHost && _game.RemotePlayerIndices.Count > 0)
+        {
+            _hostProposedNextRound = true;
+            _endGameVotes[_lobbyPlayerName] = "NextRound"; // Host automatically votes YES when proposing
+            _spState = BuildStateForPlayer(0);
+            await BroadcastStateAsync();
+            await InvokeAsync(StateHasChanged);
+            CheckEndGameVotes();
+            return;
+        }
+        await ExecuteNextRound();
+    }
+
+    private async Task ExecuteNextRound()
     {
         if (_game == null) return;
         _leaderboardUpdated = false;
@@ -4111,6 +4227,11 @@
         }).ToList();
         var settings = _game.Settings;
         int nextRound = _game.RoundNumber + 1;
+
+        _endGameVotes.Clear();
+        _gameOverDeadline = null;
+        _gameOverTimerId++;
+        _hostProposedNextRound = false;
 
         _game = new UnoGame(prevPlayers, settings);
         _game.RoundNumber = nextRound;
@@ -4135,6 +4256,24 @@
                 {
                     UpdateLeaderboard();
                     _leaderboardUpdated = true;
+                    
+                    if (_isMultiplayerHost)
+                    {
+                        _endGameVotes.Clear();
+                        _gameOverDeadline = DateTime.UtcNow.AddSeconds(30).ToString("O");
+                        int currentTimerId = ++_gameOverTimerId;
+                        _ = Task.Run(async () =>
+                        {
+                            await Task.Delay(30000);
+                            if (_gameOverTimerId == currentTimerId && _game?.Status == GameStatus.GameOver)
+                            {
+                                await InvokeAsync(async () =>
+                                {
+                                    await ReturnToLobbyAsync();
+                                });
+                            }
+                        });
+                    }
                 }
                 _spState = BuildStateForPlayer(0);
                 await BroadcastStateAsync();

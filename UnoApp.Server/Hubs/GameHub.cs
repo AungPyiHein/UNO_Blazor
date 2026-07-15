@@ -157,6 +157,32 @@ public class GameHub : Hub
             await Clients.Client(hostConnectionId).SendAsync("NextRoundRequested");
     }
 
+    public async Task ReturnToLobby(string roomCode)
+    {
+        roomCode = roomCode.Trim().ToUpperInvariant();
+        if (_rooms.ContainsKey(roomCode))
+            await Clients.Group(roomCode).SendAsync("ReturnToLobby");
+    }
+
+    public async Task SendEndGameVote(string roomCode, string voteType)
+    {
+        roomCode = roomCode.Trim().ToUpperInvariant();
+        if (!_rooms.TryGetValue(roomCode, out var players)) return;
+        if (!_connections.TryGetValue(Context.ConnectionId, out var callerInfo)) return;
+
+        List<string> snapshot;
+        lock (players) { snapshot = players.ToList(); }
+
+        if (snapshot.Count == 0) return;
+
+        var hostConnectionId = _connections
+            .FirstOrDefault(kv => kv.Value.RoomCode == roomCode && kv.Value.PlayerName == snapshot[0])
+            .Key;
+
+        if (hostConnectionId != null)
+            await Clients.Client(hostConnectionId).SendAsync("EndGameVoteReceived", callerInfo.PlayerName, voteType);
+    }
+
     public async Task SetPlayerReady(string roomCode, bool isReady)
     {
         roomCode = roomCode.Trim().ToUpperInvariant();

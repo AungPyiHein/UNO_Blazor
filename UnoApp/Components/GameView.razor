@@ -503,9 +503,54 @@ else
                         }
                     </div>
 
-                    <div class="game-over-btns">
-                        <button class="next-round-btn" @onclick="() => OnNextRound.InvokeAsync()">NEXT ROUND</button>
-                        <button class="new-game-btn"   @onclick="() => OnStartGame.InvokeAsync()">NEW GAME</button>
+                    <div class="game-over-votes">
+                        @{
+                            var isHost = State.MyPlayerIndex == 0;
+                            var myName = State.PlayerNames.Length > State.MyPlayerIndex ? State.PlayerNames[State.MyPlayerIndex] : "";
+                            var myVote = State.EndGameVotes.TryGetValue(myName, out var mv) ? mv : null;
+                            var yesCount = State.EndGameVotes.Values.Count(v => v == "NextRound");
+                            var noCount = State.EndGameVotes.Values.Count(v => v == "EndGame");
+                        }
+                        
+                        <div class="vote-tally">
+                            <span>Ready for Next Round: @yesCount</span>
+                            <span>End Game: @noCount</span>
+                            @if (_gameOverSecondsLeft > 0)
+                            {
+                                <span class="vote-timer">Auto-returning to lobby in @_gameOverSecondsLeft s...</span>
+                            }
+                        </div>
+
+                        <div class="game-over-btns">
+                            @if (isHost)
+                            {
+                                @if (!State.HostProposedNextRound)
+                                {
+                                    <button class="next-round-btn" @onclick="() => OnNextRound.InvokeAsync()">START NEXT ROUND</button>
+                                    <button class="new-game-btn"   @onclick="() => OnStartGame.InvokeAsync()">RETURN TO LOBBY</button>
+                                }
+                                else
+                                {
+                                    <div class="voted-msg">Waiting for players to vote...</div>
+                                }
+                            }
+                            else
+                            {
+                                @if (!State.HostProposedNextRound)
+                                {
+                                    <div class="voted-msg">Waiting for host to decide...</div>
+                                }
+                                else if (myVote == null)
+                                {
+                                    <button class="next-round-btn" @onclick="() => OnVoteNextRound.InvokeAsync()">VOTE: YES (Next Round)</button>
+                                    <button class="new-game-btn"   @onclick="() => OnVoteEndGame.InvokeAsync()">VOTE: NO (End Game)</button>
+                                }
+                                else
+                                {
+                                    <div class="voted-msg">You voted: @(myVote == "NextRound" ? "YES" : "NO"). Waiting for others...</div>
+                                }
+                            }
+                        </div>
                     </div>
                 </div>
             </div>
@@ -522,11 +567,50 @@ else
     [Parameter] public EventCallback<MoveDto> OnMove             { get; set; }
     [Parameter] public EventCallback          OnNextRound        { get; set; }
     [Parameter] public EventCallback          OnStartGame        { get; set; }
+    [Parameter] public EventCallback          OnVoteNextRound    { get; set; }
+    [Parameter] public EventCallback          OnVoteEndGame      { get; set; }
     [Parameter] public Func<string, Task>?    OnAnimationMidpoint { get; set; }
     [Parameter] public bool                    ShowPauseButton    { get; set; }
     [Parameter] public EventCallback<bool>     OnPauseChanged     { get; set; }
 
     private bool _isPaused = false;
+    private int _gameOverSecondsLeft = 0;
+    private System.Threading.Timer? _gameOverTimer;
+
+    protected override void OnParametersSet()
+    {
+        if (State != null && State.IsGameOver && !string.IsNullOrEmpty(State.GameOverDeadline))
+        {
+            if (DateTime.TryParse(State.GameOverDeadline, out var deadline))
+            {
+                var diff = (int)(deadline - DateTime.UtcNow).TotalSeconds;
+                _gameOverSecondsLeft = Math.Max(0, diff);
+                
+                if (_gameOverTimer == null)
+                {
+                    _gameOverTimer = new System.Threading.Timer(_ => 
+                    {
+                        var updatedDiff = (int)(deadline - DateTime.UtcNow).TotalSeconds;
+                        var newSeconds = Math.Max(0, updatedDiff);
+                        if (newSeconds != _gameOverSecondsLeft)
+                        {
+                            _gameOverSecondsLeft = newSeconds;
+                            InvokeAsync(StateHasChanged);
+                        }
+                    }, null, 1000, 1000);
+                }
+            }
+        }
+        else
+        {
+            if (_gameOverTimer != null)
+            {
+                _gameOverTimer.Dispose();
+                _gameOverTimer = null;
+            }
+            _gameOverSecondsLeft = 0;
+        }
+    }
 
     private async Task TogglePause()
     {
@@ -1059,7 +1143,11 @@ else
     private static CardValue ParseValue(string? s) =>
         Enum.TryParse<CardValue>(s, true, out var v) ? v : CardValue.Wild;
 
-    public void Dispose() => _bannerCts?.Cancel();
+    public void Dispose()
+    {
+        _bannerCts?.Cancel();
+        _gameOverTimer?.Dispose();
+    }
 }
 
 <style>

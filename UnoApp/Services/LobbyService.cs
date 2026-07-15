@@ -18,10 +18,12 @@ public class LobbyService : IAsyncDisposable
     public event Action<string>? MoveReceived;
     public event Action<string>? RulesUpdated;
     public event Action? NextRoundRequested;
+    public event Action<string, string>? EndGameVoteReceived;
     public event Action<string, bool>? PlayerLeft;
     public event Action<string, bool>? PlayerReadyUpdated;
     public event Action? HubReconnecting;
     public event Action? HubReconnected;
+    public event Action? ReturnedToLobby;
     public event Action? HubConnectionClosed;
 
     public string? CurrentRulesJson { get; private set; }
@@ -84,11 +86,12 @@ public class LobbyService : IAsyncDisposable
         _hub.On("NextRoundRequested", () =>
             NextRoundRequested?.Invoke());
 
-        _hub.On<string, bool>("PlayerLeft", (name, wasHost) =>
-            PlayerLeft?.Invoke(name, wasHost));
+        _hub.On<string, string>("EndGameVoteReceived", (playerName, voteType) =>
+            EndGameVoteReceived?.Invoke(playerName, voteType));
 
-        _hub.On<string, bool>("PlayerReadyUpdated", (playerName, isReady) =>
-            PlayerReadyUpdated?.Invoke(playerName, isReady));
+        _hub.On<string, bool>("PlayerLeft", (name, isHost) => PlayerLeft?.Invoke(name, isHost));
+        _hub.On<string, bool>("PlayerReadyUpdated", (name, isReady) => PlayerReadyUpdated?.Invoke(name, isReady));
+        _hub.On("ReturnToLobby", () => ReturnedToLobby?.Invoke());
 
         _hub.Reconnecting += _ => { HubReconnecting?.Invoke(); return Task.CompletedTask; };
         _hub.Reconnected  += _ => { HubReconnected?.Invoke();  return Task.CompletedTask; };
@@ -146,6 +149,18 @@ public class LobbyService : IAsyncDisposable
     {
         if (_hub == null || MyRoomCode == null) return;
         await _hub.InvokeAsync("RequestNextRound", MyRoomCode);
+    }
+
+    public async Task SendEndGameVoteAsync(string voteType)
+    {
+        if (_hub != null && !string.IsNullOrEmpty(MyRoomCode))
+            await _hub.InvokeAsync("SendEndGameVote", MyRoomCode, voteType);
+    }
+
+    public async Task SendReturnToLobbyAsync()
+    {
+        if (_hub != null && !string.IsNullOrEmpty(MyRoomCode))
+            await _hub.InvokeAsync("ReturnToLobby", MyRoomCode);
     }
 
     public async Task SendMoveAsync(MoveDto move)
