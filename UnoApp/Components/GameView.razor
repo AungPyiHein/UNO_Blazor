@@ -643,6 +643,9 @@ else
     private bool    _isSwallowingCards    = false;
     private bool    _isSpittingCards      = false;
     private int[]?  _vortexHandSnapshot   = null;
+    // Queue for consecutive draw-card animations so that when many arrive rapidly
+    // (e.g. Draw-12 stacked penalty) the dedup guard doesn't silently drop draws 2-12.
+    private readonly Queue<string> _drawAnimQueue = new();
     // Card ids that just landed via the vortex eject animation. Their hand-card-wrapper's @key
     // switches from a stable slot index back to the card's real id once the vortex window closes,
     // which is a genuine DOM node recreation — and every wrapper has an unconditional "draw from
@@ -720,15 +723,33 @@ else
         // The suffix makes each broadcast distinct so the deduplication check in OnParametersSetAsync
         // doesn't swallow consecutive same-type triggers (e.g. 12 sequential draw animations).
         var baseType = animType.Contains('#') ? animType[..animType.IndexOf('#')] : animType;
-        if (baseType == _activeAnimType) return; // duplicate call for an animation already in flight
+
+        // For draw-card animations, queue rather than drop when one is already running.
+        // This ensures all cards in a large penalty (e.g. Draw-12) actually animate on
+        // MP guest clients where rapid state updates would otherwise trigger the dedup guard.
+        if (baseType.StartsWith("draw-") && baseType == _activeAnimType)
+        {
+            _drawAnimQueue.Enqueue(baseType);
+            return;
+        }
+
+        if (baseType == _activeAnimType) return; // duplicate call for a non-draw animation in flight
+
         _activeAnimType = baseType;
         try
         {
             await RunAnimationAsync(baseType);
+            // Drain any queued draw animations that arrived while the first was running
+            while (_drawAnimQueue.TryDequeue(out var next))
+            {
+                _activeAnimType = next;
+                await RunAnimationAsync(next);
+            }
         }
         finally
         {
             _activeAnimType = "";
+            _drawAnimQueue.Clear(); // safety: discard stale queued draws after any non-draw interrupts
         }
     }
 
@@ -804,7 +825,7 @@ else
             _drawFlyStyle = $"--fly-to-x:{tx.ToString("0.0", IC)}%; --fly-to-y:{ty.ToString("0.0", IC)}%;";
             _drawFlyTarget = drawTarget;
             await InvokeAsync(StateHasChanged);
-            await Task.Delay(650);
+            await Task.Delay(280);
             _drawFlyTarget = -1;
             await InvokeAsync(StateHasChanged);
             return;

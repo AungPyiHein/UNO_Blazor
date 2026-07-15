@@ -3424,6 +3424,14 @@
             return;
         }
 
+        // If the local SP human has drawn a playable card and is in the "play or keep" popup,
+        // they have already acted — cancel the AFK timer so we don't penalise them.
+        if (curIdx == 0 && !_game.RemotePlayerIndices.Contains(0) && !string.IsNullOrEmpty(_spDrawnCardId))
+        {
+            CancelAfkTimer();
+            return;
+        }
+
         // Same player still their turn and same status — timer already running
         if (_afkTimerPlayerIndex == curIdx && _afkCts != null && _afkTimerStatus == _game.Status) return;
 
@@ -3457,6 +3465,10 @@
                 {
                     if (_isMultiplayerHost && _game.RemotePlayerIndices.Contains(curIdx))
                     {
+                        // If the remote player is in a play-or-keep state (drew a playable card),
+                        // skip the AFK penalty — they already acted by drawing.
+                        if (_game.RemoteDrawnCardIds.ContainsKey(curIdx)) return;
+
                         if (_pendingRemoteMoves.TryGetValue(curIdx, out var tcs))
                             tcs.TrySetResult(new MoveDto { PlayerIndex = curIdx, Type = "afk" });
                         else
@@ -3465,7 +3477,19 @@
                     }
                     else
                     {
-                        await InvokeAsync(async () => await _game.ApplyAfkPenaltyAsync(curIdx, capturedStatus));
+                        // Safety: if the local player drew a playable card at the exact same instant
+                        // the AFK timer fired, _spDrawnCardId will be set. Clear it before applying
+                        // the penalty so the "play or keep" popup doesn't persist after the turn moves.
+                        await InvokeAsync(async () =>
+                        {
+                            if (!string.IsNullOrEmpty(_spDrawnCardId))
+                            {
+                                // Player drew but the AFK timer fired simultaneously — treat the draw
+                                // as the action (they've already drawn), skip the extra penalty.
+                                return;
+                            }
+                            await _game.ApplyAfkPenaltyAsync(curIdx, capturedStatus);
+                        });
                     }
                 }
             }
@@ -3772,6 +3796,11 @@
                     {
                         _game.LogAction($"{player.Name} drew a playable card.");
                         _spDrawnCardId = drawn.Id.ToString();
+                        // Player drew a playable card and is now in the "play or keep" popup.
+                        // Cancel the AFK timer immediately — the popup has no enforced timeout and
+                        // we must not advance the turn while _spDrawnCardId is set (that would leave
+                        // the popup open and the game stuck).
+                        CancelAfkTimer();
                         _spState = BuildSpState();
                         await InvokeAsync(StateHasChanged);
                     }

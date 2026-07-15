@@ -702,15 +702,17 @@ namespace UnoEngine
                 CurrentPlayerIndex = Players.IndexOf(player);
                 
                 await InternalPlayCard(player, card);
+                // NOTE: Do NOT cancel _qteCts here. InternalPlayCard already cancels any in-flight
+                // QTE at its start. After InternalPlayCard returns, EndPlayCardSequence may have
+                // already launched a NEW RunJumpInTimerAsync (e.g. the jumped-in Skip card opened
+                // a fresh jump-in window). Cancelling _qteCts after the lock release would kill
+                // that brand-new timer, causing the game to stall.
             }
             finally
             {
                 _actionLock.Release();
             }
 
-            // Cancel any pending jump-in timer
-            _qteCts?.Cancel();
-            
             OnStateChanged?.Invoke();
             return true;
         }
