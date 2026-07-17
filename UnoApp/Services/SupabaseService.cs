@@ -601,27 +601,26 @@ public class SupabaseService
 
     // ── CPU Profiles ─────────────────────────────────────────
 
-    public async Task<List<ProfileModel>> GetCpuProfiles()
+    public Task<List<ProfileModel>> GetCpuProfiles()
     {
-        EnsureInitialized();
-        var response = await _client!.From<ProfileModel>()
-            .Where(p => p.IsCpu == true)
-            .Get();
-        var cpus = response.Models ?? new List<ProfileModel>();
+        var names = new[] { "Alice", "Brutus", "Cheddar", "Captain Splash", "Eggbert", "Sir Reginald" };
+        var files = new[] { "slycat.jpg", "buster.jpg", "sneaky.jpg", "grumpy.jpg", "freaky.jpg", "creepy.jpg" };
+        var cpus = new List<ProfileModel>();
         
-        // Ensure they have the correct cartoon names even if the DB wasn't hotfixed
-        var newNames = new[] { "Chairman Meow", "Brutus", "Cheddar", "Captain Splash", "Eggbert", "Sir Reginald" };
-        var index = 0;
-        foreach (var cpu in cpus.OrderBy(c => c.CreatedAt)) // Order by creation to ensure consistent mapping
+        for (int i = 0; i < names.Length; i++)
         {
-            if (index < newNames.Length && cpu.DisplayName.StartsWith("CPU "))
+            cpus.Add(new ProfileModel
             {
-                cpu.DisplayName = newNames[index];
-            }
-            index++;
+                Id = $"00000000-0000-0000-0000-00000000000{i+1}",
+                DisplayName = names[i],
+                AvatarUrl = $"/images/cpu/{files[i]}",
+                IsCpu = true,
+                CreatedAt = DateTimeOffset.UtcNow,
+                UpdatedAt = DateTimeOffset.UtcNow
+            });
         }
         
-        return cpus;
+        return Task.FromResult(cpus);
     }
 
     // ── Helpers ──────────────────────────────────────────────
