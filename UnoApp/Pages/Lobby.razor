@@ -28,11 +28,6 @@
             <h1 class="lobby-title" style="font-size:1.5rem">Create Room</h1>
 
             <div class="lobby-field">
-                <label>Your Name</label>
-                <input class="lobby-input" @bind="_playerName" placeholder="e.g. Alice" maxlength="20" />
-            </div>
-
-            <div class="lobby-field">
                 <label>Total Players</label>
                 <div class="count-selector">
                     @for (int n = 2; n <= 6; n++)
@@ -90,10 +85,6 @@
         <div class="lobby-card">
             <h1 class="lobby-title" style="font-size:1.5rem">Join Room</h1>
 
-            <div class="lobby-field">
-                <label>Your Name</label>
-                <input class="lobby-input" @bind="_playerName" placeholder="e.g. Bob" maxlength="20" />
-            </div>
             <div class="lobby-field">
                 <label>Room Code</label>
                 <input class="lobby-input lobby-input-code" @bind="_roomCode" placeholder="e.g. GAME01" maxlength="8" @oninput="UpperRoomCode" />
@@ -380,6 +371,11 @@
         LobbyService.RoomClosed    += OnRoomClosed;
 
         var profile = await Supabase.GetMyProfile();
+        if (profile != null && !string.IsNullOrWhiteSpace(profile.DisplayName))
+        {
+            _playerName = profile.DisplayName;
+        }
+
         if (profile?.IsBanned == true)
         {
             _isBanned = true;
@@ -419,7 +415,11 @@
     {
         _error = "";
         if (_isBanned) { _error = "🚫 You have been banned from multiplayer lobbies."; return; }
-        if (string.IsNullOrWhiteSpace(_playerName)) { _error = "Enter your name."; return; }
+        if (string.IsNullOrWhiteSpace(_playerName))
+        {
+            var profile = await Supabase.GetMyProfile();
+            _playerName = profile?.DisplayName ?? "Player";
+        }
         if (string.IsNullOrWhiteSpace(_roomCode))   { GenerateRoomCode(); }
 
         _connecting = true;
@@ -446,7 +446,11 @@
     {
         _error = "";
         if (_isBanned) { _error = "🚫 You have been banned from multiplayer lobbies."; return; }
-        if (string.IsNullOrWhiteSpace(_playerName)) { _error = "Enter your name."; return; }
+        if (string.IsNullOrWhiteSpace(_playerName))
+        {
+            var profile = await Supabase.GetMyProfile();
+            _playerName = profile?.DisplayName ?? "Player";
+        }
         if (string.IsNullOrWhiteSpace(_roomCode))   { _error = "Enter a room code."; return; }
 
         _connecting = true;

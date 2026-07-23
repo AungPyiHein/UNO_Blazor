@@ -27,26 +27,73 @@
                         <div class="avatar-img placeholder">@(_profile?.DisplayName?.FirstOrDefault() ?? '?')</div>
                     }
                     
-                    <div class="avatar-upload-overlay">
-                        <label for="avatarUpload" class="upload-btn">📷</label>
-                        <InputFile id="avatarUpload" OnChange="HandleFileSelected" accept="image/png, image/jpeg" style="display: none;" />
-                    </div>
+                    @if (!Supabase.IsGuest)
+                    {
+                        <div class="avatar-upload-overlay">
+                            <label for="avatarUpload" class="upload-btn">📷</label>
+                            <InputFile id="avatarUpload" OnChange="HandleFileSelected" accept="image/png, image/jpeg" style="display: none;" />
+                        </div>
+                    }
                 </div>
 
                 <div class="form-group mt-3">
                     <label>Display Name</label>
-                    <div style="display: flex; gap: 10px;">
-                        <input type="text" @bind="_editName" class="form-control" />
-                        <button class="glass-btn" @onclick="SaveProfile" disabled="@_isSaving">
-                            @if (_isSaving) { <span class="spinner-sm"></span> } else { <span>Save</span> }
-                        </button>
-                    </div>
+                    @if (!Supabase.IsGuest)
+                    {
+                        <div style="display: flex; gap: 10px;">
+                            <input type="text" @bind="_editName" class="form-control" />
+                            <button class="glass-btn" @onclick="SaveProfile" disabled="@_isSaving">
+                                @if (_isSaving) { <span class="spinner-sm"></span> } else { <span>Save</span> }
+                            </button>
+                        </div>
+                    }
+                    else
+                    {
+                        <input type="text" value="@(_profile?.DisplayName ?? "Guest")" class="form-control" disabled />
+                        <div class="mt-2 text-warning" style="font-size: 0.8rem; text-align: left;">
+                            🔒 Guest Account — Register with an email below to customize your profile.
+                        </div>
+                    }
                     @if (!string.IsNullOrEmpty(_errorMessage))
                     {
                         <div class="text-danger mt-2" style="font-size: 0.85rem;">@_errorMessage</div>
                     }
                 </div>
             </div>
+
+            @if (Supabase.IsGuest)
+            {
+                <div class="glass-card mt-4">
+                    <h3>Register Account</h3>
+                    <p style="font-size: 0.85rem; color: #a5b4fc; margin-bottom: 12px;">Register your guest session with an email address to keep your progress forever.</p>
+                    
+                    <div class="form-group">
+                        <label>Display Name</label>
+                        <input type="text" @bind="_regDisplayName" class="form-control" placeholder="Your name (2-20 chars)" maxlength="20" />
+                    </div>
+                    <div class="form-group mt-2">
+                        <label>Email</label>
+                        <input type="email" @bind="_regEmail" class="form-control" placeholder="player@example.com" />
+                    </div>
+                    <div class="form-group mt-2">
+                        <label>Password</label>
+                        <input type="password" @bind="_regPassword" class="form-control" placeholder="Min 6 characters" />
+                    </div>
+                    
+                    @if (!string.IsNullOrEmpty(_regError))
+                    {
+                        <div class="text-danger mt-2" style="font-size: 0.85rem;">@_regError</div>
+                    }
+                    @if (!string.IsNullOrEmpty(_regSuccess))
+                    {
+                        <div class="text-success mt-2" style="font-size: 0.85rem;">@_regSuccess</div>
+                    }
+                    
+                    <button class="glass-btn btn-success w-100 mt-3" @onclick="RegisterGuestAccount" disabled="@_isRegistering">
+                        @if (_isRegistering) { <span class="spinner-sm"></span> } else { <span>Register Account</span> }
+                    </button>
+                </div>
+            }
 
             <div class="glass-card stats-card mt-4">
                 <h3>Lifetime Stats</h3>
@@ -271,26 +318,76 @@
     private bool _isSaving = false;
     private string _errorMessage = "";
 
+    // Guest registration fields
+    private string _regDisplayName = "";
+    private string _regEmail = "";
+    private string _regPassword = "";
+    private string _regError = "";
+    private string _regSuccess = "";
+    private bool _isRegistering = false;
+
     protected override async Task OnInitializedAsync()
     {
         NavigationState.IsArenaMode = true;
         
         var uid = Supabase.CurrentUserId;
-        if (uid == null || Supabase.IsGuest)
+        if (uid == null)
         {
-            Navigation.NavigateTo("/home");
+            Navigation.NavigateTo("/");
             return;
         }
 
         _profile = await Supabase.GetProfile(uid);
         _editName = _profile?.DisplayName ?? "";
+        _regDisplayName = _profile?.DisplayName ?? "";
         
         _stats = await Supabase.GetMyStats();
         _history = await Supabase.GetMatchHistory(uid);
     }
 
+    private async Task RegisterGuestAccount()
+    {
+        if (string.IsNullOrWhiteSpace(_regDisplayName) || _regDisplayName.Length < 2 || _regDisplayName.Length > 20)
+        {
+            _regError = "Display name must be 2-20 characters.";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(_regEmail) || !System.Text.RegularExpressions.Regex.IsMatch(_regEmail, @"^[^@\s]+@[^@\s]+\.[^@\s]+$"))
+        {
+            _regError = "Please enter a valid email address (e.g., player@example.com).";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(_regPassword) || _regPassword.Length < 6)
+        {
+            _regError = "Password must be at least 6 characters.";
+            return;
+        }
+
+        _isRegistering = true;
+        _regError = "";
+        _regSuccess = "";
+
+        try
+        {
+            await Supabase.ConvertGuestToRegistered(_regEmail, _regPassword, _regDisplayName);
+            _regSuccess = "Account successfully registered!";
+            if (Supabase.CurrentUserId != null)
+            {
+                _profile = await Supabase.GetProfile(Supabase.CurrentUserId);
+                _editName = _profile?.DisplayName ?? "";
+            }
+        }
+        catch (Exception ex)
+        {
+            _regError = $"Registration failed: {ex.Message}";
+        }
+
+        _isRegistering = false;
+    }
+
     private async Task SaveProfile()
     {
+        if (Supabase.IsGuest) return;
         if (string.IsNullOrWhiteSpace(_editName) || _profile == null) return;
         
         _isSaving = true;

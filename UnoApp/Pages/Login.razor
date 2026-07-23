@@ -62,8 +62,8 @@ else
                 <div class="login-form">
                     <h2>Sign In</h2>
                     <div class="form-group">
-                        <label>Username</label>
-                        <input type="text" @bind="_username" placeholder="CoolPlayer123" />
+                        <label>Email</label>
+                        <input type="email" @bind="_email" placeholder="player@example.com" />
                     </div>
                     <div class="form-group">
                         <label>Password</label>
@@ -92,12 +92,8 @@ else
                         <input type="text" @bind="_displayName" placeholder="Your name (2-20 chars)" maxlength="20" />
                     </div>
                     <div class="form-group">
-                        <label>Username</label>
-                        <input type="text" @bind="_username" placeholder="CoolPlayer123" />
-                    </div>
-                    <div class="form-group">
-                        <label>Email (Optional)</label>
-                        <input type="email" @bind="_optionalEmail" placeholder="For account recovery" />
+                        <label>Email</label>
+                        <input type="email" @bind="_email" placeholder="player@example.com" />
                     </div>
                     <div class="form-group">
                         <label>Password</label>
@@ -459,8 +455,7 @@ else
     private bool _showSignUp = false;
     private bool _isSubmitting = false;
 
-    private string _username = "";
-    private string _optionalEmail = "";
+    private string _email = "";
     private string _password = "";
     private string _displayName = "";
     private string _errorMessage = "";
@@ -473,7 +468,17 @@ else
             Nav.NavigateTo("/home");
             return;
         }
-        _isLoading = false;
+
+        // Auto sign in as guest session if not logged in
+        try
+        {
+            await Supabase.SignInAnonymously();
+            Nav.NavigateTo("/home");
+        }
+        catch
+        {
+            _isLoading = false;
+        }
     }
 
     private async Task PlayAsGuest()
@@ -494,7 +499,7 @@ else
 
     private async Task SignIn()
     {
-        if (string.IsNullOrWhiteSpace(_username) || string.IsNullOrWhiteSpace(_password))
+        if (string.IsNullOrWhiteSpace(_email) || string.IsNullOrWhiteSpace(_password))
         {
             _errorMessage = "Please fill in all fields.";
             return;
@@ -504,12 +509,12 @@ else
         _errorMessage = "";
         try
         {
-            await Supabase.SignInWithUsername(_username, _password);
+            await Supabase.SignInWithEmail(_email, _password);
             Nav.NavigateTo("/home");
         }
         catch (Exception ex)
         {
-            _errorMessage = "Invalid username or password.";
+            _errorMessage = "Invalid email or password.";
             _isSubmitting = false;
         }
     }
@@ -526,12 +531,12 @@ else
             _errorMessage = "Display name must be 2-20 characters.";
             return;
         }
-        if (string.IsNullOrWhiteSpace(_username) || string.IsNullOrWhiteSpace(_password))
+        if (string.IsNullOrWhiteSpace(_email) || !System.Text.RegularExpressions.Regex.IsMatch(_email, @"^[^@\s]+@[^@\s]+\.[^@\s]+$"))
         {
-            _errorMessage = "Please fill in all fields.";
+            _errorMessage = "Please enter a valid email address (e.g., player@example.com).";
             return;
         }
-        if (_password.Length < 6)
+        if (string.IsNullOrWhiteSpace(_password) || _password.Length < 6)
         {
             _errorMessage = "Password must be at least 6 characters.";
             return;
@@ -541,7 +546,7 @@ else
         _errorMessage = "";
         try
         {
-            await Supabase.SignUp(_username, _password, _displayName, _optionalEmail);
+            await Supabase.SignUp(_email, _password, _displayName);
             Nav.NavigateTo("/home");
         }
         catch (Supabase.Postgrest.Exceptions.PostgrestException ex) when (ex.Message.Contains("unique constraint"))
@@ -561,8 +566,7 @@ else
         _showSignIn = false;
         _showSignUp = false;
         _errorMessage = "";
-        _username = "";
-        _optionalEmail = "";
+        _email = "";
         _password = "";
         _displayName = "";
         _isSubmitting = false;

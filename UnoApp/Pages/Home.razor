@@ -41,12 +41,9 @@
                     <span class="icon">🏆</span> Leaderboard
                     @if (_leaderboardUpdated) { <span class="lb-dot"></span> }
                 </button>
-                @if (!Supabase.IsGuest)
-                {
-                    <button class="glass-btn" @onclick='() => Nav.NavigateTo("/profile")'>
-                        <span class="icon">👤</span> Profile
-                    </button>
-                }
+                <button class="glass-btn" @onclick='() => Nav.NavigateTo("/profile")'>
+                    <span class="icon">👤</span> Profile
+                </button>
                 @if (_profile?.IsAdmin == true)
                 {
                     <button class="glass-btn" style="background: rgba(99, 102, 241, 0.2); border-color: rgba(99, 102, 241, 0.5); color: #a5b4fc;" @onclick='() => Nav.NavigateTo("/admin")'>
@@ -76,7 +73,7 @@
                             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
                         </svg>
                     </div>
-                    <input type="text" @bind="_playerName" placeholder="YOUR NAME" maxlength="12" />
+                    <span style="color: #fff; font-weight: 700; font-size: 0.95rem; letter-spacing: 1px; padding: 0 12px; text-transform: uppercase;">@(_playerName ?? "PLAYER")</span>
                 </div>
                 
                 <div class="player-count-box">
@@ -142,10 +139,6 @@
                     <div class="inline-lobby-card">
                         <h1 class="lobby-title" style="font-size:1.5rem">Create Room</h1>
                         <div class="lobby-field">
-                            <label>Your Name</label>
-                            <input class="lobby-input" @bind="_lobbyPlayerName" placeholder="e.g. Alice" maxlength="20" />
-                        </div>
-                        <div class="lobby-field">
                             <label>Total Players</label>
                             <div class="count-selector">
                                 @for (int n = 2; n <= 6; n++)
@@ -193,10 +186,6 @@
                 {
                     <div class="inline-lobby-card">
                         <h1 class="lobby-title" style="font-size:1.5rem">Join Room</h1>
-                        <div class="lobby-field">
-                            <label>Your Name</label>
-                            <input class="lobby-input" @bind="_lobbyPlayerName" placeholder="e.g. Bob" maxlength="20" />
-                        </div>
                         <div class="lobby-field">
                             <label>Room Code</label>
                             <input class="lobby-input lobby-input-code" @bind="_lobbyRoomCode" placeholder="e.g. GAME01" maxlength="8" @oninput="LobbyUpperRoomCode" />
@@ -3121,6 +3110,7 @@
             return;
         }
         
+        _lobbyPlayerName = !string.IsNullOrWhiteSpace(_playerName) ? _playerName : (_profile?.DisplayName ?? "Player");
         _lobbyMode = "entry";
         _lobbyError = "";
         _showLobby = true;
@@ -3172,7 +3162,10 @@
     private async Task LobbyCreateRoom()
     {
         _lobbyError = "";
-        if (string.IsNullOrWhiteSpace(_lobbyPlayerName)) { _lobbyError = "Enter your name."; return; }
+        if (string.IsNullOrWhiteSpace(_lobbyPlayerName))
+        {
+            _lobbyPlayerName = !string.IsNullOrWhiteSpace(_playerName) ? _playerName : (_profile?.DisplayName ?? "Player");
+        }
         if (string.IsNullOrWhiteSpace(_lobbyRoomCode)) { LobbyGenerateRoomCode(); }
 
         _lobbyConnecting = true;
@@ -3293,7 +3286,10 @@
     private async Task LobbyJoinRoom()
     {
         _lobbyError = "";
-        if (string.IsNullOrWhiteSpace(_lobbyPlayerName)) { _lobbyError = "Enter your name."; return; }
+        if (string.IsNullOrWhiteSpace(_lobbyPlayerName))
+        {
+            _lobbyPlayerName = !string.IsNullOrWhiteSpace(_playerName) ? _playerName : (_profile?.DisplayName ?? "Player");
+        }
         if (string.IsNullOrWhiteSpace(_lobbyRoomCode))   { _lobbyError = "Enter a room code."; return; }
 
         _lobbyConnecting = true;

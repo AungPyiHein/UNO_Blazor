@@ -222,18 +222,22 @@ public class SupabaseService
         return session;
     }
 
-    public async Task<Supabase.Gotrue.Session?> SignInWithUsername(string username, string password)
+    public async Task<Supabase.Gotrue.Session?> SignInWithEmail(string emailOrUsername, string password)
     {
         EnsureInitialized();
-        var fakeEmail = $"{username}@uno.local";
-        var session = await _client!.Auth.SignIn(Supabase.Gotrue.Constants.SignInType.Email, fakeEmail, password);
+        var email = emailOrUsername.Contains("@") ? emailOrUsername : $"{emailOrUsername}@uno.local";
+        var session = await _client!.Auth.SignIn(Supabase.Gotrue.Constants.SignInType.Email, email, password);
         return session;
     }
 
-    public async Task<Supabase.Gotrue.Session?> SignUp(string username, string password, string displayName, string? optionalEmail = null)
+    public async Task<Supabase.Gotrue.Session?> SignInWithUsername(string username, string password)
+    {
+        return await SignInWithEmail(username, password);
+    }
+
+    public async Task<Supabase.Gotrue.Session?> SignUp(string email, string password, string displayName)
     {
         EnsureInitialized();
-        var fakeEmail = $"{username}@uno.local";
         var options = new SignUpOptions
         {
             Data = new Dictionary<string, object>
@@ -242,13 +246,29 @@ public class SupabaseService
             }
         };
         
-        if (!string.IsNullOrWhiteSpace(optionalEmail))
-        {
-            options.Data.Add("recovery_email", optionalEmail);
-        }
-        
-        var session = await _client!.Auth.SignUp(fakeEmail, password, options);
+        var session = await _client!.Auth.SignUp(email, password, options);
         return session;
+    }
+
+    public async Task<User?> ConvertGuestToRegistered(string email, string password, string displayName)
+    {
+        EnsureInitialized();
+        var attributes = new UserAttributes
+        {
+            Email = email,
+            Password = password,
+            Data = new Dictionary<string, object>
+            {
+                { "display_name", displayName }
+            }
+        };
+
+        var user = await _client!.Auth.Update(attributes);
+        if (user != null)
+        {
+            await UpdateDisplayName(displayName);
+        }
+        return user;
     }
 
     public async Task SignOut()
