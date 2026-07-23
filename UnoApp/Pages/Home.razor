@@ -21,7 +21,7 @@
     {
         @if (!_showLobby)
         {
-            @if (Supabase.IsGuest)
+            @if (Supabase.IsGuest && _showGuestBanner)
             {
                 <div class="guest-banner">
                     ⚠️ Warning: Guest accounts and stats are permanently deleted after 24 hours. Sign up to save your progress!
@@ -1293,6 +1293,14 @@
         background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3);
         color: #fcd34d; padding: 10px 20px; border-radius: 8px; font-size: 14px;
         z-index: 1000; backdrop-filter: blur(5px); box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        animation: fadeOutGuestBanner 5s forwards;
+        pointer-events: none;
+    }
+
+    @@keyframes fadeOutGuestBanner {
+        0% { opacity: 1; transform: translate(-50%, 0); }
+        80% { opacity: 1; transform: translate(-50%, 0); }
+        100% { opacity: 0; transform: translate(-50%, -20px); visibility: hidden; }
     }
     
     /* Floating Header Buttons */
@@ -2692,6 +2700,7 @@
     private ProfileModel? _profile;
     private int _playerCount = 4;
     private UnoGame? _game;
+    private bool _showGuestBanner = true;
 
     // Multiplayer host state
     private bool _isMultiplayerHost = false;
@@ -3100,6 +3109,16 @@
         if (LobbyService.IsGameStarted && LobbyService.IsHost)
         {
             await StartMultiplayerGame();
+        }
+
+        if (Supabase.IsGuest)
+        {
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(5000);
+                _showGuestBanner = false;
+                await InvokeAsync(StateHasChanged);
+            });
         }
     }
 
