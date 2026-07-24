@@ -1,8 +1,10 @@
 using Supabase;
 using Supabase.Gotrue;
+using Supabase.Gotrue.Interfaces;
 using Supabase.Postgrest.Models;
 using Supabase.Postgrest.Attributes;
 using System.Text.Json;
+using Microsoft.JSInterop;
 using Client = Supabase.Client;
 
 namespace UnoApp.Services;
@@ -182,6 +184,59 @@ public class LeaderboardEntryDto
     public double WinRate { get; set; }
 }
 
+public class SupabaseSessionPersistence : IGotrueSessionPersistence<Session>
+{
+    private readonly IJSRuntime _jsRuntime;
+    private const string STORAGE_KEY = "supabase_session";
+
+    public SupabaseSessionPersistence(IJSRuntime jsRuntime)
+    {
+        _jsRuntime = jsRuntime;
+    }
+
+    public void SaveSession(Session session)
+    {
+        try
+        {
+            var json = Newtonsoft.Json.JsonConvert.SerializeObject(session);
+            if (_jsRuntime is IJSInProcessRuntime syncJs)
+            {
+                syncJs.InvokeVoid("localStorage.setItem", STORAGE_KEY, json);
+            }
+        }
+        catch { }
+    }
+
+    public Session? LoadSession()
+    {
+        try
+        {
+            if (_jsRuntime is IJSInProcessRuntime syncJs)
+            {
+                var json = syncJs.Invoke<string?>("localStorage.getItem", STORAGE_KEY);
+                if (!string.IsNullOrEmpty(json))
+                {
+                    return Newtonsoft.Json.JsonConvert.DeserializeObject<Session>(json);
+                }
+            }
+        }
+        catch { }
+        return null;
+    }
+
+    public void DestroySession()
+    {
+        try
+        {
+            if (_jsRuntime is IJSInProcessRuntime syncJs)
+            {
+                syncJs.InvokeVoid("localStorage.removeItem", STORAGE_KEY);
+            }
+        }
+        catch { }
+    }
+}
+
 // ═══════════════════════════════════════════════════════════════
 // SupabaseService
 // ═══════════════════════════════════════════════════════════════
@@ -189,8 +244,14 @@ public class LeaderboardEntryDto
 public class SupabaseService
 {
     private Client? _client;
+    private readonly IJSRuntime _jsRuntime;
     private const string SUPABASE_URL = "https://cxvjqehtwdyiaskbsnon.supabase.co";
     private const string SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN4dmpxZWh0d2R5aWFza2Jzbm9uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxMDQ2MzYsImV4cCI6MjA5OTY4MDYzNn0.WhO0ExXTqXTURhW2tiiLenFZ93vv6ebMjCSC1vDWPxc";
+
+    public SupabaseService(IJSRuntime jsRuntime)
+    {
+        _jsRuntime = jsRuntime;
+    }
 
     public bool IsInitialized => _client != null;
     public bool IsLoggedIn => _client?.Auth?.CurrentUser != null;
@@ -203,14 +264,34 @@ public class SupabaseService
     {
         if (_client != null) return;
 
+        var sessionHandler = new SupabaseSessionPersistence(_jsRuntime);
+
         var options = new SupabaseOptions
         {
             AutoRefreshToken = true,
-            AutoConnectRealtime = false
+            AutoConnectRealtime = false,
+            SessionHandler = sessionHandler
         };
 
         _client = new Client(SUPABASE_URL, SUPABASE_ANON_KEY, options);
         await _client.InitializeAsync();
+
+        // Restore session from localStorage on cold start
+        // The Gotrue C# client does NOT auto-restore from the session handler,
+        // so we must explicitly load and set the session.
+        try
+        {
+            var savedSession = sessionHandler.LoadSession();
+            if (savedSession?.AccessToken != null && savedSession?.RefreshToken != null)
+            {
+                await _client.Auth.SetSession(savedSession.AccessToken, savedSession.RefreshToken);
+            }
+        }
+        catch
+        {
+            // If session restore fails (e.g. expired/invalid tokens), silently continue
+            // The user will see the login page and can sign in fresh
+        }
     }
 
     // ── Authentication ───────────────────────────────────────
