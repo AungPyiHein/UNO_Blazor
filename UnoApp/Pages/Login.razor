@@ -469,16 +469,7 @@ else
             return;
         }
 
-        // Auto sign in as guest session if not logged in
-        try
-        {
-            await Supabase.SignInAnonymously();
-            Nav.NavigateTo("/home");
-        }
-        catch
-        {
-            _isLoading = false;
-        }
+        _isLoading = false;
     }
 
     private async Task PlayAsGuest()
