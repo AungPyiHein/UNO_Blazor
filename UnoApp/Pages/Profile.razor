@@ -12,86 +12,129 @@
     </div>
 
     <div class="profile-container">
-        <!-- Left Column: Edit Profile & Stats -->
+        <!-- Left Column: Profile / Register & Stats -->
         <div class="profile-sidebar">
-            <div class="glass-card text-center">
-                <h2>My Profile</h2>
-                
-                <div class="avatar-section">
-                    @if (!string.IsNullOrEmpty(_profile?.AvatarUrl))
-                    {
-                        <img src="@_profile.AvatarUrl" class="avatar-img" />
-                    }
-                    else
-                    {
-                        <div class="avatar-img placeholder">@(_profile?.DisplayName?.FirstOrDefault() ?? '?')</div>
-                    }
+            @if (!Supabase.IsGuest)
+            {
+                <!-- Registered User Profile Card -->
+                <div class="glass-card text-center">
+                    <h2>My Profile</h2>
                     
-                    @if (!Supabase.IsGuest)
-                    {
+                    <div class="avatar-section">
+                        @if (!string.IsNullOrEmpty(_profile?.AvatarUrl))
+                        {
+                            <img src="@_profile.AvatarUrl" class="avatar-img" />
+                        }
+                        else
+                        {
+                            <div class="avatar-img placeholder">@(string.IsNullOrEmpty(_profile?.DisplayName) ? "?" : _profile.DisplayName[0].ToString())</div>
+                        }
+                        
                         <div class="avatar-upload-overlay">
                             <label for="avatarUpload" class="upload-btn">📷</label>
                             <InputFile id="avatarUpload" OnChange="HandleFileSelected" accept="image/png, image/jpeg" style="display: none;" />
                         </div>
-                    }
-                </div>
+                    </div>
 
-                <div class="form-group mt-3">
-                    <label>Display Name</label>
-                    @if (!Supabase.IsGuest)
-                    {
+                    <div class="form-group mt-3">
+                        <label>Display Name</label>
                         <div style="display: flex; gap: 10px;">
                             <input type="text" @bind="_editName" class="form-control" />
                             <button class="glass-btn" @onclick="SaveProfile" disabled="@_isSaving">
                                 @if (_isSaving) { <span class="spinner-sm"></span> } else { <span>Save</span> }
                             </button>
                         </div>
+                        @if (!string.IsNullOrEmpty(_errorMessage))
+                        {
+                            <div class="text-danger mt-2" style="font-size: 0.85rem;">@_errorMessage</div>
+                        }
+                    </div>
+                </div>
+            }
+            else
+            {
+                <!-- Unified Guest Session & Registration Card -->
+                <div class="glass-card">
+                    <div class="text-center mb-3">
+                        <div class="avatar-section" style="margin-bottom: 12px;">
+                            <div class="avatar-img placeholder">@(string.IsNullOrEmpty(_profile?.DisplayName) ? "G" : _profile.DisplayName[0].ToString())</div>
+                        </div>
+                        <div class="guest-session-badge">🔒 Guest Session</div>
+                        <h3 class="mt-2" style="font-size: 1.25rem; margin-bottom: 4px;">@(_profile?.DisplayName ?? "Guest")</h3>
+                    </div>
+
+                    @if (!_showGuestSignIn)
+                    {
+                        <!-- Register Account Form -->
+                        <div class="guest-auth-form">
+                            <h4 class="form-subtitle">Register Account</h4>
+                            <p class="form-desc">Register your guest session with an email address to save your stats & customize your profile.</p>
+
+                            <div class="form-group">
+                                <label>Display Name</label>
+                                <input type="text" @bind="_regDisplayName" class="form-control" placeholder="Your name (2-20 chars)" maxlength="20" />
+                            </div>
+                            <div class="form-group mt-2">
+                                <label>Email</label>
+                                <input type="email" @bind="_regEmail" class="form-control" placeholder="player@example.com" />
+                            </div>
+                            <div class="form-group mt-2">
+                                <label>Password</label>
+                                <input type="password" @bind="_regPassword" class="form-control" placeholder="Min 6 characters" />
+                            </div>
+
+                            @if (!string.IsNullOrEmpty(_regError))
+                            {
+                                <div class="text-danger mt-2" style="font-size: 0.85rem;">@_regError</div>
+                            }
+                            @if (!string.IsNullOrEmpty(_regSuccess))
+                            {
+                                <div class="text-success mt-2" style="font-size: 0.85rem;">@_regSuccess</div>
+                            }
+
+                            <button class="glass-btn btn-register-action w-100 mt-3" @onclick="RegisterGuestAccount" disabled="@_isRegistering">
+                                @if (_isRegistering) { <span class="spinner-sm"></span> } else { <span>✨ Register Account</span> }
+                            </button>
+
+                            <div class="auth-toggle-link text-center mt-3">
+                                <button type="button" class="btn-link-toggle" @onclick="ToggleGuestAuthMode">
+                                    Already have an account? <strong>Sign In</strong>
+                                </button>
+                            </div>
+                        </div>
                     }
                     else
                     {
-                        <input type="text" value="@(_profile?.DisplayName ?? "Guest")" class="form-control" disabled />
-                        <div class="mt-2 text-warning" style="font-size: 0.8rem; text-align: left;">
-                            🔒 Guest Account — Register with an email below to customize your profile.
+                        <!-- Sign In Form -->
+                        <div class="guest-auth-form">
+                            <h4 class="form-subtitle">Sign In</h4>
+                            <p class="form-desc">Sign in to your existing account to load your profile and lifetime stats.</p>
+
+                            <div class="form-group">
+                                <label>Email</label>
+                                <input type="email" @bind="_regEmail" class="form-control" placeholder="player@example.com" />
+                            </div>
+                            <div class="form-group mt-2">
+                                <label>Password</label>
+                                <input type="password" @bind="_regPassword" class="form-control" placeholder="••••••••" />
+                            </div>
+
+                            @if (!string.IsNullOrEmpty(_regError))
+                            {
+                                <div class="text-danger mt-2" style="font-size: 0.85rem;">@_regError</div>
+                            }
+
+                            <button class="glass-btn btn-register-action w-100 mt-3" @onclick="SignInFromProfile" disabled="@_isRegistering">
+                                @if (_isRegistering) { <span class="spinner-sm"></span> } else { <span>🔑 Sign In</span> }
+                            </button>
+
+                            <div class="auth-toggle-link text-center mt-3">
+                                <button type="button" class="btn-link-toggle" @onclick="ToggleGuestAuthMode">
+                                    Need an account? <strong>Register</strong>
+                                </button>
+                            </div>
                         </div>
                     }
-                    @if (!string.IsNullOrEmpty(_errorMessage))
-                    {
-                        <div class="text-danger mt-2" style="font-size: 0.85rem;">@_errorMessage</div>
-                    }
-                </div>
-            </div>
-
-            @if (Supabase.IsGuest)
-            {
-                <div class="glass-card mt-4">
-                    <h3>Register Account</h3>
-                    <p style="font-size: 0.85rem; color: #a5b4fc; margin-bottom: 12px;">Register your guest session with an email address to keep your progress forever.</p>
-                    
-                    <div class="form-group">
-                        <label>Display Name</label>
-                        <input type="text" @bind="_regDisplayName" class="form-control" placeholder="Your name (2-20 chars)" maxlength="20" />
-                    </div>
-                    <div class="form-group mt-2">
-                        <label>Email</label>
-                        <input type="email" @bind="_regEmail" class="form-control" placeholder="player@example.com" />
-                    </div>
-                    <div class="form-group mt-2">
-                        <label>Password</label>
-                        <input type="password" @bind="_regPassword" class="form-control" placeholder="Min 6 characters" />
-                    </div>
-                    
-                    @if (!string.IsNullOrEmpty(_regError))
-                    {
-                        <div class="text-danger mt-2" style="font-size: 0.85rem;">@_regError</div>
-                    }
-                    @if (!string.IsNullOrEmpty(_regSuccess))
-                    {
-                        <div class="text-success mt-2" style="font-size: 0.85rem;">@_regSuccess</div>
-                    }
-                    
-                    <button class="glass-btn btn-success w-100 mt-3" @onclick="RegisterGuestAccount" disabled="@_isRegistering">
-                        @if (_isRegistering) { <span class="spinner-sm"></span> } else { <span>Register Account</span> }
-                    </button>
                 </div>
             }
 
@@ -250,18 +293,79 @@
     .text-warning { color: #fbbf24; }
 
     /* Forms */
-    .form-group label { display: block; text-align: left; margin-bottom: 8px; color: #94a3b8; font-size: 0.9rem; }
+    .form-group label { display: block; text-align: left; margin-bottom: 6px; color: #cbd5e1; font-size: 0.85rem; font-weight: 600; }
     input.form-control {
         width: 100%;
-        background: rgba(0, 0, 0, 0.2);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 8px;
-        padding: 10px 15px;
-        color: white;
-        font-size: 1rem;
+        background: rgba(15, 23, 42, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 10px;
+        padding: 10px 14px;
+        color: #ffffff;
+        font-size: 0.95rem;
         outline: none;
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+        transition: all 0.2s;
     }
-    input.form-control:focus { border-color: #6366f1; }
+    input.form-control::placeholder {
+        color: rgba(255, 255, 255, 0.45);
+    }
+    input.form-control:focus {
+        border-color: #6366f1;
+        box-shadow: 0 0 12px rgba(99, 102, 241, 0.4);
+    }
+
+    .guest-session-badge {
+        display: inline-block;
+        background: rgba(245, 158, 11, 0.15);
+        border: 1px solid rgba(245, 158, 11, 0.4);
+        color: #fcd34d;
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        padding: 4px 12px;
+        border-radius: 20px;
+        text-transform: uppercase;
+    }
+    .form-subtitle {
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin-top: 15px;
+        margin-bottom: 6px;
+        color: #fff;
+        background: linear-gradient(135deg, #fff 0%, #a5b4fc 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    .form-desc {
+        font-size: 0.82rem;
+        color: #94a3b8;
+        margin-bottom: 16px;
+        line-height: 1.4;
+    }
+    .btn-register-action {
+        background: linear-gradient(135deg, #6366f1 0%, #3b82f6 100%);
+        border: none;
+        color: white;
+        font-weight: 700;
+        box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+    }
+    .btn-register-action:hover {
+        background: linear-gradient(135deg, #4f46e5 0%, #2563eb 100%);
+        box-shadow: 0 6px 20px rgba(99, 102, 241, 0.6);
+        transform: translateY(-2px);
+    }
+    .btn-link-toggle {
+        background: none;
+        border: none;
+        color: #a5b4fc;
+        font-size: 0.85rem;
+        cursor: pointer;
+        transition: color 0.2s;
+    }
+    .btn-link-toggle:hover {
+        color: #ffffff;
+        text-decoration: underline;
+    }
 
     /* Avatar */
     .avatar-section { display: flex; justify-content: center; margin-bottom: 20px; position: relative; width: 120px; margin: 0 auto 20px auto; }
@@ -325,6 +429,36 @@
     private string _regError = "";
     private string _regSuccess = "";
     private bool _isRegistering = false;
+    private bool _showGuestSignIn = false;
+
+    private void ToggleGuestAuthMode()
+    {
+        _showGuestSignIn = !_showGuestSignIn;
+        _regError = "";
+        _regSuccess = "";
+    }
+
+    private async Task SignInFromProfile()
+    {
+        if (string.IsNullOrWhiteSpace(_regEmail) || string.IsNullOrWhiteSpace(_regPassword))
+        {
+            _regError = "Please enter your email and password.";
+            return;
+        }
+        _isRegistering = true;
+        _regError = "";
+        _regSuccess = "";
+        try
+        {
+            await Supabase.SignInWithEmail(_regEmail, _regPassword);
+            Navigation.NavigateTo("/home", forceLoad: true);
+        }
+        catch
+        {
+            _regError = "Invalid email or password.";
+            _isRegistering = false;
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
